@@ -1074,31 +1074,45 @@
     header.appendChild(h);
     act.appendChild(header);
 
-    // 각 상품: 시세, 보유, 매입/매도 버튼 + "어디 팔면 이득" 힌트
-    Object.entries(here).forEach(([k, price]) => {
+    // 표시할 상품: (현재 도시 거래 상품) ∪ (내가 보유한 모든 상품)
+    const allGoods = new Set(Object.keys(here));
+    Object.entries(s.tradeInv || {}).forEach(([k, v]) => { if (v > 0) allGoods.add(k); });
+
+    Array.from(allGoods).forEach(k => {
+      const tradedHere = here[k] !== undefined;
+      const price = here[k];
       const have = (s.tradeInv||{})[k] || 0;
       const book = (s.tradeBook||{})[k] || 0;
       const avg = have > 0 ? Math.round(book / have) : 0;
-      const sellReceive = Math.round(price * TRADE_SELL_TAX);
+      const sellReceive = tradedHere ? Math.round(price * TRADE_SELL_TAX) : 0;
 
       const row = mkSection();
-      // 상품 정보
       const info = document.createElement('div');
       info.style.cssText = 'flex:1;min-width:220px;';
-      const perUnitProfit = have > 0 ? (sellReceive - avg) : 0;
+      const perUnitProfit = (tradedHere && have > 0) ? (sellReceive - avg) : 0;
       const profitColor = perUnitProfit > 0 ? '#7ed957' : perUnitProfit < 0 ? '#ff6b6b' : '#858585';
-      info.innerHTML = `
-        <div><b>${TRADE_GOODS[k].name}</b> <span style="color:#858585;font-size:11px;">시세 ${price}G · 매도 시 ${sellReceive}G</span></div>
-        <div style="font-size:11px;color:#888;">보유 ${have}개${have>0 ? ` · 평균 매입 ${avg}G · <span style="color:${profitColor}">여기 팔면 개당 ${perUnitProfit>=0?'+':''}${perUnitProfit}G</span>` : ''}</div>
-      `;
+
+      if (tradedHere) {
+        info.innerHTML = `
+          <div><b>${TRADE_GOODS[k].name}</b> <span style="color:#858585;font-size:11px;">시세 ${price}G · 매도 시 ${sellReceive}G</span></div>
+          <div style="font-size:11px;color:#888;">보유 ${have}개${have>0 ? ` · 평균 매입 ${avg}G · <span style="color:${profitColor}">여기 팔면 개당 ${perUnitProfit>=0?'+':''}${perUnitProfit}G</span>` : ''}</div>
+        `;
+      } else {
+        // 현재 도시에서 거래 안 되는 상품 — 보유만 표시
+        info.innerHTML = `
+          <div><b>${TRADE_GOODS[k].name}</b> <span style="color:#ff6b6b;font-size:11px;">이 도시는 취급 안 함</span></div>
+          <div style="font-size:11px;color:#888;">보유 ${have}개${have>0 && avg ? ` · 평균 매입 ${avg}G` : ''} — 다른 도시로 이동해 팔아야 함</div>
+        `;
+      }
       row.appendChild(info);
 
-      // 매입 / 매도 버튼
-      row.appendChild(mkBtn(`매입 1 (${price}G)`, `trade buy ${k} 1`, { mini: true, disabled: s.gold < price }));
-      row.appendChild(mkBtn(`매입 10 (${price*10}G)`, `trade buy ${k} 10`, { mini: true, disabled: s.gold < price*10 }));
-      row.appendChild(mkBtn(`매도 1`, `trade sell ${k} 1`, { mini: true, disabled: have < 1 }));
-      if (have >= 10) row.appendChild(mkBtn(`매도 10`, `trade sell ${k} 10`, { mini: true }));
-      if (have >= 1) row.appendChild(mkBtn(`매도 전부(${have})`, `trade sell ${k} ${have}`, { mini: true }));
+      if (tradedHere) {
+        row.appendChild(mkBtn(`매입 1 (${price}G)`, `trade buy ${k} 1`, { mini: true, disabled: s.gold < price }));
+        row.appendChild(mkBtn(`매입 10 (${price*10}G)`, `trade buy ${k} 10`, { mini: true, disabled: s.gold < price*10 }));
+        row.appendChild(mkBtn(`매도 1`, `trade sell ${k} 1`, { mini: true, disabled: have < 1 }));
+        if (have >= 10) row.appendChild(mkBtn(`매도 10`, `trade sell ${k} 10`, { mini: true }));
+        if (have >= 1)  row.appendChild(mkBtn(`매도 전부(${have})`, `trade sell ${k} ${have}`, { mini: true }));
+      }
 
       act.appendChild(row);
     });
