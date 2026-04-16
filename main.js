@@ -122,6 +122,34 @@ ipcMain.handle('delete-char', (e, id) => {
   } catch (err) { return { ok: false, error: err.message }; }
 });
 
+// 전체 세이브 Import (텍스트 붙여넣기)
+// mode: 'replace' = 전체 교체 / 'merge' = 기존에 병합 (id 중복 시 덮어씀)
+ipcMain.handle('import-saves', (e, { text, mode }) => {
+  try {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) return { ok: false, error: '배열 형식이 아닙니다.' };
+    for (const s of parsed) {
+      if (!s || typeof s !== 'object' || !s.name || !s.id) {
+        return { ok: false, error: '올바른 캐릭터 데이터가 아닙니다.' };
+      }
+    }
+    let merged;
+    if (mode === 'merge') {
+      const existing = readSaves();
+      const map = new Map();
+      existing.forEach(s => map.set(s.id, s));
+      parsed.forEach(s => map.set(s.id, s));
+      merged = Array.from(map.values());
+    } else {
+      merged = parsed;
+    }
+    writeSaves(merged);
+    return { ok: true, count: merged.length };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
 // 하위 호환 (혹시 남은 호출)
 ipcMain.handle('save-game', (e, data) => {
   try {

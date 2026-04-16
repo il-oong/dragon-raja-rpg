@@ -604,6 +604,8 @@
 
     // -1) 캐릭터 선택 화면 (최상위)
     if (uiMode === 'select') return renderCharSelect();
+    if (uiMode === 'export') return renderExport();
+    if (uiMode === 'import') return renderImport();
 
     // 0) 수련 중 — 최우선 잠금
     if (focusActive) return renderFocusActive();
@@ -692,6 +694,97 @@
     const newRow = mkSection();
     newRow.appendChild(mkBtn('+ 새 캐릭터 만들기', newCharacter, { success: true, big: true }));
     act.appendChild(newRow);
+
+    // 클라우드 동기화 (Export/Import)
+    const cloudRow = mkSection('동기화:');
+    cloudRow.appendChild(mkBtn('📤 세이브 내보내기', () => { uiMode = 'export'; render(); }, { mini: true, title: '모든 캐릭터 데이터를 텍스트로 복사 — 다른 PC에서 가져오기 가능' }));
+    cloudRow.appendChild(mkBtn('📥 세이브 가져오기', () => { uiMode = 'import'; render(); }, { mini: true, title: '다른 PC에서 내보낸 텍스트를 붙여넣기' }));
+    act.appendChild(cloudRow);
+  }
+
+  // ─── 세이브 Export ───
+  function renderExport() {
+    const header = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#ccc;width:100%;line-height:1.7;';
+    h.innerHTML = `<b>📤 세이브 내보내기</b>
+      <div style="color:#858585;font-size:11.5px;">
+      아래 텍스트 전체를 복사(Ctrl+A → Ctrl+C)해서 클라우드/카톡/메일 등에 저장.<br>
+      다른 PC에서 [세이브 가져오기]에 붙여넣으면 그대로 이어서 플레이 가능.
+      </div>`;
+    header.appendChild(h);
+    act.appendChild(header);
+
+    const ta = document.createElement('textarea');
+    ta.style.cssText = 'width:100%;height:260px;background:#0c0c15;color:#cccccc;border:1px solid #4a4a4a;padding:8px;font-family:Consolas,monospace;font-size:11px;border-radius:3px;resize:vertical;';
+    ta.value = JSON.stringify(savesList, null, 2);
+    ta.readOnly = true;
+    const taRow = mkSection();
+    taRow.appendChild(ta);
+    act.appendChild(taRow);
+
+    const btnRow = mkSection();
+    btnRow.appendChild(mkBtn('📋 클립보드로 복사', () => {
+      ta.select();
+      navigator.clipboard.writeText(ta.value).then(() => {
+        print(`✦ 클립보드에 복사 완료 (${savesList.length}개 캐릭터).`, 'good');
+      }).catch(() => {
+        document.execCommand('copy');
+        print('복사됨 (기본 방식).', 'good');
+      });
+    }, { success: true }));
+    btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }, { danger: true }));
+    act.appendChild(btnRow);
+  }
+
+  // ─── 세이브 Import ───
+  function renderImport() {
+    const header = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#ccc;width:100%;line-height:1.7;';
+    h.innerHTML = `<b>📥 세이브 가져오기</b>
+      <div style="color:#858585;font-size:11.5px;">
+      다른 PC의 [세이브 내보내기]에서 복사한 텍스트를 아래에 붙여넣기(Ctrl+V).
+      </div>`;
+    header.appendChild(h);
+    act.appendChild(header);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'importTa';
+    ta.style.cssText = 'width:100%;height:260px;background:#0c0c15;color:#cccccc;border:1px solid #4a4a4a;padding:8px;font-family:Consolas,monospace;font-size:11px;border-radius:3px;resize:vertical;';
+    ta.placeholder = '[\n  { "id": "char_...", "name": "...", ... }\n]';
+    const taRow = mkSection();
+    taRow.appendChild(ta);
+    act.appendChild(taRow);
+
+    const info = mkSection();
+    const inf = document.createElement('div');
+    inf.style.cssText = 'color:#858585;font-size:11px;width:100%;';
+    inf.innerHTML = `모드 선택: <b style="color:#ccc;">병합</b>은 현재 저장 + 불러온 것 합치기(같은 id는 덮어씀), <b style="color:#ccc;">교체</b>는 모든 기존 저장 삭제 후 불러온 것만 사용.`;
+    info.appendChild(inf);
+    act.appendChild(info);
+
+    const btnRow = mkSection();
+    btnRow.appendChild(mkBtn('📥 병합 가져오기 (추천)', () => doImport('merge'), { success: true }));
+    btnRow.appendChild(mkBtn('⚠ 전체 교체', () => {
+      if (confirm('기존의 모든 캐릭터가 삭제되고 붙여넣은 데이터로 대체됩니다. 정말 진행하시겠습니까?')) doImport('replace');
+    }, { danger: true }));
+    btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }));
+    act.appendChild(btnRow);
+  }
+
+  async function doImport(mode) {
+    const ta = document.getElementById('importTa');
+    if (!ta || !ta.value.trim()) { print('붙여넣을 내용이 없습니다.', 'warn'); return; }
+    const r = await ipcRenderer.invoke('import-saves', { text: ta.value.trim(), mode });
+    if (r.ok) {
+      print(`✦ 가져오기 성공! ${r.count}개 캐릭터 적용됨.`, 'good');
+      await refreshSaves();
+      uiMode = 'select';
+      render();
+    } else {
+      print(`가져오기 실패: ${r.error}`, 'warn');
+    }
   }
 
   // ─── 캐릭터 생성: 이름 ───
