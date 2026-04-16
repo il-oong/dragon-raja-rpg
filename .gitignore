@@ -6,6 +6,12 @@ save.json
 saves.json
 *.bak
 
+# Claude Code 로컬 설정
+.claude/
+
+# 실수로 생성된 빈 파일
+/npm
+
 # IDE
 .vscode/
 .idea/
