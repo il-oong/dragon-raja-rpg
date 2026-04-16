@@ -22,7 +22,8 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Build output
+# Build output (exe는 용량 커서 release로 따로 배포)
 dist/
 out/
 build/
+*.exe

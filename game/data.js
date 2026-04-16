@@ -2009,13 +2009,17 @@ const TRAIN_SKILLS = [
   { id: 'tr_ascension',    name: '승화',       reqMin: 9999, type: 'passive', effect: { allStat: 10 }, desc: '누적 수련 약 166시간. 전 스탯 +10.' },
 ];
 
-// 수련 중 랜덤 이벤트 (30~60초마다 체크)
+// 수련 중 랜덤 이벤트
+// 확률은 낮지만 뜨면 크게 — 희소 × 고보상 원칙.
+// 실제 보너스 = baseXp × 0.05 × bonus (기본 공식 유지, bonus 값만 상향)
 const TRAIN_EVENTS = [
-  { chance: 0.08, text: '✦ 깨달음의 순간! 무언가 툭 하고 맞아떨어진다...', bonus: 2.0 },
-  { chance: 0.05, text: '💡 섬광처럼 스치는 통찰.', bonus: 1.5 },
-  { chance: 0.03, text: '🔥 몸이 가벼워진다. 한계를 넘어서는 기분.', bonus: 1.8 },
-  { chance: 0.02, text: '⚡ 검기가 일어난다. 이 순간만큼은 최고의 자신이 된다.', bonus: 2.5 },
-  { chance: 0.04, text: '❄ 호흡이 고요해진다. 내면이 맑아진다.', bonus: 1.3 },
+  { chance: 0.035, text: '✦ 깨달음의 순간! 무언가 툭 하고 맞아떨어진다...', bonus: 3.0 },
+  { chance: 0.022, text: '💡 섬광처럼 스치는 통찰.',                            bonus: 2.5 },
+  { chance: 0.015, text: '❄ 호흡이 고요해진다. 내면이 맑아진다.',               bonus: 2.0 },
+  { chance: 0.013, text: '🔥 몸이 가벼워진다. 한계를 넘어서는 기분.',             bonus: 4.0 },
+  { chance: 0.008, text: '⚡ 검기가 일어난다. 이 순간만큼은 최고의 자신이 된다.',   bonus: 6.0 },
+  { chance: 0.003, text: '🌟 대각성! 우주의 진리를 엿본다...',                   bonus: 15.0 },
+  { chance: 0.001, text: '🌌 초월! 일순간 신이 된 감각. 세계가 멈춘다.',          bonus: 30.0 },
 ];
 
 // ═══════════ 깨달음 시련 (Awakening Trial) ═══════════

@@ -634,8 +634,12 @@ class Game {
     let toKey = info, hours = 1;
     if (typeof info === 'object') { toKey = info.to; hours = info.hours; }
     const next = LOCATIONS[toKey];
-    if (next.requireLv && this.state.lv < next.requireLv) {
-      this.out(`${next.name}: Lv.${next.requireLv} 필요.`);
+    // 상인 계열은 여행 레벨 제한 완화 (-40%)
+    const isMerchant = JOBS[this.state.job].line === 'merchant';
+    const effectiveReq = next.requireLv ? (isMerchant ? Math.ceil(next.requireLv * 0.6) : next.requireLv) : 0;
+    if (effectiveReq && this.state.lv < effectiveReq) {
+      const note = isMerchant ? ` (상인 완화: 원래 Lv.${next.requireLv})` : '';
+      this.out(`${next.name}: Lv.${effectiveReq} 필요${note}.`);
       return;
     }
     if (this.state.flags.carriage) {
@@ -780,6 +784,7 @@ class Game {
     if (c === 'skill' || c === 'sk') return this.cSkill(arg);
     if (c === 'use')    return this.cUse(arg);
     if (c === 'run')    return this.cRun();
+    if (c === 'runsac' || c === 'run_sacrifice') return this.cRun(true);
     if (c === 'status' || c === 's') { this.showStatus(); this.renderCombat(); return; }
     if (c === 'skills') { this.showSkills(); this.renderCombat(); return; }
     this.out('전투 중: attack / skill <id> / use <item> / run');
@@ -1009,10 +1014,40 @@ class Game {
     if (this.combat) this.endPlayerTurn();
   }
 
-  cRun() {
+  cRun(sacrificeGoods) {
     if (this.combat.trialMode) { this.out('시련에서 도주할 수 없다.'); return; }
-    if (chance(0.6 + this.getEvaRate())) { this.out('도주 성공!'); this.combat = null; }
-    else { this.out('도주 실패!'); this.foesTurn(); }
+    // 기본 40% + DEX/400 + 회피율 절반 반영
+    let runChance = 0.40 + this.S('dex') / 400 + this.getEvaRate() * 0.5;
+    // 보스면 성공률 대폭 감소
+    if (this.combat.foes.some(f => f.boss || f.hp > 1500)) runChance *= 0.5;
+    // 상인 계열: 캐러밴 스킬이 적용되어 있어도 여기엔 반영 안 함 (별도 패시브)
+    if (JOBS[this.state.job].line === 'merchant') runChance += 0.10;  // 상인은 기본 +10%
+
+    // 특수 도주: 무역품 20% 희생 → 도주 확률 +50%
+    if (sacrificeGoods) {
+      const tradeInv = this.state.tradeInv || {};
+      const keys = Object.keys(tradeInv).filter(k => tradeInv[k] > 0);
+      if (keys.length === 0) {
+        this.out('버릴 무역품이 없다. 평범하게 도주.');
+      } else {
+        runChance += 0.50;
+        let totalLost = 0;
+        keys.forEach(k => {
+          const loss = Math.ceil(tradeInv[k] * 0.20);
+          this.state.tradeInv[k] -= loss;
+          // 평균 매입가도 비례 차감
+          if (this.state.tradeBook && this.state.tradeBook[k]) {
+            const avgCost = this.state.tradeBook[k] / (tradeInv[k] + loss);
+            this.state.tradeBook[k] = Math.max(0, this.state.tradeBook[k] - Math.round(avgCost * loss));
+          }
+          totalLost += loss;
+        });
+        this.out(`💰 무역품 ${totalLost}개를 버리며 도주! 확률 +50%.`);
+      }
+    }
+    runChance = Math.min(0.95, runChance);
+    if (chance(runChance)) { this.out(`도주 성공! (${Math.round(runChance*100)}%)`); this.combat = null; }
+    else { this.out(`도주 실패! (${Math.round(runChance*100)}%)`); this.foesTurn(); }
   }
 
   endPlayerTurn() {

@@ -234,7 +234,7 @@
     baseXp = Math.round(baseXp);
 
     // 이벤트 간격: eventMul이 높을수록 짧아짐
-    const eventInterval = (30000 + Math.random() * 30000) / (eff.eventMul || 1);
+    const eventInterval = (60000 + Math.random() * 60000) / (eff.eventMul || 1);
     focusState = {
       hall: s.location,
       hallName: hall.name,
@@ -261,7 +261,7 @@
       if (now >= focusState.nextEventAt) {
         rollFocusEvent();
         const eff = focusState.hallEffects || {};
-        focusState.nextEventAt = now + (30000 + Math.random() * 30000) / (eff.eventMul || 1);
+        focusState.nextEventAt = now + (60000 + Math.random() * 60000) / (eff.eventMul || 1);
       }
       if (now >= focusState.endsAt) {
         finishFocus('완료');
@@ -884,7 +884,15 @@
   function renderCombat() {
     const row1 = mkSection('행동:');
     row1.appendChild(mkBtn('⚔ 공격', 'attack', { primary: true }));
-    if (!game.combat.trialMode) row1.appendChild(mkBtn('🏃 도주', 'run', { danger: true }));
+    if (!game.combat.trialMode) {
+      row1.appendChild(mkBtn('🏃 도주', 'run', { danger: true }));
+      // 상인 계열 & 무역품 보유 시: 희생 도주
+      const isMerchant = JOBS[game.state.job].line === 'merchant';
+      const hasGoods = Object.values(game.state.tradeInv || {}).some(v => v > 0);
+      if (isMerchant && hasGoods) {
+        row1.appendChild(mkBtn('💰 희생 도주 (무역품 20% 버리고 +50%)', 'runsac', { danger: true, mini: true, title: '상인 전용: 무역품 20%를 버려 도주 성공률을 대폭 올린다.' }));
+      }
+    }
     act.appendChild(row1);
 
     // 스킬
@@ -946,16 +954,19 @@
     }
     act.appendChild(row2);
 
-    // 이동
+    // 이동 (상인 계열은 레벨 제한 -40%)
     if (loc.exits) {
       const row3 = mkSection('이동:');
+      const isMerchant = JOBS[game.state.job].line === 'merchant';
       Object.entries(loc.exits).forEach(([dst, info]) => {
         const h = (typeof info === 'object') ? info.hours : '?';
         const toKey = (typeof info === 'object') ? info.to : info;
-        const reqLv = LOCATIONS[toKey].requireLv || 0;
-        const can = game.state.lv >= reqLv;
-        const label = `${dst} (${h}h)${reqLv ? ` Lv${reqLv}+` : ''}`;
-        row3.appendChild(mkBtn(label, `go ${dst}`, { disabled: !can }));
+        const rawReq = LOCATIONS[toKey].requireLv || 0;
+        const effReq = rawReq ? (isMerchant ? Math.ceil(rawReq * 0.6) : rawReq) : 0;
+        const can = game.state.lv >= effReq;
+        let label = `${dst} (${h}h)${effReq ? ` Lv${effReq}+` : ''}`;
+        if (isMerchant && rawReq && effReq < rawReq) label += ' 🎫';
+        row3.appendChild(mkBtn(label, `go ${dst}`, { disabled: !can, title: isMerchant && rawReq ? `상인 완화 (원래 Lv.${rawReq})` : undefined }));
       });
       act.appendChild(row3);
     }
