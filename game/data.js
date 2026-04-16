@@ -1,0 +1,2372 @@
+// 드래곤 라자 세계관 텍스트 RPG
+// 35 직업 (5→10→20), 7 스탯, 전직 시스템
+// ※ 이영도 작가의 "드래곤 라자" 세계관에서 모티브
+
+const WORLD = {
+  name: '바이서스 왕국',
+  intro: `때는 폴라리스력 1011년.
+북부의 용 '아무르타트'가 깨어나고, 남부에서는 오크 부족이 결집하며 대륙은 혼란에 빠졌다.
+전설에 따르면, 드래곤과 대화할 수 있는 단 한 사람 '드래곤 라자'만이 이 혼돈을 잠재울 수 있다 한다.
+헬턴트의 작은 마을에서 자란 그대는, 오늘 운명의 첫걸음을 내딛는다.`,
+};
+
+// ───── 종족 (7스탯 + 전용 직업 + 패시브) ─────
+const RACES = {
+  human:   { name: '인간',     desc: '균형잡힌 능력치. 어디서든 적응한다.',        mod: { str:0,  dex:0,  int:0,  vit:0,  wis:1,  luk:1,  cha:1 },
+    passive: { name: '적응력',       desc: '모든 경험치 획득 +10%',       exp_mul: 1.10 } },
+  elf:     { name: '엘프',     desc: '정령과 대화하는 숲의 종족.',                 mod: { str:-1, dex:2,  int:2,  vit:-1, wis:2,  luk:0,  cha:1 },
+    passive: { name: '정령 친화',    desc: '마법 피해 +15%',              mag_mul: 1.15 } },
+  dwarf:   { name: '드워프',   desc: '대장장이의 민족. 단단하고 고집스럽다.',      mod: { str:2,  dex:-1, int:0,  vit:2,  wis:1,  luk:-1, cha:-2 },
+    passive: { name: '광맥의 눈',    desc: '골드·드랍 +25%',              gold_mul: 1.25, drop_mul: 1.25 } },
+  halfelf: { name: '하프엘프', desc: '두 세계 사이에 선 자. 외로우나 자유롭다.',   mod: { str:0,  dex:1,  int:1,  vit:0,  wis:1,  luk:1,  cha:2 },
+    passive: { name: '타고난 흥정꾼', desc: '상점·무역 -15%',              shop_disc: 0.15 } },
+  ogre:    { name: '오우거',   desc: '문명화된 거인. 후치의 친구들이다.',          mod: { str:3,  dex:-2, int:-1, vit:3,  wis:0,  luk:0,  cha:-3 },
+    passive: { name: '거체',         desc: 'HP 최대치 +30%',              hp_mul: 1.30 } },
+};
+
+// ───── 직업 (35개: 5 + 10 + 20) ─────
+// tier 1 → tier 2 (Lv 20) → tier 3 (Lv 45)
+const JOBS = {
+  // ═════════════ 1차 5직업 (Lv 1~) ═════════════
+  warrior: {
+    tier: 1, name: '전사', line: 'warrior',
+    desc: '검과 방패. 바이서스 정규군 출신.',
+    base: { hp: 120, mp: 20, atk: 14, def: 10, mag: 4 },
+    grow: { hp: 18, mp: 3, atk: 3, def: 2, mag: 0 },
+    mainStats: ['str', 'vit'],
+    skills: [
+      { id: 'slash',   name: '강타',     lv: 1,  mp: 6,  power: 1.6, type: 'phys',     desc: '강한 일격.' },
+      { id: 'guard',   name: '방어태세', lv: 3,  mp: 8,              type: 'buff', effect: 'def_up', turns: 3, desc: '방어력 +50% (3턴).' },
+      { id: 'whirl',   name: '회전베기', lv: 6,  mp: 14, power: 1.3, type: 'phys_aoe', desc: '모든 적을 벤다.' },
+      { id: 'execute', name: '처형',     lv: 10, mp: 20, power: 2.4, type: 'phys',     effect: 'finisher', desc: '빈사의 적에게 치명타.' },
+    ],
+  },
+  mage: {
+    tier: 1, name: '마법사', line: 'mage',
+    desc: '공주의 탑에서 수학한 견습 현자.',
+    base: { hp: 70, mp: 80, atk: 4, def: 5, mag: 16 },
+    grow: { hp: 9, mp: 12, atk: 0, def: 1, mag: 3 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'fireball', name: '화염구',   lv: 1,  mp: 8,  power: 1.6, type: 'mag',     desc: '화염 투사체.' },
+      { id: 'icebolt',  name: '얼음화살', lv: 3,  mp: 10, power: 1.4, type: 'mag',     effect: 'slow',  desc: '적 속도 감소.' },
+      { id: 'thunder',  name: '낙뢰',     lv: 6,  mp: 18, power: 2.0, type: 'mag_aoe', desc: '전 적에게 번개.' },
+      { id: 'meteor',   name: '메테오',   lv: 12, mp: 40, power: 3.5, type: 'mag_aoe', desc: '유성을 떨어뜨린다.' },
+    ],
+  },
+  priest: {
+    tier: 1, name: '사제', line: 'priest',
+    desc: '헬카네스 신전의 신관. 치유와 성법.',
+    base: { hp: 90, mp: 70, atk: 6, def: 8, mag: 12 },
+    grow: { hp: 12, mp: 10, atk: 1, def: 2, mag: 2 },
+    mainStats: ['wis', 'vit'],
+    skills: [
+      { id: 'heal',   name: '치유',   lv: 1,  mp: 10, type: 'heal', power: 1.8, desc: 'HP 회복.' },
+      { id: 'smite',  name: '천벌',   lv: 2,  mp: 8,  power: 1.4,   type: 'mag', desc: '신성 데미지.' },
+      { id: 'bless',  name: '축복',   lv: 5,  mp: 14, type: 'buff', effect: 'atk_up', turns: 3, desc: '공격력 +40% (3턴).' },
+      { id: 'revive', name: '소생술', lv: 10, mp: 50, type: 'revive', desc: '전투 중 1회 부활.' },
+    ],
+  },
+  thief: {
+    tier: 1, name: '도적', line: 'thief',
+    desc: '팔라레온의 그림자. 빠르고 약삭빠르다.',
+    base: { hp: 85, mp: 40, atk: 12, def: 6, mag: 6 },
+    grow: { hp: 11, mp: 6, atk: 3, def: 1, mag: 1 },
+    mainStats: ['dex', 'luk'],
+    skills: [
+      { id: 'backstab', name: '기습',       lv: 1, mp: 5,  power: 1.8, type: 'phys',    effect: 'crit_plus', desc: '크리티컬 확률 증가.' },
+      { id: 'poison',   name: '독묻히기',   lv: 3, mp: 8,               type: 'debuff', effect: 'poison',    turns: 4, desc: '독 DoT (4턴).' },
+      { id: 'shadow',   name: '그림자분신', lv: 7, mp: 18,              type: 'buff',   effect: 'eva_up',    turns: 3, desc: '회피 +50% (3턴).' },
+      { id: 'steal',    name: '훔치기',     lv: 5, mp: 6,                type: 'utility', effect: 'steal_gold', desc: '적 골드를 훔친다.' },
+    ],
+  },
+  ranger: {
+    tier: 1, name: '궁사', line: 'ranger',
+    desc: '엘프의 숲에서 훈련받은 사냥꾼.',
+    base: { hp: 95, mp: 45, atk: 13, def: 7, mag: 5 },
+    grow: { hp: 13, mp: 6, atk: 3, def: 1, mag: 1 },
+    mainStats: ['dex', 'str'],
+    skills: [
+      { id: 'aimshot',   name: '정조준', lv: 1,  mp: 6,  power: 1.5, type: 'phys',     desc: '명중 +. 강타.' },
+      { id: 'multi',     name: '연사',   lv: 4,  mp: 12, power: 0.8, type: 'phys',     hits: 3, desc: '3연속 공격.' },
+      { id: 'arrowrain', name: '화살비', lv: 8,  mp: 20, power: 1.4, type: 'phys_aoe', desc: '전 적 공격.' },
+      { id: 'snipe',     name: '저격',   lv: 12, mp: 25, power: 3.0, type: 'phys',     effect: 'crit_plus', desc: '치명적 일격.' },
+    ],
+  },
+  // ═════════════ 종족 전용 1차 직업 ═════════════
+  hero: {
+    tier: 1, name: '영웅', line: 'hero', raceOnly: 'human',
+    desc: '인간의 가능성 그 자체. 무엇이든 배우는 만능.',
+    base: { hp: 110, mp: 55, atk: 13, def: 9, mag: 11 },
+    grow: { hp: 15, mp: 7, atk: 2, def: 2, mag: 2 },
+    mainStats: ['str', 'cha'],
+    skills: [
+      { id: 'hero_strike', name: '영웅의 일격', lv: 1, mp: 6, power: 1.6, type: 'phys', desc: '단일 강타.' },
+      { id: 'inspire',     name: '고무',       lv: 3, mp: 10, type: 'buff', effect: 'atk_up', turns: 3, desc: '공격 +40%.' },
+      { id: 'hero_guard',  name: '영웅의 수호', lv: 6, mp: 14, type: 'buff', effect: 'dmg_reduce', turns: 4, desc: '받는 피해 -40%.' },
+      { id: 'heroic_aura', name: '영웅의 아우라', lv: 10, mp: 22, type: 'buff', effect: 'all_up', turns: 4, desc: '전 능력 +30%.' },
+    ],
+  },
+  spiritcaller: {
+    tier: 1, name: '정령술사', line: 'spiritcaller', raceOnly: 'elf',
+    desc: '4대 정령과 대화하는 엘프의 기예.',
+    base: { hp: 65, mp: 100, atk: 4, def: 6, mag: 20 },
+    grow: { hp: 8, mp: 14, atk: 0, def: 1, mag: 4 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'summon_flame', name: '화염 정령',   lv: 1, mp: 10, power: 1.8, type: 'mag', effect: 'burn', turns: 3, desc: '불의 정령 소환.' },
+      { id: 'summon_wind',  name: '바람 정령',   lv: 3, mp: 12, type: 'buff', effect: 'eva_up', turns: 3, desc: '회피 +40%.' },
+      { id: 'summon_water', name: '물 정령',     lv: 5, mp: 14, type: 'heal', power: 2.2, desc: '치유의 물.' },
+      { id: 'elem_rage',    name: '정령의 분노', lv: 10, mp: 28, power: 2.4, type: 'mag_aoe', desc: '4원소 대폭발.' },
+    ],
+  },
+  runemaster: {
+    tier: 1, name: '룬마스터', line: 'runemaster', raceOnly: 'dwarf',
+    desc: '고대 룬을 새기는 드워프의 비기.',
+    base: { hp: 120, mp: 65, atk: 14, def: 13, mag: 14 },
+    grow: { hp: 16, mp: 7, atk: 3, def: 3, mag: 2 },
+    mainStats: ['str', 'int'],
+    skills: [
+      { id: 'rune_strike',  name: '룬 일격',   lv: 1, mp: 8, power: 1.6, type: 'phys', effect: 'pierce_def', desc: '방어 무시.' },
+      { id: 'rune_shield',  name: '룬 방벽',   lv: 3, mp: 12, type: 'buff', effect: 'def_up_big', turns: 4, desc: '방어 +80%.' },
+      { id: 'rune_enchant', name: '룬 부여',   lv: 6, mp: 16, type: 'buff', effect: 'atk_up_big', turns: 4, desc: '공격 +60%.' },
+      { id: 'ancient_rune', name: '고대 룬',   lv: 10, mp: 25, power: 2.2, type: 'phys_aoe', desc: '고대 룬 폭발.' },
+    ],
+  },
+  titan: {
+    tier: 1, name: '거신투사', line: 'titan', raceOnly: 'ogre',
+    desc: '거대한 체구와 원시적 힘.',
+    base: { hp: 160, mp: 20, atk: 19, def: 13, mag: 2 },
+    grow: { hp: 22, mp: 3, atk: 4, def: 2, mag: 0 },
+    mainStats: ['str', 'vit'],
+    skills: [
+      { id: 'titan_slam',  name: '거신 슬램', lv: 1, mp: 6, power: 2.0, type: 'phys', effect: 'stun', turns: 1, desc: '기절 1턴.' },
+      { id: 'titan_roar',  name: '거신의 포효', lv: 3, mp: 10, type: 'buff', effect: 'atk_up_big', turns: 3, desc: '공격 +60%.' },
+      { id: 'earthquake',  name: '대지 진동', lv: 6, mp: 18, power: 1.6, type: 'phys_aoe', effect: 'stun', turns: 1, desc: '전체 기절.' },
+      { id: 'titan_rage',  name: '거신의 분노', lv: 10, mp: 25, type: 'buff', effect: 'berserk', turns: 4, desc: '광폭화.' },
+    ],
+  },
+  bard: {
+    tier: 1, name: '음유시인', line: 'bard', raceOnly: 'halfelf',
+    desc: '노래와 시로 전장을 뒤바꾸는 자.',
+    base: { hp: 85, mp: 75, atk: 9, def: 7, mag: 13 },
+    grow: { hp: 11, mp: 10, atk: 2, def: 1, mag: 2 },
+    mainStats: ['cha', 'dex'],
+    skills: [
+      { id: 'battle_song',  name: '전투의 노래', lv: 1, mp: 8, type: 'buff', effect: 'atk_up', turns: 3, desc: '공격 +40%.' },
+      { id: 'healing_song', name: '치유의 선율', lv: 3, mp: 12, type: 'heal', power: 2.0, desc: 'HP 회복.' },
+      { id: 'cacophony',    name: '불협화음',   lv: 6, mp: 14, power: 1.3, type: 'mag_aoe', effect: 'fear', turns: 2, desc: '공포.' },
+      { id: 'epic_ballad',  name: '서사 발라드', lv: 10, mp: 25, type: 'buff', effect: 'all_up', turns: 4, desc: '전 능력 +40%.' },
+    ],
+  },
+
+  merchant: {
+    tier: 1, name: '상인', line: 'merchant',
+    desc: '돈이 곧 힘. 흥정과 거래의 달인.',
+    base: { hp: 80, mp: 40, atk: 8, def: 6, mag: 6 },
+    grow: { hp: 11, mp: 5, atk: 2, def: 1, mag: 1 },
+    mainStats: ['cha', 'luk'],
+    skills: [
+      { id: 'coin_toss',     name: '동전 던지기', lv: 1,  mp: 4, power: 1.2, type: 'phys', effect: 'gold_dmg', desc: '소량 골드 소모, 데미지 +.' },
+      { id: 'bargain',       name: '흥정',       lv: 3,  mp: 8,             type: 'buff', effect: 'cha_up', turns: 99, desc: '상점 할인 +30% (영구 패시브).' },
+      { id: 'appraise',      name: '감정',       lv: 5,  mp: 10,            type: 'utility', effect: 'reveal', desc: '적 약점 노출 (받는 데미지 +30% 영구).' },
+      { id: 'gold_strike',   name: '황금 일격',   lv: 10, mp: 20, power: 2.0, type: 'phys', effect: 'gold_strike', desc: '소지 골드에 비례한 추가 피해.' },
+    ],
+  },
+  // ─── merchant 계열 2차 ───
+  trader: {
+    tier: 2, name: '무역상', from: 'merchant', reqLv: 20, cost: 1500, line: 'merchant',
+    desc: '대륙을 누비는 상인. 거상의 길.',
+    base: { hp: 200, mp: 90, atk: 24, def: 18, mag: 14 },
+    grow: { hp: 14, mp: 7, atk: 3, def: 2, mag: 1 },
+    mainStats: ['cha', 'luk'],
+    skills: [
+      { id: 'bulk_strike',   name: '대량 타격',  lv: 20, mp: 14, power: 1.4, type: 'phys_aoe', desc: '전 적 강타.' },
+      { id: 'caravan',       name: '캐러밴',    lv: 24, mp: 20,             type: 'buff', effect: 'gold_up', turns: 99, desc: '획득 골드/거래 이익 +50%.' },
+      { id: 'gem_throw',     name: '보석 투척',  lv: 28, mp: 18, power: 2.0, type: 'phys', effect: 'crit_plus', desc: '값비싼 일격.' },
+      { id: 'rich_blessing', name: '풍요의 축복', lv: 34, mp: 25,            type: 'buff', effect: 'all_up', turns: 4, desc: '전 능력치 +25%.' },
+    ],
+  },
+  informer: {
+    tier: 2, name: '정보상', from: 'merchant', reqLv: 20, cost: 1500, line: 'merchant',
+    desc: '비밀을 사고파는 자. 약점이 무기다.',
+    base: { hp: 180, mp: 130, atk: 20, def: 15, mag: 22 },
+    grow: { hp: 13, mp: 9, atk: 2, def: 2, mag: 2 },
+    mainStats: ['int', 'cha'],
+    skills: [
+      { id: 'weakness',      name: '약점 분석', lv: 20, mp: 12,             type: 'debuff', effect: 'mark', turns: 5, desc: '적 받는 피해 +50%.' },
+      { id: 'foresight',     name: '예지',     lv: 24, mp: 16,             type: 'buff', effect: 'eva_up', turns: 4, desc: '회피 +50%.' },
+      { id: 'deception',     name: '기만',     lv: 28, mp: 20,             type: 'debuff', effect: 'blind', turns: 4, desc: '적 명중 -60%.' },
+      { id: 'info_blast',    name: '정보 폭발', lv: 34, mp: 28, power: 2.5, type: 'mag', desc: '치명적 비밀 공개.' },
+    ],
+  },
+  // ─── merchant 계열 3차 ───
+  guildmaster: {
+    tier: 3, name: '길드마스터', from: 'trader', reqLv: 45, cost: 10000, line: 'merchant',
+    desc: '거대 상단의 정점. 황금이 곧 군대다.',
+    base: { hp: 480, mp: 280, atk: 70, def: 50, mag: 50 },
+    grow: { hp: 24, mp: 12, atk: 4, def: 3, mag: 3 },
+    mainStats: ['cha', 'int'],
+    skills: [
+      { id: 'mercenary',  name: '용병 호출',   lv: 45, mp: 50, power: 2.0, type: 'phys_aoe', desc: '용병들이 적을 친다.' },
+      { id: 'gold_river', name: '황금의 강',   lv: 48, mp: 40,            type: 'buff', effect: 'gold_up', turns: 99, desc: '골드 획득 +200% (영구).' },
+      { id: 'guild_aura', name: '길드의 비호', lv: 55, mp: 50,            type: 'buff', effect: 'all_up_big', turns: 5, desc: '전 능력 +50%.' },
+      { id: 'auction',    name: '경매',       lv: 62, mp: 60, power: 4.0, type: 'phys', effect: 'gold_strike', desc: '소지 골드 비례 초강타.' },
+    ],
+  },
+  goldking: {
+    tier: 3, name: '황금왕', from: 'trader', reqLv: 45, cost: 10000, line: 'merchant',
+    desc: '돈으로 신을 살 수 있다 믿는 자.',
+    base: { hp: 460, mp: 260, atk: 75, def: 45, mag: 55 },
+    grow: { hp: 23, mp: 11, atk: 5, def: 3, mag: 3 },
+    mainStats: ['cha', 'luk'],
+    skills: [
+      { id: 'midas',         name: '미다스의 손', lv: 45, mp: 35, power: 2.5, type: 'phys', effect: 'gold_drain', desc: '적의 골드/생명을 흡수.' },
+      { id: 'wealth_aura',   name: '부의 기운',  lv: 48, mp: 40,            type: 'buff', effect: 'wealth', turns: 99, desc: '소지 골드 비례 공/방 +.' },
+      { id: 'gold_meteor',   name: '황금 운석',  lv: 55, mp: 50, power: 3.5, type: 'phys_aoe', desc: '황금 폭격.' },
+      { id: 'eternal_riches',name: '영원한 부',  lv: 62, mp: 55,            type: 'buff', effect: 'all_up_big', turns: 5, desc: '전 능력 +50%.' },
+    ],
+  },
+  shadowmerchant: {
+    tier: 3, name: '그림자상인', from: 'informer', reqLv: 45, cost: 10000, line: 'merchant',
+    desc: '암시장의 군주. 모든 비밀을 거래한다.',
+    base: { hp: 430, mp: 320, atk: 65, def: 40, mag: 75 },
+    grow: { hp: 22, mp: 14, atk: 4, def: 3, mag: 4 },
+    mainStats: ['int', 'cha'],
+    skills: [
+      { id: 'black_market', name: '암시장 호출', lv: 45, mp: 45,             type: 'utility', effect: 'shop_open', desc: '어디서든 상점 열기.' },
+      { id: 'shadow_deal',  name: '그림자 거래', lv: 48, mp: 30, power: 2.5, type: 'mag', effect: 'lifesteal', desc: '거래의 일격.' },
+      { id: 'whisper',      name: '속삭임',     lv: 55, mp: 35,             type: 'debuff', effect: 'fear', turns: 3, desc: '공포.' },
+      { id: 'truth_unveil', name: '진실의 폭로', lv: 62, mp: 55, power: 4.0, type: 'mag_aoe', effect: 'mark', turns: 4, desc: '전체 약점 노출.' },
+    ],
+  },
+  informerking: {
+    tier: 3, name: '정보왕', from: 'informer', reqLv: 45, cost: 10000, line: 'merchant',
+    desc: '대륙의 모든 정보가 그대 손에. 왕도 두려워한다.',
+    base: { hp: 410, mp: 360, atk: 60, def: 38, mag: 80 },
+    grow: { hp: 21, mp: 16, atk: 4, def: 3, mag: 5 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'omniscience', name: '전지',       lv: 45, mp: 40,             type: 'buff', effect: 'all_up_big', turns: 5, desc: '모든 것을 안다 — 전 능력 +50%.' },
+      { id: 'mind_break',  name: '정신 붕괴',  lv: 48, mp: 35, power: 3.0, type: 'mag', effect: 'fear', turns: 3, desc: '정신 파괴.' },
+      { id: 'prophecy',    name: '예언',       lv: 55, mp: 50,             type: 'utility', effect: 'extra_turn', desc: '미래를 보고 추가 턴.' },
+      { id: 'truth_blast', name: '진실의 일격', lv: 62, mp: 60, power: 4.5, type: 'mag', effect: 'pierce_def', desc: '진실은 모든 거짓을 꿰뚫는다.' },
+    ],
+  },
+
+  // ═════════════ 2차 10직업 (Lv 20~) ═════════════
+  // ─── warrior 계열 ───
+  knight: {
+    tier: 2, name: '기사', from: 'warrior', reqLv: 20, cost: 1000, line: 'warrior',
+    desc: '바이서스의 수호기사. 방어와 지휘에 능하다.',
+    base: { hp: 280, mp: 60, atk: 32, def: 28, mag: 12 },
+    grow: { hp: 22, mp: 4, atk: 3, def: 3, mag: 1 },
+    mainStats: ['vit', 'str'],
+    skills: [
+      { id: 'shield_bash', name: '방패치기',   lv: 20, mp: 12, power: 1.5, type: 'phys', effect: 'stun',       turns: 1, desc: '기절 1턴.' },
+      { id: 'fortress',    name: '철벽',       lv: 23, mp: 18,             type: 'buff', effect: 'def_up_big', turns: 4, desc: '방어 +80% (4턴).' },
+      { id: 'taunt',       name: '도발',       lv: 27, mp: 10,             type: 'buff', effect: 'taunt',      turns: 3, desc: '적의 공격을 유도.' },
+      { id: 'iron_will',   name: '철의 의지', lv: 32, mp: 20,              type: 'buff', effect: 'dmg_reduce', turns: 3, desc: '받는 피해 -40% (3턴).' },
+    ],
+  },
+  gladiator: {
+    tier: 2, name: '검투사', from: 'warrior', reqLv: 20, cost: 1000, line: 'warrior',
+    desc: '투기장의 화신. 공격이 최선의 방어다.',
+    base: { hp: 250, mp: 50, atk: 42, def: 18, mag: 8 },
+    grow: { hp: 20, mp: 3, atk: 5, def: 2, mag: 0 },
+    mainStats: ['str', 'dex'],
+    skills: [
+      { id: 'double_slash',  name: '쌍검격',     lv: 20, mp: 14, power: 1.0, type: 'phys', hits: 2, desc: '2연타.' },
+      { id: 'bloodlust',     name: '피갈망',     lv: 24, mp: 12, power: 1.5, type: 'phys', effect: 'lifesteal',    desc: '가한 피해 50% 흡수.' },
+      { id: 'roar',          name: '전투 포효', lv: 28, mp: 14,              type: 'buff', effect: 'atk_up_big', turns: 3, desc: '공격 +60% (3턴).' },
+      { id: 'crushing_blow', name: '분쇄일격',   lv: 34, mp: 22, power: 2.8, type: 'phys', effect: 'finisher',     desc: '분쇄. 빈사에 특효.' },
+    ],
+  },
+  // ─── mage 계열 ───
+  elementalist: {
+    tier: 2, name: '원소술사', from: 'mage', reqLv: 20, cost: 1000, line: 'mage',
+    desc: '4대 원소를 지배하는 현자 지망생.',
+    base: { hp: 150, mp: 220, atk: 8, def: 14, mag: 42 },
+    grow: { hp: 10, mp: 14, atk: 1, def: 1, mag: 4 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'flame_wave',       name: '화염파',    lv: 20, mp: 25, power: 1.8, type: 'mag_aoe', effect: 'burn',       desc: '화염의 파도.' },
+      { id: 'blizzard',         name: '눈보라',    lv: 23, mp: 28, power: 1.6, type: 'mag_aoe', effect: 'slow',       desc: '빙결.' },
+      { id: 'chain_lightning',  name: '연쇄번개',  lv: 27, mp: 25, power: 1.6, type: 'mag', hits: 3, desc: '번개가 이어진다.' },
+      { id: 'elemental_shield', name: '원소 방패', lv: 32, mp: 25,             type: 'buff',    effect: 'mag_resist', turns: 4, desc: '마법저항 +80% (4턴).' },
+    ],
+  },
+  necromancer: {
+    tier: 2, name: '강령술사', from: 'mage', reqLv: 20, cost: 1000, line: 'mage',
+    desc: '금단의 학문. 죽음을 다룬다.',
+    base: { hp: 160, mp: 200, atk: 10, def: 12, mag: 38 },
+    grow: { hp: 11, mp: 13, atk: 1, def: 1, mag: 4 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'drain_life',    name: '생명흡수', lv: 20, mp: 15, power: 1.5, type: 'mag', effect: 'lifesteal_mag', desc: 'MAG 피해 50% 회복.' },
+      { id: 'summon_undead', name: '언데드 소환', lv: 24, mp: 30,           type: 'utility', effect: 'summon_skel', desc: '(결속 효과: 공격력 +30%)' },
+      { id: 'curse',         name: '저주',      lv: 28, mp: 18,            type: 'debuff', effect: 'atk_def_down', turns: 4, desc: '공/방 -30% (4턴).' },
+      { id: 'death_touch',   name: '죽음의 손길', lv: 34, mp: 30, power: 3.0, type: 'mag', effect: 'crit_plus',    desc: '대마법.' },
+    ],
+  },
+  // ─── priest 계열 ───
+  paladin: {
+    tier: 2, name: '성기사', from: 'priest', reqLv: 20, cost: 1000, line: 'priest',
+    desc: '검을 든 사제. 빛의 전사.',
+    base: { hp: 240, mp: 140, atk: 26, def: 24, mag: 30 },
+    grow: { hp: 18, mp: 8, atk: 2, def: 3, mag: 2 },
+    mainStats: ['vit', 'wis'],
+    skills: [
+      { id: 'holy_strike',   name: '성스러운 일격', lv: 20, mp: 14, power: 1.8, type: 'mag', effect: 'holy',       desc: '성속성.' },
+      { id: 'divine_shield', name: '신성 방패',    lv: 24, mp: 22,             type: 'buff', effect: 'holy_shield', turns: 3, desc: '물/마 피해 -50%.' },
+      { id: 'holy_word',     name: '성스러운 말씀', lv: 28, mp: 25, power: 2.5, type: 'mag', effect: 'undead_slay',  desc: '언데드에 치명.' },
+      { id: 'consecrate',    name: '축성',         lv: 34, mp: 30, power: 1.5, type: 'mag_aoe', effect: 'holy_dot', turns: 3, desc: '신성 DoT (3턴).' },
+    ],
+  },
+  bishop: {
+    tier: 2, name: '주교', from: 'priest', reqLv: 20, cost: 1000, line: 'priest',
+    desc: '순수 신앙의 화신. 치유의 대가.',
+    base: { hp: 180, mp: 220, atk: 12, def: 18, mag: 38 },
+    grow: { hp: 13, mp: 13, atk: 1, def: 2, mag: 3 },
+    mainStats: ['wis', 'int'],
+    skills: [
+      { id: 'greater_heal',   name: '상위 치유', lv: 20, mp: 18, power: 2.5, type: 'heal', desc: '대량 회복.' },
+      { id: 'mass_heal',      name: '전체 치유', lv: 24, mp: 28, power: 1.5, type: 'heal', desc: '단체 회복(본체 한정).' },
+      { id: 'resurrect',      name: '완전 부활', lv: 32, mp: 50,             type: 'revive',                      desc: '죽음에서 되살아남.' },
+      { id: 'holy_blessing',  name: '대축복',   lv: 36, mp: 30,              type: 'buff',  effect: 'all_up',     turns: 5, desc: '전 능력치 +25% (5턴).' },
+    ],
+  },
+  // ─── thief 계열 ───
+  assassin: {
+    tier: 2, name: '암살자', from: 'thief', reqLv: 20, cost: 1000, line: 'thief',
+    desc: '그림자 속의 칼날. 한 방에 끝낸다.',
+    base: { hp: 190, mp: 100, atk: 40, def: 14, mag: 12 },
+    grow: { hp: 14, mp: 7, atk: 4, def: 1, mag: 1 },
+    mainStats: ['dex', 'luk'],
+    skills: [
+      { id: 'assassinate',    name: '암살',       lv: 20, mp: 18, power: 2.5, type: 'phys', effect: 'crit_100', desc: '확정 치명타.' },
+      { id: 'shadow_step',    name: '그림자도약', lv: 24, mp: 15, power: 1.8, type: 'phys', effect: 'eva_up',   turns: 2, desc: '회피 +.' },
+      { id: 'dagger_throw',   name: '투검',       lv: 28, mp: 12, power: 1.5, type: 'phys', hits: 2,            desc: '단검 투척.' },
+      { id: 'poison_mastery', name: '독 숙련',    lv: 34, mp: 20,             type: 'buff', effect: 'poison_plus', turns: 99, desc: '독 데미지 +200%.' },
+    ],
+  },
+  outlaw: {
+    tier: 2, name: '협객', from: 'thief', reqLv: 20, cost: 1000, line: 'thief',
+    desc: '가도의 무법자. 빠르고 잡기 어렵다.',
+    base: { hp: 210, mp: 90, atk: 34, def: 16, mag: 10 },
+    grow: { hp: 15, mp: 6, atk: 3, def: 2, mag: 1 },
+    mainStats: ['dex', 'cha'],
+    skills: [
+      { id: 'gamble_strike', name: '도박일격',   lv: 20, mp: 12, power: 1.5, type: 'phys', effect: 'gamble', desc: '0.5~3.0배 랜덤.' },
+      { id: 'smoke_bomb',    name: '연막탄',     lv: 24, mp: 14,             type: 'debuff', effect: 'blind', turns: 3, desc: '적 명중 -60%.' },
+      { id: 'disarm',        name: '무장해제',   lv: 28, mp: 16,             type: 'debuff', effect: 'atk_down', turns: 4, desc: '적 공격 -50%.' },
+      { id: 'lucky_strike',  name: '행운의 일격', lv: 34, mp: 18, power: 2.5, type: 'phys', effect: 'extra_gold', desc: '+추가 골드.' },
+    ],
+  },
+  // ─── ranger 계열 ───
+  sniper: {
+    tier: 2, name: '저격수', from: 'ranger', reqLv: 20, cost: 1000, line: 'ranger',
+    desc: '천 걸음 밖에서 심장을 꿰뚫는다.',
+    base: { hp: 200, mp: 110, atk: 42, def: 14, mag: 10 },
+    grow: { hp: 14, mp: 7, atk: 4, def: 1, mag: 1 },
+    mainStats: ['dex', 'str'],
+    skills: [
+      { id: 'headshot',       name: '헤드샷',       lv: 20, mp: 16, power: 2.5, type: 'phys', effect: 'crit_100', desc: '확정 치명타.' },
+      { id: 'piercing_shot',  name: '관통사격',     lv: 23, mp: 18, power: 2.2, type: 'phys', effect: 'pierce_def', desc: '방어 무시.' },
+      { id: 'lock_on',        name: '조준',         lv: 27, mp: 14,             type: 'buff', effect: 'lock_on', turns: 2, desc: '다음 공격 확정 치명타.' },
+      { id: 'death_mark',     name: '죽음의 표식', lv: 32, mp: 20,              type: 'debuff', effect: 'death_mark', turns: 4, desc: '표식된 적 받는피해 +50%.' },
+    ],
+  },
+  tracker: {
+    tier: 2, name: '수색꾼', from: 'ranger', reqLv: 20, cost: 1000, line: 'ranger',
+    desc: '숲의 친구. 자연과 함께 싸운다.',
+    base: { hp: 220, mp: 100, atk: 36, def: 18, mag: 14 },
+    grow: { hp: 15, mp: 7, atk: 3, def: 2, mag: 1 },
+    mainStats: ['dex', 'wis'],
+    skills: [
+      { id: 'trap',              name: '함정',       lv: 20, mp: 15, power: 2.0, type: 'phys', effect: 'immobilize', turns: 2, desc: '발동시 기동불능.' },
+      { id: 'animal_companion',  name: '동물 동료',  lv: 24, mp: 25,             type: 'utility', effect: 'summon_beast', desc: '매/늑대 소환.' },
+      { id: 'hunter_mark',       name: '사냥꾼의 표식', lv: 28, mp: 18,           type: 'debuff', effect: 'hunt_mark', turns: 4, desc: '적 받는 물리피해 +30%.' },
+      { id: 'nature_sense',      name: '자연의 감각', lv: 32, mp: 22,             type: 'buff', effect: 'eva_up', turns: 3, desc: '회피 +40%.' },
+    ],
+  },
+
+  // ═════════════ 3차 20직업 (Lv 45~) ═════════════
+  // ─── knight 계열 ───
+  crusader: {
+    tier: 3, name: '성전사', from: 'knight', reqLv: 45, cost: 8000, line: 'warrior',
+    desc: '바이서스 성전의 선봉장.',
+    base: { hp: 600, mp: 200, atk: 80, def: 70, mag: 50 },
+    grow: { hp: 35, mp: 8, atk: 5, def: 5, mag: 3 },
+    mainStats: ['vit', 'wis'],
+    skills: [
+      { id: 'holy_crusade',     name: '성전 돌격', lv: 45, mp: 30, power: 2.2, type: 'phys_aoe', effect: 'holy', desc: '성스러운 돌격.' },
+      { id: 'aegis',            name: '아이기스',  lv: 48, mp: 25,             type: 'buff', effect: 'all_defense', turns: 5, desc: '전방어 +70%.' },
+      { id: 'divine_judgment',  name: '신의 심판', lv: 52, mp: 35, power: 3.0, type: 'mag',  effect: 'holy',         desc: '심판.' },
+      { id: 'martyr',           name: '순교자',    lv: 60, mp: 50,             type: 'buff', effect: 'invul_short', turns: 2, desc: '무적 2턴.' },
+    ],
+  },
+  dragoon: {
+    tier: 3, name: '용기병', from: 'knight', reqLv: 45, cost: 8000, line: 'warrior',
+    desc: '와이번 위에 올라 용을 사냥한다.',
+    base: { hp: 560, mp: 180, atk: 95, def: 55, mag: 40 },
+    grow: { hp: 32, mp: 7, atk: 6, def: 4, mag: 2 },
+    mainStats: ['str', 'dex'],
+    skills: [
+      { id: 'dragon_leap',        name: '용의 도약', lv: 45, mp: 25, power: 2.5, type: 'phys',     desc: '하늘에서 내려찍는다.' },
+      { id: 'lancer_charge',      name: '창기병 돌격', lv: 48, mp: 28, power: 1.8, type: 'phys_aoe', desc: '관통 돌격.' },
+      { id: 'dragonfire_strike',  name: '용염격',   lv: 55, mp: 35, power: 3.2, type: 'mag',     effect: 'burn', turns: 3, desc: '드래곤 화염.' },
+      { id: 'wyvern_rider',       name: '와이번 기승', lv: 62, mp: 40,            type: 'buff',    effect: 'flight', turns: 4, desc: '비행: 물리회피 +80%.' },
+    ],
+  },
+  // ─── gladiator 계열 ───
+  berserker: {
+    tier: 3, name: '광전사', from: 'gladiator', reqLv: 45, cost: 8000, line: 'warrior',
+    desc: '피에 취한 광기. 죽음을 두려워하지 않는다.',
+    base: { hp: 550, mp: 150, atk: 110, def: 40, mag: 30 },
+    grow: { hp: 30, mp: 6, atk: 7, def: 3, mag: 2 },
+    mainStats: ['str', 'vit'],
+    skills: [
+      { id: 'rage',          name: '광란',       lv: 45, mp: 20,             type: 'buff', effect: 'berserk',    turns: 4, desc: '공격 +100%, 방어 -50%.' },
+      { id: 'blood_frenzy',  name: '피의 광기',   lv: 48, mp: 15, power: 2.0, type: 'phys', hits: 2, effect: 'lifesteal_big', desc: '흡혈 공격 2회.' },
+      { id: 'earth_shatter', name: '대지 분쇄',   lv: 52, mp: 35, power: 2.5, type: 'phys_aoe', effect: 'stun',  turns: 1, desc: '지진 + 기절.' },
+      { id: 'undying',       name: '불멸',       lv: 60, mp: 60,             type: 'buff', effect: 'undying',    turns: 3, desc: '3턴간 HP 1 이하 시 유지.' },
+    ],
+  },
+  monk: {
+    tier: 3, name: '무투가', from: 'gladiator', reqLv: 45, cost: 8000, line: 'warrior',
+    desc: '무술의 극치. 기(氣)를 다룬다.',
+    base: { hp: 500, mp: 220, atk: 85, def: 50, mag: 60 },
+    grow: { hp: 28, mp: 10, atk: 5, def: 4, mag: 4 },
+    mainStats: ['dex', 'wis'],
+    skills: [
+      { id: 'thousand_fists', name: '천의 주먹', lv: 45, mp: 20, power: 0.7, type: 'phys', hits: 5, desc: '5연타.' },
+      { id: 'meditation',     name: '명상',      lv: 48, mp: 0,              type: 'utility', effect: 'mp_restore', desc: 'MP 50% 회복(1턴 소비).' },
+      { id: 'chi_blast',      name: '기공파',    lv: 52, mp: 25, power: 2.4, type: 'mag',   desc: '기의 파동.' },
+      { id: 'inner_peace',    name: '심안',      lv: 62, mp: 35,             type: 'buff',  effect: 'all_up',   turns: 4, desc: '모든 능력 +30%.' },
+    ],
+  },
+  // ─── elementalist 계열 ───
+  archmage: {
+    tier: 3, name: '대마법사', from: 'elementalist', reqLv: 45, cost: 8000, line: 'mage',
+    desc: '마법의 정수에 도달한 자.',
+    base: { hp: 350, mp: 500, atk: 15, def: 30, mag: 120 },
+    grow: { hp: 18, mp: 22, atk: 1, def: 2, mag: 7 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'inferno',         name: '대화염',   lv: 45, mp: 45, power: 3.0, type: 'mag_aoe', effect: 'burn', turns: 3, desc: '지옥불.' },
+      { id: 'absolute_zero',   name: '절대영도', lv: 48, mp: 50, power: 2.8, type: 'mag_aoe', effect: 'freeze', turns: 2, desc: '빙결.' },
+      { id: 'lightning_storm', name: '뇌운',    lv: 52, mp: 55, power: 2.0, type: 'mag_aoe', hits: 2, desc: '번개 폭풍 2연.' },
+      { id: 'arcane_mastery',  name: '비전 숙련', lv: 60, mp: 40,            type: 'buff',   effect: 'mag_mastery', turns: 5, desc: '마력 +80%, MP소모 -50%.' },
+    ],
+  },
+  sage: {
+    tier: 3, name: '현자(賢者)', from: 'elementalist', reqLv: 45, cost: 15000, line: 'mage',
+    desc: '핸드레이크의 계보를 잇는 지혜의 사도. 드래곤과도 대화가 가능하다.',
+    special: '용의 지혜 3개 수집 필요 (추후 구현)',
+    base: { hp: 380, mp: 600, atk: 20, def: 35, mag: 130 },
+    grow: { hp: 20, mp: 25, atk: 2, def: 3, mag: 8 },
+    mainStats: ['int', 'wis', 'cha'],
+    skills: [
+      { id: 'dragon_wisdom',     name: '용의 지혜',    lv: 45, mp: 40,             type: 'buff',    effect: 'all_up_big', turns: 5, desc: '모든 능력치 +50% (5턴).' },
+      { id: 'elemental_converg', name: '원소 수렴',   lv: 50, mp: 60, power: 4.0, type: 'mag_aoe',                        desc: '4원소가 하나로. 최강 마법.' },
+      { id: 'time_manipulation', name: '시공 조작',   lv: 58, mp: 80,              type: 'utility', effect: 'extra_turn',   desc: '추가 턴 획득.' },
+      { id: 'sage_aura',         name: '현자의 기운', lv: 65, mp: 50,              type: 'buff',    effect: 'sage_aura', turns: 99, desc: '이 전투 내내 공/마/방 +30%.' },
+    ],
+  },
+  // ─── necromancer 계열 ───
+  lich: {
+    tier: 3, name: '리치', from: 'necromancer', reqLv: 45, cost: 8000, line: 'mage',
+    desc: '불멸을 얻은 대마도사. 영원한 죽음.',
+    base: { hp: 400, mp: 480, atk: 25, def: 40, mag: 110 },
+    grow: { hp: 20, mp: 20, atk: 2, def: 3, mag: 6 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'soul_harvest',  name: '영혼수확', lv: 45, mp: 40, power: 2.5, type: 'mag_aoe', effect: 'lifesteal_mag', desc: '전체 흡수.' },
+      { id: 'death_cloud',   name: '죽음의 구름', lv: 48, mp: 50, power: 1.5, type: 'mag_aoe', hits: 3, effect: 'poison', turns: 3, desc: '독 구름 3연.' },
+      { id: 'phylactery',    name: '생명성물', lv: 55, mp: 60,              type: 'buff',    effect: 'phylactery', turns: 1, desc: '1회 부활.' },
+      { id: 'undead_army',   name: '언데드 군단', lv: 62, mp: 70, power: 1.8, type: 'phys_aoe', desc: '군단 소환 공격.' },
+    ],
+  },
+  soulbinder: {
+    tier: 3, name: '영혼결속사', from: 'necromancer', reqLv: 45, cost: 8000, line: 'mage',
+    desc: '영혼을 조종하는 자. 죽은 자와 산 자를 이어놓는다.',
+    base: { hp: 380, mp: 460, atk: 22, def: 35, mag: 100 },
+    grow: { hp: 19, mp: 19, atk: 2, def: 3, mag: 6 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'soul_link',       name: '영혼 결속', lv: 45, mp: 35,             type: 'debuff', effect: 'soul_link', turns: 4, desc: '적 피해 30% 공유.' },
+      { id: 'spirit_weapon',   name: '영혼 무기', lv: 48, mp: 40,             type: 'buff', effect: 'phantom_weapon', turns: 4, desc: '일반공격 +100%.' },
+      { id: 'banshee_scream',  name: '밴시의 비명', lv: 55, mp: 45, power: 2.2, type: 'mag_aoe', effect: 'fear',   turns: 2, desc: '공포. 적 무력화.' },
+      { id: 'possession',      name: '빙의',     lv: 60, mp: 55,              type: 'debuff', effect: 'possess', turns: 1, desc: '1턴 아군화.' },
+    ],
+  },
+  // ─── paladin 계열 ───
+  avatar: {
+    tier: 3, name: '신의 화신', from: 'paladin', reqLv: 45, cost: 8000, line: 'priest',
+    desc: '신의 뜻을 이 땅에 행하는 자.',
+    base: { hp: 580, mp: 320, atk: 70, def: 65, mag: 90 },
+    grow: { hp: 30, mp: 15, atk: 4, def: 5, mag: 5 },
+    mainStats: ['vit', 'wis'],
+    skills: [
+      { id: 'divine_incarnation', name: '신의 화신', lv: 45, mp: 50,             type: 'buff', effect: 'all_up_big', turns: 4, desc: '전 능력 +50%.' },
+      { id: 'holy_nova',          name: '성스러운 신성포', lv: 48, mp: 40, power: 2.8, type: 'mag_aoe', effect: 'holy', desc: '성광 폭발.' },
+      { id: 'guardian_angel',     name: '수호천사', lv: 55, mp: 45,              type: 'buff', effect: 'angel',      turns: 99, desc: '치명상 3회 회피.' },
+      { id: 'ultimate_purge',     name: '궁극의 정화', lv: 62, mp: 60, power: 4.0, type: 'mag', effect: 'purge',      desc: '모든 것을 정화.' },
+    ],
+  },
+  inquisitor: {
+    tier: 3, name: '심판관', from: 'paladin', reqLv: 45, cost: 8000, line: 'priest',
+    desc: '이단자를 쫓는 교회의 창.',
+    base: { hp: 540, mp: 280, atk: 75, def: 55, mag: 80 },
+    grow: { hp: 28, mp: 13, atk: 5, def: 4, mag: 4 },
+    mainStats: ['wis', 'str'],
+    skills: [
+      { id: 'purification', name: '정화',   lv: 45, mp: 30, power: 1.5, type: 'mag_aoe', effect: 'dispel_all', desc: '버프 제거.' },
+      { id: 'divine_mark',  name: '신의 표식', lv: 48, mp: 25,           type: 'debuff', effect: 'mark',       turns: 5, desc: '표식 적 +100% 피해.' },
+      { id: 'witch_hunt',   name: '마녀사냥', lv: 52, mp: 35, power: 3.5, type: 'mag', effect: 'mag_slayer',   desc: '마법사 계열에 치명.' },
+      { id: 'holy_flame',   name: '성화',    lv: 60, mp: 45, power: 2.5, type: 'mag_aoe', effect: 'burn',    turns: 3, desc: '성스러운 화염.' },
+    ],
+  },
+  // ─── bishop 계열 ───
+  archbishop: {
+    tier: 3, name: '대주교', from: 'bishop', reqLv: 45, cost: 8000, line: 'priest',
+    desc: '교회의 정점. 기적을 일으킨다.',
+    base: { hp: 420, mp: 520, atk: 25, def: 45, mag: 110 },
+    grow: { hp: 22, mp: 22, atk: 2, def: 4, mag: 6 },
+    mainStats: ['wis', 'int'],
+    skills: [
+      { id: 'miracle',            name: '기적',         lv: 45, mp: 60, power: 3.5, type: 'heal', desc: '대량 완전회복.' },
+      { id: 'divine_intervention',name: '신의 개입',    lv: 50, mp: 80,             type: 'utility', effect: 'full_heal_self', desc: 'HP/MP 전부 회복.' },
+      { id: 'prayer',             name: '기도',         lv: 55, mp: 70,             type: 'buff',    effect: 'regen',       turns: 5, desc: '매턴 30% HP 회복.' },
+      { id: 'sanctuary',          name: '성역',         lv: 62, mp: 55,             type: 'buff',    effect: 'invul_short', turns: 1, desc: '1턴 무적.' },
+    ],
+  },
+  warpriest: {
+    tier: 3, name: '신관전사', from: 'bishop', reqLv: 45, cost: 8000, line: 'priest',
+    desc: '기도와 검을 함께 드는 자.',
+    base: { hp: 500, mp: 400, atk: 55, def: 50, mag: 90 },
+    grow: { hp: 26, mp: 18, atk: 4, def: 4, mag: 5 },
+    mainStats: ['wis', 'str'],
+    skills: [
+      { id: 'blessed_blade', name: '축복의 검', lv: 45, mp: 25, power: 2.8, type: 'mag', effect: 'holy', desc: '빛의 검격.' },
+      { id: 'divine_wrath',  name: '신의 분노', lv: 48, mp: 35, power: 2.5, type: 'mag_aoe', effect: 'holy', desc: '심판의 번개.' },
+      { id: 'holy_smite',    name: '성타',     lv: 55, mp: 40, power: 3.5, type: 'mag',  effect: 'holy', desc: '극대 성타.' },
+      { id: 'warding_hymn',  name: '수호의 찬송', lv: 62, mp: 50,           type: 'buff', effect: 'party_up', turns: 4, desc: '공/방/치유 +40%.' },
+    ],
+  },
+  // ─── assassin 계열 ───
+  shadow: {
+    tier: 3, name: '섀도우', from: 'assassin', reqLv: 45, cost: 8000, line: 'thief',
+    desc: '어둠 그 자체가 된 암살자.',
+    base: { hp: 450, mp: 240, atk: 100, def: 32, mag: 35 },
+    grow: { hp: 22, mp: 10, atk: 6, def: 2, mag: 2 },
+    mainStats: ['dex', 'luk'],
+    skills: [
+      { id: 'shadow_cloak',    name: '암야',         lv: 45, mp: 25,             type: 'buff', effect: 'invisible', turns: 3, desc: '3턴간 물리 회피 100%.' },
+      { id: 'night_assassin',  name: '밤의 암살자', lv: 48, mp: 20, power: 3.0, type: 'phys', effect: 'assassinate', desc: '낮 적에게 추가 피해.' },
+      { id: 'void_dagger',     name: '공허의 단검', lv: 55, mp: 30, power: 2.5, type: 'phys', hits: 3, effect: 'crit_plus', desc: '3연타 고크리.' },
+      { id: 'death_strike',    name: '사격(死擊)',   lv: 62, mp: 40, power: 4.0, type: 'phys', effect: 'finisher_big', desc: '빈사 적 즉사급.' },
+    ],
+  },
+  nightblade: {
+    tier: 3, name: '나이트블레이드', from: 'assassin', reqLv: 45, cost: 8000, line: 'thief',
+    desc: '달빛 아래 춤추는 칼날.',
+    base: { hp: 430, mp: 260, atk: 95, def: 30, mag: 45 },
+    grow: { hp: 21, mp: 11, atk: 6, def: 2, mag: 3 },
+    mainStats: ['dex', 'int'],
+    skills: [
+      { id: 'blade_dance',     name: '검무',       lv: 45, mp: 25, power: 2.0, type: 'phys_aoe', hits: 2, desc: '칼춤.' },
+      { id: 'phantom_strike',  name: '환영격',     lv: 48, mp: 22, power: 2.5, type: 'phys', hits: 2, effect: 'crit_plus', desc: '환영 타격.' },
+      { id: 'dark_veil',       name: '어둠의 장막', lv: 55, mp: 30,            type: 'buff', effect: 'dark_power', turns: 4, desc: '공격 +60%.' },
+      { id: 'soul_reap',       name: '영혼 수확',  lv: 62, mp: 35, power: 3.5, type: 'phys', effect: 'lifesteal',  desc: '흡혈 대검.' },
+    ],
+  },
+  // ─── outlaw 계열 ───
+  swashbuckler: {
+    tier: 3, name: '풍운아', from: 'outlaw', reqLv: 45, cost: 8000, line: 'thief',
+    desc: '화려한 검술가. 결투의 제왕.',
+    base: { hp: 470, mp: 240, atk: 85, def: 38, mag: 35 },
+    grow: { hp: 22, mp: 10, atk: 5, def: 3, mag: 2 },
+    mainStats: ['dex', 'cha'],
+    skills: [
+      { id: 'duelist',         name: '결투자',     lv: 45, mp: 20,             type: 'buff', effect: 'duel', turns: 4, desc: '단일 대상 공격 +80%.' },
+      { id: 'grappling_hook',  name: '갈고리',     lv: 48, mp: 18, power: 1.5, type: 'phys', effect: 'stun', turns: 1, desc: '기절.' },
+      { id: 'trickshot',       name: '속임수',     lv: 55, mp: 25, power: 2.0, type: 'phys', effect: 'dispel', desc: '적 버프 제거.' },
+      { id: 'charm',           name: '도적의 매력', lv: 62, mp: 30,            type: 'buff', effect: 'cha_up', turns: 99, desc: '매력 +100% (금화/상점).' },
+    ],
+  },
+  adventurer: {
+    tier: 3, name: '모험가', from: 'outlaw', reqLv: 45, cost: 8000, line: 'thief',
+    desc: '세상 모든 곳을 걷는 자.',
+    base: { hp: 490, mp: 220, atk: 80, def: 40, mag: 32 },
+    grow: { hp: 23, mp: 9, atk: 5, def: 3, mag: 2 },
+    mainStats: ['luk', 'cha'],
+    skills: [
+      { id: 'wild_swing',      name: '야생 일격',   lv: 45, mp: 20, power: 2.0, type: 'phys', hits: 2, effect: 'gamble', desc: '와일드 히트.' },
+      { id: 'lucky_seven',     name: '럭키 세븐',  lv: 48, mp: 25, power: 2.2, type: 'phys', effect: 'lucky_seven',    desc: '7의 배수 턴 +200%.' },
+      { id: 'treasure_hunter', name: '보물사냥',   lv: 55, mp: 20,              type: 'buff', effect: 'gold_up',       turns: 99, desc: '획득 골드 +200%.' },
+      { id: 'free_spirit',     name: '자유혼',     lv: 62, mp: 35,              type: 'buff', effect: 'free',          turns: 4, desc: 'CC 면역, 회피 +50%.' },
+    ],
+  },
+  // ─── sniper 계열 ───
+  dragonslayer: {
+    tier: 3, name: '드래곤슬레이어', from: 'sniper', reqLv: 45, cost: 8000, line: 'ranger',
+    desc: '용을 사냥하기 위해 태어난 자.',
+    base: { hp: 500, mp: 260, atk: 110, def: 40, mag: 30 },
+    grow: { hp: 24, mp: 11, atk: 7, def: 3, mag: 2 },
+    mainStats: ['dex', 'str'],
+    skills: [
+      { id: 'dragon_breaker',  name: '용도박',     lv: 45, mp: 30, power: 4.0, type: 'phys', effect: 'dragon_slay', desc: '드래곤에게 +200%.' },
+      { id: 'piercing_light',  name: '관통의 빛', lv: 48, mp: 35, power: 3.0, type: 'phys', effect: 'pierce_def', desc: '모든 방어 무시.' },
+      { id: 'titan_shot',      name: '거신의 일격', lv: 55, mp: 40, power: 5.0, type: 'phys', desc: '거신전용 일격.' },
+      { id: 'slayer_instinct', name: '슬레이어 본능', lv: 62, mp: 30,           type: 'buff', effect: 'boss_slay', turns: 99, desc: '보스에게 +80%.' },
+    ],
+  },
+  magicshot: {
+    tier: 3, name: '마탄의 사수', from: 'sniper', reqLv: 45, cost: 8000, line: 'ranger',
+    desc: '마력을 화살에 깃들이는 자.',
+    base: { hp: 460, mp: 360, atk: 80, def: 35, mag: 80 },
+    grow: { hp: 22, mp: 16, atk: 5, def: 3, mag: 5 },
+    mainStats: ['dex', 'int'],
+    skills: [
+      { id: 'magic_arrow',      name: '마법 화살', lv: 45, mp: 25, power: 2.5, type: 'mag', desc: '물리+마법 혼합.' },
+      { id: 'homing_shot',      name: '유도사격',  lv: 48, mp: 28, power: 2.0, type: 'mag', hits: 3, desc: '3연 유도.' },
+      { id: 'elemental_bullet', name: '원소탄',    lv: 55, mp: 35, power: 2.2, type: 'mag_aoe', effect: 'random_elem', desc: '랜덤 원소.' },
+      { id: 'magic_burst',      name: '마력폭발',  lv: 62, mp: 45, power: 4.5, type: 'mag', desc: '마력 폭발 단일.' },
+    ],
+  },
+  // ─── tracker 계열 ───
+  druid: {
+    tier: 3, name: '드루이드', from: 'tracker', reqLv: 45, cost: 8000, line: 'ranger',
+    desc: '자연의 대변자.',
+    base: { hp: 480, mp: 400, atk: 65, def: 45, mag: 90 },
+    grow: { hp: 24, mp: 17, atk: 4, def: 4, mag: 5 },
+    mainStats: ['wis', 'dex'],
+    skills: [
+      { id: 'nature_wrath', name: '자연의 분노', lv: 45, mp: 30, power: 2.5, type: 'mag_aoe', effect: 'thorns', desc: '가시덤불.' },
+      { id: 'wild_growth',  name: '야생의 성장', lv: 48, mp: 35, power: 2.5, type: 'heal', desc: '대량 회복.' },
+      { id: 'beast_form',   name: '야수 변신', lv: 55, mp: 40,               type: 'buff', effect: 'beast', turns: 4, desc: '공/방 +50%.' },
+      { id: 'starfall',     name: '별의 비',   lv: 62, mp: 55, power: 3.0, type: 'mag_aoe', hits: 3, desc: '별비.' },
+    ],
+  },
+  rangerking: {
+    tier: 3, name: '숲의 왕', from: 'tracker', reqLv: 45, cost: 8000, line: 'ranger',
+    desc: '숲의 지배자. 모든 야수가 따른다.',
+    base: { hp: 510, mp: 320, atk: 90, def: 45, mag: 60 },
+    grow: { hp: 25, mp: 14, atk: 5, def: 4, mag: 3 },
+    mainStats: ['dex', 'cha'],
+    skills: [
+      { id: 'eagle_eye',      name: '매의 눈',    lv: 45, mp: 20,             type: 'buff', effect: 'accuracy_up', turns: 99, desc: '명중/치명 +50%.' },
+      { id: 'lord_of_wild',   name: '야생의 군주', lv: 48, mp: 30,             type: 'buff', effect: 'wild_lord',  turns: 4, desc: '공/방 +40%.' },
+      { id: 'army_of_beasts', name: '야수 군단',  lv: 55, mp: 50, power: 2.5, type: 'phys_aoe', desc: '야수 군단 공격.' },
+      { id: 'royal_hunt',     name: '왕실 사냥', lv: 62, mp: 45, power: 3.5, type: 'phys_aoe', effect: 'hunt_mark', turns: 3, desc: '전체 표식.' },
+    ],
+  },
+
+  // ═════════════ 종족 전용 2차 ═════════════
+  hero_lord: {
+    tier: 2, name: '영웅왕', from: 'hero', reqLv: 20, cost: 1500, line: 'hero', raceOnly: 'human',
+    desc: '전설이 된 인간.',
+    base: { hp: 240, mp: 130, atk: 34, def: 24, mag: 28 },
+    grow: { hp: 20, mp: 10, atk: 3, def: 3, mag: 2 },
+    mainStats: ['str', 'cha'],
+    skills: [
+      { id: 'hero_wrath',   name: '영웅의 분노',   lv: 20, mp: 18, power: 2.2, type: 'phys', desc: '단일 강타.' },
+      { id: 'rally',        name: '집결',          lv: 23, mp: 25, type: 'buff', effect: 'all_up', turns: 4, desc: '전 능력 +30%.' },
+      { id: 'crown_strike', name: '왕관의 일격',   lv: 28, mp: 30, power: 2.6, type: 'phys_aoe', desc: '광역.' },
+      { id: 'heroic_will',  name: '영웅의 의지',   lv: 34, mp: 40, type: 'buff', effect: 'undying', turns: 3, desc: '3턴 불멸.' },
+    ],
+  },
+  archspirit: {
+    tier: 2, name: '대정령술사', from: 'spiritcaller', reqLv: 20, cost: 1500, line: 'spiritcaller', raceOnly: 'elf',
+    desc: '정령과 완전히 교감하는 엘프.',
+    base: { hp: 140, mp: 260, atk: 6, def: 15, mag: 48 },
+    grow: { hp: 9, mp: 16, atk: 1, def: 1, mag: 5 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'spirit_storm', name: '정령 폭풍',    lv: 20, mp: 26, power: 2.0, type: 'mag_aoe', desc: '전체 공격.' },
+      { id: 'spirit_bond',  name: '정령 결속',    lv: 24, mp: 30, type: 'buff', effect: 'mag_mastery', turns: 4, desc: 'MP -50% 마력 +80%.' },
+      { id: 'spirit_king',  name: '정령왕 현신',  lv: 28, mp: 42, power: 3.2, type: 'mag_aoe', desc: '4원소의 왕.' },
+      { id: 'ancient_elem', name: '원초의 정령',  lv: 34, mp: 52, power: 4.0, type: 'mag', desc: '원초의 힘.' },
+    ],
+  },
+  runeblade: {
+    tier: 2, name: '룬블레이드', from: 'runemaster', reqLv: 20, cost: 1500, line: 'runemaster', raceOnly: 'dwarf',
+    desc: '룬과 검의 조화. 드워프 최강.',
+    base: { hp: 270, mp: 150, atk: 38, def: 30, mag: 30 },
+    grow: { hp: 20, mp: 9, atk: 3, def: 3, mag: 2 },
+    mainStats: ['str', 'int'],
+    skills: [
+      { id: 'rune_slash',    name: '룬 베기',    lv: 20, mp: 16, power: 2.0, type: 'phys', effect: 'pierce_def', desc: '방어 무시.' },
+      { id: 'rune_ward',     name: '룬 결계',    lv: 23, mp: 24, type: 'buff', effect: 'all_defense', turns: 5, desc: '전 방어 +70%.' },
+      { id: 'rune_explosion',name: '룬 폭발',    lv: 28, mp: 32, power: 2.5, type: 'mag_aoe', desc: '룬 폭발.' },
+      { id: 'grand_rune',    name: '대룬',       lv: 34, mp: 42, power: 3.5, type: 'phys', desc: '거대 일격.' },
+    ],
+  },
+  titan_king: {
+    tier: 2, name: '거신왕', from: 'titan', reqLv: 20, cost: 1500, line: 'titan', raceOnly: 'ogre',
+    desc: '산과 같은 거인의 왕.',
+    base: { hp: 380, mp: 50, atk: 50, def: 30, mag: 8 },
+    grow: { hp: 28, mp: 4, atk: 5, def: 3, mag: 0 },
+    mainStats: ['str', 'vit'],
+    skills: [
+      { id: 'mountain_break', name: '산 부수기', lv: 20, mp: 14, power: 2.5, type: 'phys', effect: 'finisher', desc: '빈사에 대폭딜.' },
+      { id: 'titan_form',     name: '거신화',    lv: 24, mp: 25, type: 'buff', effect: 'all_up_big', turns: 4, desc: '전 능력 +50%.' },
+      { id: 'world_shake',    name: '세계 진동', lv: 28, mp: 35, power: 2.8, type: 'phys_aoe', effect: 'stun', turns: 1, desc: '전체 기절.' },
+      { id: 'titan_judgement',name: '거신의 심판', lv: 34, mp: 45, power: 4.0, type: 'phys', desc: '결정타.' },
+    ],
+  },
+  grand_bard: {
+    tier: 2, name: '대음유시인', from: 'bard', reqLv: 20, cost: 1500, line: 'bard', raceOnly: 'halfelf',
+    desc: '전설을 노래하는 자.',
+    base: { hp: 180, mp: 200, atk: 22, def: 16, mag: 34 },
+    grow: { hp: 12, mp: 13, atk: 2, def: 2, mag: 3 },
+    mainStats: ['cha', 'int'],
+    skills: [
+      { id: 'hero_song',    name: '영웅의 노래', lv: 20, mp: 22, type: 'buff', effect: 'all_up_big', turns: 4, desc: '전 능력 +50%.' },
+      { id: 'requiem',      name: '레퀴엠',      lv: 24, mp: 28, power: 2.2, type: 'mag_aoe', effect: 'fear', turns: 2, desc: '광역+공포.' },
+      { id: 'inspiration',  name: '영감',        lv: 28, mp: 26, type: 'utility', effect: 'extra_turn', desc: '추가 턴.' },
+      { id: 'legend_song',  name: '전설의 시',   lv: 34, mp: 40, power: 3.0, type: 'mag_aoe', desc: '대서사시.' },
+    ],
+  },
+
+  // ═════════════ 종족 전용 3차 ═════════════
+  hero_god: {
+    tier: 3, name: '영웅신', from: 'hero_lord', reqLv: 45, cost: 12000, line: 'hero', raceOnly: 'human',
+    desc: '인간이 신에 닿는 지점.',
+    base: { hp: 550, mp: 320, atk: 80, def: 55, mag: 65 },
+    grow: { hp: 28, mp: 14, atk: 5, def: 4, mag: 4 },
+    mainStats: ['str', 'cha'],
+    skills: [
+      { id: 'godly_slash',   name: '신의 일격',    lv: 45, mp: 35, power: 3.5, type: 'phys', desc: '단일 극딜.' },
+      { id: 'divine_form',   name: '신의 모습',    lv: 48, mp: 50, type: 'buff', effect: 'all_up_big', turns: 5, desc: '전 능력 +50%.' },
+      { id: 'world_savior',  name: '세계 구원자',  lv: 55, mp: 60, power: 3.0, type: 'phys_aoe', desc: '전체 구원.' },
+      { id: 'immortal_hero', name: '불멸 영웅',    lv: 62, mp: 70, type: 'buff', effect: 'undying', turns: 5, desc: '5턴 불멸.' },
+    ],
+  },
+  elemental_sage: {
+    tier: 3, name: '정령의 현자', from: 'archspirit', reqLv: 45, cost: 15000, line: 'spiritcaller', raceOnly: 'elf',
+    desc: '엘프 현자의 정점. 사실상 현자와 동급.',
+    base: { hp: 360, mp: 580, atk: 18, def: 32, mag: 128 },
+    grow: { hp: 19, mp: 24, atk: 2, def: 3, mag: 8 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'prime_spirit',   name: '원초 정령',   lv: 45, mp: 50, power: 3.5, type: 'mag_aoe', desc: '원초적 원소.' },
+      { id: 'spirit_aura',    name: '정령의 기운', lv: 48, mp: 40, type: 'buff', effect: 'sage_aura', turns: 99, desc: '전투 내내 +30%.' },
+      { id: 'convergence',    name: '수렴',        lv: 55, mp: 60, power: 4.5, type: 'mag_aoe', desc: '4원소 수렴.' },
+      { id: 'elem_apotheosis',name: '정령 승화',   lv: 62, mp: 80, type: 'utility', effect: 'extra_turn', desc: '추가 턴.' },
+    ],
+  },
+  rune_dragon: {
+    tier: 3, name: '룬드래곤', from: 'runeblade', reqLv: 45, cost: 12000, line: 'runemaster', raceOnly: 'dwarf',
+    desc: '룬이 용을 부른다. 드워프 최고 경지.',
+    base: { hp: 600, mp: 280, atk: 95, def: 75, mag: 70 },
+    grow: { hp: 32, mp: 13, atk: 6, def: 5, mag: 4 },
+    mainStats: ['str', 'int'],
+    skills: [
+      { id: 'dragon_rune',    name: '용 룬',       lv: 45, mp: 40, power: 3.5, type: 'phys', effect: 'pierce_def', desc: '방어 무시.' },
+      { id: 'rune_fortress',  name: '룬 요새',     lv: 48, mp: 50, type: 'buff', effect: 'all_defense', turns: 5, desc: '전 방어 +70%.' },
+      { id: 'rune_dragon_breath', name: '룬 브레스', lv: 55, mp: 55, power: 3.2, type: 'mag_aoe', effect: 'burn', turns: 3, desc: '용염.' },
+      { id: 'divine_rune',    name: '신성 룬',     lv: 62, mp: 75, power: 4.2, type: 'mag', desc: '극대 룬.' },
+    ],
+  },
+  titan_god: {
+    tier: 3, name: '거신왕의 화신', from: 'titan_king', reqLv: 45, cost: 12000, line: 'titan', raceOnly: 'ogre',
+    desc: '오우거 전설. 산을 무너뜨린다.',
+    base: { hp: 780, mp: 100, atk: 120, def: 65, mag: 18 },
+    grow: { hp: 38, mp: 5, atk: 7, def: 4, mag: 1 },
+    mainStats: ['str', 'vit'],
+    skills: [
+      { id: 'apocalypse_slam', name: '종말의 내려침', lv: 45, mp: 30, power: 3.8, type: 'phys', effect: 'stun', turns: 2, desc: '2턴 기절.' },
+      { id: 'god_form',        name: '거신 형상',    lv: 48, mp: 50, type: 'buff', effect: 'all_up_big', turns: 5, desc: '전 능력 +50%.' },
+      { id: 'worldender',      name: '세계 파쇄',    lv: 55, mp: 60, power: 4.5, type: 'phys_aoe', desc: '광역 절대 딜.' },
+      { id: 'titan_immortal',  name: '거신 불멸',    lv: 62, mp: 75, type: 'buff', effect: 'undying', turns: 5, desc: '5턴 불멸.' },
+    ],
+  },
+  fate_bard: {
+    tier: 3, name: '운명의 시인', from: 'grand_bard', reqLv: 45, cost: 12000, line: 'bard', raceOnly: 'halfelf',
+    desc: '운명을 노래로 바꾸는 하프엘프 전설.',
+    base: { hp: 380, mp: 440, atk: 55, def: 40, mag: 95 },
+    grow: { hp: 22, mp: 18, atk: 4, def: 3, mag: 5 },
+    mainStats: ['cha', 'int'],
+    skills: [
+      { id: 'fate_song',    name: '운명의 노래',  lv: 45, mp: 40, type: 'buff', effect: 'all_up_big', turns: 5, desc: '전 능력 +50%.' },
+      { id: 'dirge',        name: '장송곡',       lv: 48, mp: 38, power: 2.8, type: 'mag_aoe', effect: 'fear', turns: 3, desc: '공포.' },
+      { id: 'time_verse',   name: '시간의 시',    lv: 55, mp: 70, type: 'utility', effect: 'extra_turn', desc: '추가 턴.' },
+      { id: 'legendary',    name: '전설이 되다',  lv: 62, mp: 80, power: 4.0, type: 'mag_aoe', desc: '전설의 시.' },
+    ],
+  },
+
+  // ═════════════ 4차 초월직 (Lv 75~) — 공용 12개 ═════════════
+  dragon_emperor: {
+    tier: 4, name: '용제(龍帝)', from: 'crusader', altFrom: ['dragoon'], reqLv: 75, cost: 50000, line: 'warrior',
+    desc: '용을 다스리는 황제. 크루세이더·드라군의 정점.',
+    base: { hp: 1400, mp: 500, atk: 180, def: 150, mag: 120 },
+    grow: { hp: 60, mp: 18, atk: 10, def: 8, mag: 6 },
+    mainStats: ['str', 'vit'],
+    skills: [
+      { id: 'dragon_descent', name: '용의 강림',     lv: 75, mp: 60, power: 4.5, type: 'phys_aoe', effect: 'burn', turns: 4, desc: '하늘에서 내려찍는 용.' },
+      { id: 'emperor_aura',   name: '황제의 기운',   lv: 80, mp: 70, type: 'buff', effect: 'all_up_big', turns: 6, desc: '전 능력 +50%.' },
+      { id: 'world_strike',   name: '세계 가르기',   lv: 90, mp: 90, power: 6.0, type: 'phys', effect: 'pierce_def', desc: '절대 관통.' },
+      { id: 'divine_wings',   name: '신성의 날개',   lv: 100, mp: 100, type: 'buff', effect: 'invul_short', turns: 2, desc: '2턴 무적.' },
+    ],
+  },
+  sword_god: {
+    tier: 4, name: '검신(劍神)', from: 'berserker', altFrom: ['monk'], reqLv: 75, cost: 50000, line: 'warrior',
+    desc: '검 하나로 신의 경지에 이른 자.',
+    base: { hp: 1200, mp: 400, atk: 220, def: 120, mag: 80 },
+    grow: { hp: 55, mp: 15, atk: 12, def: 7, mag: 4 },
+    mainStats: ['str', 'dex'],
+    skills: [
+      { id: 'sword_of_light', name: '빛의 검격',     lv: 75, mp: 50, power: 5.0, type: 'phys', desc: '검광이 세계를 가른다.' },
+      { id: 'god_slash',      name: '신의 일섬',     lv: 80, mp: 70, power: 7.0, type: 'phys', effect: 'crit_100', desc: '확정 치명타.' },
+      { id: 'ten_thousand',   name: '만검', lv: 90, mp: 100, power: 1.2, type: 'phys_aoe', hits: 5, desc: '만 개의 검.' },
+      { id: 'transcendent',   name: '초월',         lv: 100, mp: 120, type: 'buff', effect: 'all_up_big', turns: 5, desc: '신이 된 감각.' },
+    ],
+  },
+  great_sage: {
+    tier: 4, name: '대현자(大賢者)', from: 'archmage', altFrom: ['sage'], reqLv: 75, cost: 60000, line: 'mage',
+    desc: '모든 마법의 궁극. 현자의 완성형.',
+    base: { hp: 800, mp: 1200, atk: 40, def: 80, mag: 300 },
+    grow: { hp: 35, mp: 40, atk: 3, def: 5, mag: 16 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'arcane_storm',   name: '아케인 폭풍',   lv: 75, mp: 80, power: 5.0, type: 'mag_aoe', hits: 2, desc: '비전 폭풍 2연.' },
+      { id: 'reality_bend',   name: '현실 조작',     lv: 80, mp: 90, type: 'utility', effect: 'extra_turn', desc: '추가 턴.' },
+      { id: 'omnimagic',      name: '만마법',       lv: 90, mp: 120, power: 7.0, type: 'mag_aoe', effect: 'burn', turns: 5, desc: '전 원소 융합.' },
+      { id: 'mana_mastery',   name: '마나 지배',    lv: 100, mp: 100, type: 'buff', effect: 'mag_mastery', turns: 6, desc: 'MP -50%, 마력 +100%.' },
+    ],
+  },
+  death_god: {
+    tier: 4, name: '사신(死神)', from: 'lich', altFrom: ['soulbinder'], reqLv: 75, cost: 60000, line: 'mage',
+    desc: '죽음 그 자체가 된 존재.',
+    base: { hp: 900, mp: 1100, atk: 50, def: 90, mag: 280 },
+    grow: { hp: 38, mp: 38, atk: 4, def: 5, mag: 15 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'soul_drain',    name: '영혼 갈취',     lv: 75, mp: 70, power: 4.8, type: 'mag_aoe', effect: 'lifesteal_big', desc: '영혼 갈취.' },
+      { id: 'death_field',   name: '죽음의 영역',   lv: 80, mp: 90, power: 3.5, type: 'mag_aoe', effect: 'poison', turns: 8, desc: '광역 독 지속.' },
+      { id: 'eternal_night', name: '영겁의 밤',     lv: 90, mp: 110, power: 6.0, type: 'mag_aoe', effect: 'fear', turns: 4, desc: '영원한 밤.' },
+      { id: 'immortal_will', name: '불멸의 의지',   lv: 100, mp: 100, type: 'buff', effect: 'phylactery', turns: 1, desc: '죽음 무효.' },
+    ],
+  },
+  holy_king: {
+    tier: 4, name: '성왕(聖王)', from: 'avatar', altFrom: ['inquisitor'], reqLv: 75, cost: 50000, line: 'priest',
+    desc: '신의 대리인. 사제의 정점.',
+    base: { hp: 1300, mp: 900, atk: 120, def: 140, mag: 200 },
+    grow: { hp: 55, mp: 30, atk: 7, def: 7, mag: 10 },
+    mainStats: ['wis', 'vit'],
+    skills: [
+      { id: 'judgment',      name: '신의 심판',     lv: 75, mp: 70, power: 5.5, type: 'mag', effect: 'holy', desc: '단일 성심판.' },
+      { id: 'holy_war',      name: '성전 선포',     lv: 80, mp: 90, type: 'buff', effect: 'all_up_big', turns: 6, desc: '전 능력 +50%.' },
+      { id: 'divine_apocalypse', name: '신의 종말', lv: 90, mp: 120, power: 6.5, type: 'mag_aoe', effect: 'undead_slay', desc: '언데드 +200%.' },
+      { id: 'ascension',     name: '승천',         lv: 100, mp: 150, type: 'buff', effect: 'invul_short', turns: 3, desc: '3턴 무적.' },
+    ],
+  },
+  saint: {
+    tier: 4, name: '대성인(大聖人)', from: 'archbishop', altFrom: ['warpriest'], reqLv: 75, cost: 50000, line: 'priest',
+    desc: '기적의 화신.',
+    base: { hp: 1100, mp: 1000, atk: 80, def: 110, mag: 230 },
+    grow: { hp: 45, mp: 35, atk: 5, def: 6, mag: 12 },
+    mainStats: ['wis', 'int'],
+    skills: [
+      { id: 'true_miracle',  name: '진정한 기적',   lv: 75, mp: 80, power: 5.0, type: 'heal', desc: '완전 회복.' },
+      { id: 'holy_bloom',    name: '성스러운 개화', lv: 80, mp: 90, power: 4.0, type: 'mag_aoe', effect: 'holy', desc: '광역 성광.' },
+      { id: 'revelation',    name: '계시',         lv: 90, mp: 100, type: 'buff', effect: 'regen', turns: 6, desc: '매턴 HP 30%.' },
+      { id: 'sanctity',      name: '성역화',       lv: 100, mp: 130, type: 'buff', effect: 'invul_short', turns: 2, desc: '2턴 무적.' },
+    ],
+  },
+  shadow_emperor: {
+    tier: 4, name: '암제(暗帝)', from: 'shadow', altFrom: ['nightblade'], reqLv: 75, cost: 50000, line: 'thief',
+    desc: '그림자의 황제. 어둠 그 자체.',
+    base: { hp: 1000, mp: 600, atk: 240, def: 90, mag: 120 },
+    grow: { hp: 45, mp: 22, atk: 14, def: 5, mag: 6 },
+    mainStats: ['dex', 'luk'],
+    skills: [
+      { id: 'void_slash',    name: '공허 베기',     lv: 75, mp: 50, power: 5.5, type: 'phys', effect: 'pierce_def', desc: '방어 무시.' },
+      { id: 'shadow_realm',  name: '그림자 영역',   lv: 80, mp: 70, type: 'buff', effect: 'invisible', turns: 5, desc: '5턴 무적.' },
+      { id: 'thousand_blades', name: '천의 칼날',   lv: 90, mp: 100, power: 1.0, type: 'phys', hits: 10, desc: '10연타.' },
+      { id: 'assassinate_ult', name: '극암살',     lv: 100, mp: 130, power: 10.0, type: 'phys', effect: 'crit_100', desc: '확정 치명 초딜.' },
+    ],
+  },
+  freeman_king: {
+    tier: 4, name: '무림왕', from: 'swashbuckler', altFrom: ['adventurer'], reqLv: 75, cost: 50000, line: 'thief',
+    desc: '규칙 밖의 왕.',
+    base: { hp: 1050, mp: 580, atk: 210, def: 100, mag: 100 },
+    grow: { hp: 48, mp: 21, atk: 13, def: 6, mag: 6 },
+    mainStats: ['dex', 'luk'],
+    skills: [
+      { id: 'unbound_strike', name: '무구속',       lv: 75, mp: 40, power: 4.8, type: 'phys', effect: 'gamble', desc: '랜덤 강타.' },
+      { id: 'legendary_gamble', name: '전설의 도박', lv: 85, mp: 60, power: 5.5, type: 'phys', effect: 'gamble', hits: 2, desc: '2연 도박.' },
+      { id: 'infinite_fortune', name: '무한 행운', lv: 92, mp: 80, type: 'buff', effect: 'all_up_big', turns: 5, desc: '전 능력 +50%.' },
+      { id: 'king_strike',   name: '왕의 일격',     lv: 100, mp: 120, power: 8.0, type: 'phys', effect: 'crit_plus', desc: '극딜.' },
+    ],
+  },
+  dragon_slayer_god: {
+    tier: 4, name: '용살제', from: 'dragonslayer', altFrom: ['magicshot'], reqLv: 75, cost: 55000, line: 'ranger',
+    desc: '모든 용을 쓰러뜨리는 자.',
+    base: { hp: 1100, mp: 650, atk: 250, def: 100, mag: 120 },
+    grow: { hp: 48, mp: 24, atk: 14, def: 6, mag: 7 },
+    mainStats: ['dex', 'str'],
+    skills: [
+      { id: 'dragon_killer',  name: '용살',         lv: 75, mp: 60, power: 6.0, type: 'phys', effect: 'dragon_slay', desc: '용에 2배.' },
+      { id: 'world_piercer',  name: '세계 관통',    lv: 80, mp: 80, power: 6.5, type: 'phys', effect: 'pierce_def', desc: '방어 무시.' },
+      { id: 'star_arrow',     name: '별의 화살',    lv: 90, mp: 100, power: 7.5, type: 'phys_aoe', desc: '별의 화살비.' },
+      { id: 'god_killer',     name: '신살',        lv: 100, mp: 140, power: 12.0, type: 'phys', effect: 'crit_100', desc: '확정 치명 극딜.' },
+    ],
+  },
+  nature_king: {
+    tier: 4, name: '자연의 왕', from: 'druid', altFrom: ['rangerking'], reqLv: 75, cost: 55000, line: 'ranger',
+    desc: '자연 그 자체가 된 자.',
+    base: { hp: 1150, mp: 900, atk: 180, def: 120, mag: 200 },
+    grow: { hp: 50, mp: 33, atk: 10, def: 7, mag: 10 },
+    mainStats: ['wis', 'dex'],
+    skills: [
+      { id: 'gaea_wrath',     name: '대지모의 분노', lv: 75, mp: 70, power: 5.0, type: 'mag_aoe', desc: '광역 자연.' },
+      { id: 'forest_lord',    name: '숲의 군주',    lv: 80, mp: 85, type: 'buff', effect: 'all_up_big', turns: 6, desc: '전 능력 +50%.' },
+      { id: 'world_tree',     name: '세계수',       lv: 90, mp: 110, power: 4.5, type: 'heal', desc: '대량 회복.' },
+      { id: 'nature_god',     name: '자연 현신',    lv: 100, mp: 150, power: 8.0, type: 'mag_aoe', effect: 'thorns', desc: '자연의 심판.' },
+    ],
+  },
+  gold_god: {
+    tier: 4, name: '황금제', from: 'guildmaster', altFrom: ['goldking'], reqLv: 75, cost: 80000, line: 'merchant',
+    desc: '돈의 신. 대륙의 경제를 지배한다.',
+    base: { hp: 1000, mp: 700, atk: 180, def: 120, mag: 150 },
+    grow: { hp: 46, mp: 24, atk: 10, def: 7, mag: 8 },
+    mainStats: ['cha', 'luk'],
+    skills: [
+      { id: 'gold_rain',      name: '황금비',       lv: 75, mp: 60, power: 4.5, type: 'phys_aoe', effect: 'gold_strike', desc: '골드 소비 강타.' },
+      { id: 'infinite_wealth', name: '무한한 부',   lv: 80, mp: 70, type: 'buff', effect: 'wealth', turns: 99, desc: '골드 비례 공/방 +.' },
+      { id: 'midas_touch',    name: '미다스의 손',  lv: 90, mp: 100, power: 6.0, type: 'phys', effect: 'gold_drain', desc: '골드 흡수.' },
+      { id: 'throne_gold',    name: '황금 왕좌',    lv: 100, mp: 120, type: 'buff', effect: 'all_up_big', turns: 5, desc: '전 능력 +50%.' },
+    ],
+  },
+  info_god: {
+    tier: 4, name: '정보제', from: 'shadowmerchant', altFrom: ['informerking'], reqLv: 75, cost: 80000, line: 'merchant',
+    desc: '모든 비밀의 소유자.',
+    base: { hp: 900, mp: 950, atk: 140, def: 100, mag: 230 },
+    grow: { hp: 42, mp: 33, atk: 8, def: 6, mag: 11 },
+    mainStats: ['int', 'cha'],
+    skills: [
+      { id: 'all_seeing',     name: '전능시',       lv: 75, mp: 70, type: 'debuff', effect: 'mark', turns: 6, desc: '받는 피해 +50%.' },
+      { id: 'mind_shatter',   name: '정신 분쇄',    lv: 80, mp: 85, power: 5.0, type: 'mag', effect: 'fear', turns: 4, desc: '공포.' },
+      { id: 'omniscience_2',  name: '전지',        lv: 90, mp: 100, type: 'buff', effect: 'all_up_big', turns: 6, desc: '전 능력 +50%.' },
+      { id: 'truth_apocalypse', name: '진실의 종말', lv: 100, mp: 140, power: 7.5, type: 'mag_aoe', effect: 'pierce_def', desc: '절대 진실.' },
+    ],
+  },
+
+  // ═════════════ 4차 종족 전용 5개 ═════════════
+  human_god: {
+    tier: 4, name: '초월신', from: 'hero_god', reqLv: 75, cost: 70000, line: 'hero', raceOnly: 'human',
+    desc: '인간이 신이 되는 마지막 경지.',
+    base: { hp: 1300, mp: 900, atk: 200, def: 140, mag: 180 },
+    grow: { hp: 55, mp: 32, atk: 12, def: 7, mag: 9 },
+    mainStats: ['str', 'cha'],
+    skills: [
+      { id: 'transcend',     name: '초월',         lv: 75, mp: 80, type: 'buff', effect: 'all_up_big', turns: 6, desc: '전 능력 +50%.' },
+      { id: 'gods_will',     name: '신의 뜻',      lv: 80, mp: 100, power: 6.0, type: 'phys_aoe', desc: '광역 극딜.' },
+      { id: 'eternal_legend', name: '영원한 전설', lv: 90, mp: 130, type: 'buff', effect: 'undying', turns: 5, desc: '5턴 불멸.' },
+      { id: 'human_divinity', name: '인간의 신성', lv: 100, mp: 150, power: 9.0, type: 'phys', effect: 'crit_100', desc: '확정 치명 극딜.' },
+    ],
+  },
+  primordial_spirit: {
+    tier: 4, name: '원초의 지혜', from: 'elemental_sage', reqLv: 75, cost: 80000, line: 'spiritcaller', raceOnly: 'elf',
+    desc: '엘프가 도달할 수 있는 궁극의 정령 경지.',
+    base: { hp: 800, mp: 1300, atk: 40, def: 90, mag: 320 },
+    grow: { hp: 35, mp: 45, atk: 3, def: 5, mag: 18 },
+    mainStats: ['int', 'wis'],
+    skills: [
+      { id: 'primordial_storm', name: '원초 폭풍', lv: 75, mp: 100, power: 6.0, type: 'mag_aoe', hits: 2, desc: '2연 폭풍.' },
+      { id: 'world_spirit',   name: '세계의 정령', lv: 80, mp: 120, type: 'buff', effect: 'sage_aura', turns: 99, desc: '영구 +30%.' },
+      { id: 'creation',       name: '창세',        lv: 90, mp: 150, power: 8.0, type: 'mag_aoe', desc: '창세의 일격.' },
+      { id: 'spirit_god',     name: '정령신 현신', lv: 100, mp: 180, type: 'buff', effect: 'all_up_big', turns: 8, desc: '전 능력 +50%.' },
+    ],
+  },
+  rune_emperor: {
+    tier: 4, name: '룬황제', from: 'rune_dragon', reqLv: 75, cost: 70000, line: 'runemaster', raceOnly: 'dwarf',
+    desc: '드워프의 최종 경지. 룬으로 세계를 새긴다.',
+    base: { hp: 1500, mp: 700, atk: 220, def: 200, mag: 180 },
+    grow: { hp: 65, mp: 25, atk: 13, def: 10, mag: 10 },
+    mainStats: ['str', 'int'],
+    skills: [
+      { id: 'world_rune',    name: '세계 룬',      lv: 75, mp: 90, power: 6.0, type: 'phys_aoe', effect: 'pierce_def', desc: '광역 관통.' },
+      { id: 'rune_fortress2', name: '룬 대요새',   lv: 80, mp: 100, type: 'buff', effect: 'all_defense', turns: 8, desc: '전 방어 +70%.' },
+      { id: 'dragon_rune_breath', name: '룬 드래곤 숨결', lv: 90, mp: 130, power: 7.0, type: 'mag_aoe', effect: 'burn', turns: 5, desc: '용염.' },
+      { id: 'divine_rune2',  name: '신성 대룬',    lv: 100, mp: 160, power: 10.0, type: 'mag', effect: 'pierce_def', desc: '신성 극딜.' },
+    ],
+  },
+  primeval_titan: {
+    tier: 4, name: '태초 거신', from: 'titan_god', reqLv: 75, cost: 70000, line: 'titan', raceOnly: 'ogre',
+    desc: '세계 최초의 거인. 오우거의 전설.',
+    base: { hp: 2200, mp: 200, atk: 280, def: 180, mag: 30 },
+    grow: { hp: 85, mp: 10, atk: 16, def: 10, mag: 2 },
+    mainStats: ['str', 'vit'],
+    skills: [
+      { id: 'world_crush',   name: '세계 분쇄',    lv: 75, mp: 60, power: 6.5, type: 'phys_aoe', effect: 'stun', turns: 2, desc: '전체 기절.' },
+      { id: 'titan_god_form', name: '거신신 형상', lv: 80, mp: 90, type: 'buff', effect: 'all_up_big', turns: 6, desc: '전 능력 +50%.' },
+      { id: 'apocalypse',    name: '종말',         lv: 90, mp: 120, power: 9.0, type: 'phys_aoe', desc: '종말급 일격.' },
+      { id: 'immortal_titan', name: '불멸 거신',   lv: 100, mp: 140, type: 'buff', effect: 'undying', turns: 6, desc: '6턴 불멸.' },
+    ],
+  },
+  fate_king: {
+    tier: 4, name: '운명왕', from: 'fate_bard', reqLv: 75, cost: 80000, line: 'bard', raceOnly: 'halfelf',
+    desc: '운명 그 자체를 노래하는 하프엘프 최종 경지.',
+    base: { hp: 1000, mp: 1100, atk: 150, def: 110, mag: 260 },
+    grow: { hp: 48, mp: 38, atk: 8, def: 6, mag: 13 },
+    mainStats: ['cha', 'int'],
+    skills: [
+      { id: 'fate_rewrite',  name: '운명 재편',    lv: 75, mp: 90, type: 'buff', effect: 'all_up_big', turns: 6, desc: '전 능력 +50%.' },
+      { id: 'death_verse',   name: '죽음의 시',    lv: 80, mp: 100, power: 5.5, type: 'mag_aoe', effect: 'fear', turns: 4, desc: '광역 공포.' },
+      { id: 'time_mastery',  name: '시간 지배',    lv: 90, mp: 140, type: 'utility', effect: 'extra_turn', desc: '추가 턴.' },
+      { id: 'eternal_song',  name: '영원의 노래',  lv: 100, mp: 170, power: 8.0, type: 'mag_aoe', desc: '영원한 선율.' },
+    ],
+  },
+
+  // ═════════════ 5차 신화 — 드래곤 라자 ═════════════
+  dragon_raja: {
+    tier: 5, name: '드래곤 라자', from: 'dragon_emperor',
+    altFrom: ['sword_god','great_sage','death_god','holy_king','saint','shadow_emperor','freeman_king','dragon_slayer_god','nature_king','gold_god','info_god','human_god','primordial_spirit','rune_emperor','primeval_titan','fate_king'],
+    reqLv: 120, cost: 500000, line: 'raja',
+    desc: '드래곤과 대화할 수 있는 유일자. 모든 직업의 궁극.',
+    base: { hp: 3000, mp: 2000, atk: 400, def: 300, mag: 400 },
+    grow: { hp: 120, mp: 70, atk: 22, def: 15, mag: 22 },
+    mainStats: ['str','dex','int','vit','wis','luk','cha'],
+    skills: [
+      { id: 'raja_strike',    name: '라자의 일격', lv: 120, mp: 100, power: 10.0, type: 'phys', effect: 'crit_100', desc: '확정 치명 절대 강타.' },
+      { id: 'dragon_speech',  name: '용의 언어',   lv: 125, mp: 150, type: 'buff', effect: 'sage_aura', turns: 99, desc: '드래곤과 대화. 전투 내내 +30%.' },
+      { id: 'raja_meteor',    name: '라자 메테오', lv: 135, mp: 200, power: 8.0, type: 'mag_aoe', effect: 'burn', turns: 5, desc: '광역 파괴.' },
+      { id: 'all_attribute',  name: '만상귀일',    lv: 150, mp: 300, type: 'buff', effect: 'all_up_big', turns: 10, desc: '전 능력 +50% (10턴).' },
+      { id: 'raja_transcend', name: '라자 초월',   lv: 180, mp: 500, power: 20.0, type: 'phys_aoe', effect: 'pierce_def', desc: '세계를 꿰뚫는 일격.' },
+    ],
+  },
+};
+
+// ───── 지역 & 맵 ─────
+// exits: { '표시명': { to: 'key', hours: N } }
+// hours: 이동 소요시간 (게임 내 시간). 도중 N회 인카운트 굴림.
+const LOCATIONS = {
+  heltant: {
+    name: '헬턴트',
+    desc: '그대가 자란 변방의 작은 마을. 풍차와 밀밭이 펼쳐져 있다.',
+    npcs: ['촌장', '대장장이 게롤트', '술집주인 메이린'],
+    shop: true, inn: true,
+    exits: {
+      '북쪽 숲': { to: 'forest', hours: 2 },
+      '남쪽 가도': { to: 'road_south', hours: 2 },
+      '페리윙클 평원': { to: 'periwinkle', hours: 3 },
+    },
+    encounters: ['slime', 'wolf'], encounterRate: 0.3,
+  },
+  forest: {
+    name: '북쪽 숲', desc: '울창한 전나무 숲. 고블린이 종종 출몰한다.',
+    exits: {
+      '헬턴트로': { to: 'heltant', hours: 2 },
+      '더 깊은 숲': { to: 'deep_forest', hours: 3 },
+    },
+    encounters: ['wolf', 'goblin', 'bigSpider', 'hare', 'forest_bee', 'giant_beetle', 'deer', 'forest_sprite'], encounterRate: 0.6,
+  },
+  deep_forest: {
+    name: '깊은 숲', desc: '햇빛이 겨우 스며드는 엘프의 영역.',
+    npcs: ['암흑 사제 모르간'],
+    exits: {
+      '북쪽 숲으로': { to: 'forest', hours: 3 },
+      '엘프의 마을': { to: 'elf_village', hours: 4 },
+      '폐허된 성당': { to: 'ruined_cathedral', hours: 5 },
+    },
+    encounters: ['goblin', 'bigSpider', 'orc', 'forest_troll', 'dark_monk', 'forest_sprite'], encounterRate: 0.7, requireLv: 3,
+  },
+  elf_village: {
+    name: '이루릴의 마을', desc: '나무 위에 지어진 엘프 마을. 하프엘프 이루릴의 전설.',
+    npcs: ['장로 엘리안', '상인 실바나', '수색자 카일란'],
+    shop: true, inn: true,
+    exits: {
+      '깊은 숲으로': { to: 'deep_forest', hours: 4 },
+      '용의 산맥': { to: 'dragon_mt', hours: 8 },
+      '드워프 광산': { to: 'dwarf_mine', hours: 6 },
+    },
+    requireLv: 5,
+  },
+  road_south: {
+    name: '남쪽 가도', desc: '수도로 이어지는 길. 산적이 자주 출몰한다.',
+    exits: {
+      '헬턴트로': { to: 'heltant', hours: 2 },
+      '수도 바이서스': { to: 'capital', hours: 5 },
+      '황금사슬 도적굴': { to: 'golden_chain', hours: 4 },
+    },
+    encounters: ['bandit', 'wolf', 'poor_thief', 'bandit_archer'], encounterRate: 0.5,
+  },
+  capital: {
+    name: '수도 바이서스', desc: '왕성 아래 번화한 수도. 모든 길드가 있다.',
+    npcs: ['왕궁 마법사 핸드레이크', '기사단장 리프크네', '대주교 유스티스', '암살자 길드장', '궁사 길드장 이무스', '대장장이 마스터 흐랄'],
+    shop: true, inn: true, quest: true,
+    exits: {
+      '남쪽 가도로': { to: 'road_south', hours: 5 },
+      '왕궁': { to: 'palace', hours: 1 },
+      '카밀카르 가는 길': { to: 'carmilkar', hours: 12 },
+      '핸드레이크의 탑': { to: 'handrake_tower', hours: 4 },
+      '자이펀 지하감옥': { to: 'zaipun_dungeon', hours: 5 },
+    },
+    requireLv: 4,
+  },
+  palace: {
+    name: '바이서스 왕궁', desc: '대리석 기둥과 푸른 깃발이 휘날린다.',
+    npcs: ['국왕 다케온', '재상'],
+    exits: { '수도로': { to: 'capital', hours: 1 } },
+    requireLv: 8,
+  },
+  dragon_mt: {
+    name: '용의 산맥', desc: '북방의 거대한 산맥. 아무르타트가 잠든 곳.',
+    exits: {
+      '엘프 마을로': { to: 'elf_village', hours: 8 },
+      '용의 둥지': { to: 'dragon_lair', hours: 3 },
+      '얼음 황무지': { to: 'ice_wastes', hours: 8 },
+    },
+    encounters: ['orc', 'troll', 'wyvern', 'mountain_orc', 'griffin', 'stone_drake'], encounterRate: 0.8, requireLv: 10,
+  },
+  dragon_lair: {
+    name: '아무르타트의 둥지', desc: '폐허가 된 고대 요새. 용의 숨결이 느껴진다.',
+    exits: { '산맥으로': { to: 'dragon_mt', hours: 3 } },
+    boss: 'amurtat', requireLv: 15,
+  },
+
+  // ═══════════ 신규 사냥터 ═══════════
+  periwinkle: {
+    name: '페리윙클 평원', desc: '광활한 푸른 들판. 야생동물이 풍성하다.',
+    exits: { '헬턴트로': { to: 'heltant', hours: 3 } },
+    encounters: ['plain_wolf', 'wild_orc', 'hyena'], encounterRate: 0.6, requireLv: 4,
+  },
+  golden_chain: {
+    name: '황금사슬 도적굴', desc: '바이서스 최대 도적단의 본거지. 깊은 동굴.',
+    exits: { '남쪽 가도로': { to: 'road_south', hours: 4 } },
+    encounters: ['bandit', 'thug', 'rogue_mage', 'bandit_archer', 'poor_thief'], encounterRate: 0.85,
+    boss: 'gold_chain_boss', requireLv: 12,
+  },
+  ruined_cathedral: {
+    name: '폐허된 성당', desc: '잊혀진 신을 모셨던 성당. 망령이 떠돈다.',
+    exits: { '깊은 숲으로': { to: 'deep_forest', hours: 5 } },
+    encounters: ['zombie', 'skeleton', 'wraith', 'cursed_nun', 'bone_knight', 'dark_monk'], encounterRate: 0.85,
+    boss: 'dark_priest_lord', requireLv: 18,
+  },
+  dwarf_mine: {
+    name: '잊혀진 드워프 광산', desc: '오래전 버려진 광산. 보석이 남아있다.',
+    exits: { '엘프 마을로': { to: 'elf_village', hours: 6 } },
+    encounters: ['kobold', 'cave_spider', 'rock_golem', 'mine_rat', 'crystal_golem'], encounterRate: 0.75,
+    boss: 'mine_golem', requireLv: 20,
+  },
+  carmilkar: {
+    name: '카밀카르', desc: '남부의 향신료 무역 도시. 사막의 관문.',
+    npcs: ['상인 길드장 자히드', '검투사 챔피언 라크살'],
+    shop: true, inn: true,
+    exits: {
+      '수도로': { to: 'capital', hours: 12 },
+      '비스럴 사막': { to: 'bisrul_desert', hours: 6 },
+      '활화산 칼라일': { to: 'volcano_kaleil', hours: 10 },
+    },
+    requireLv: 25,
+  },
+  bisrul_desert: {
+    name: '비스럴 사막', desc: '끝없는 모래의 바다. 다림 부족이 도사린다.',
+    exits: { '카밀카르로': { to: 'carmilkar', hours: 6 } },
+    encounters: ['sand_lizard', 'sand_worm', 'mummy', 'darim_warrior', 'desert_wolf', 'scorpion', 'desert_ghost', 'efreet'], encounterRate: 0.7,
+    boss: 'sand_pharaoh', requireLv: 30,
+  },
+  handrake_tower: {
+    name: '핸드레이크의 탑', desc: '바이서스 최고 마법사의 탑. 미궁이 펼쳐진다.',
+    npcs: ['수련생 알라잔'],
+    exits: { '수도로': { to: 'capital', hours: 4 } },
+    encounters: ['arcane_construct', 'mage_apprentice', 'mirror_image', 'book_spirit', 'orb_guardian'], encounterRate: 0.6,
+    boss: 'tower_guardian', requireLv: 25,
+    treasure: 'dragon_wisdom_1',
+  },
+  zaipun_dungeon: {
+    name: '자이펀 지하감옥', desc: '왕국이 봉인한 악마들이 갇힌 감옥.',
+    exits: { '수도로': { to: 'capital', hours: 5 } },
+    encounters: ['imp', 'demon', 'hellhound', 'hellbat', 'torturer', 'succubus', 'hell_knight'], encounterRate: 0.85,
+    boss: 'demon_lord', requireLv: 35,
+  },
+  ice_wastes: {
+    name: '얼음 황무지', desc: '북극의 얼음 평원. 화이트 드래곤의 영역.',
+    exits: { '용의 산맥으로': { to: 'dragon_mt', hours: 8 } },
+    encounters: ['ice_wolf', 'frost_giant', 'white_wyrmling', 'snow_leopard', 'ice_turtle', 'frost_serpent'], encounterRate: 0.8,
+    boss: 'frost_dragon', requireLv: 40,
+  },
+  volcano_kaleil: {
+    name: '활화산 칼라일', desc: '용암이 끓는 화산. 화염 정령의 본거지.',
+    exits: {
+      '카밀카르로': { to: 'carmilkar', hours: 10 },
+      '폴라리스 신전': { to: 'polaris_shrine', hours: 24 },
+    },
+    encounters: ['lava_slime', 'fire_elemental', 'salamander', 'magma_giant', 'fire_bat', 'magma_elem'], encounterRate: 0.85,
+    boss: 'volcanic_drake', requireLv: 45,
+  },
+  pendragon_peak: {
+    name: '백룡의 봉우리', desc: '눈으로 뒤덮인 절대고독의 봉우리. 백룡 펜드래곤이 둥지를 튼다.',
+    exits: { '얼음 황무지로': { to: 'ice_wastes', hours: 16 } },
+    encounters: ['elder_drake', 'ancient_guard', 'voidling'], encounterRate: 0.6,
+    boss: 'pendragon', requireLv: 80,
+  },
+
+  // ═══════════ 4대 드래곤 영지 (최종 컨텐츠) ═══════════
+  pendragon_peak: {
+    name: '백룡의 봉우리', desc: '눈으로 뒤덮인 절대고독의 봉우리. 백룡 펜드래곤이 둥지를 튼다.',
+    exits: { '얼음 황무지로': { to: 'ice_wastes', hours: 16 } },
+    boss: 'pendragon', requireLv: 80,
+  },
+  kashirk_canyon: {
+    name: '대지룡의 협곡', desc: '대륙을 가르는 거대 협곡. 카쉬르크가 잠들어 있다.',
+    exits: { '비스럴 사막으로': { to: 'bisrul_desert', hours: 20 } },
+    boss: 'kashirk', requireLv: 110,
+  },
+  polaris_shrine: {
+    name: '폴라리스 신전', desc: '하늘에 떠 있는 신전. 신룡 폴라리스가 세계를 지켜본다.\n전설의 끝. 그를 쓰러뜨린 자는 신이 된다.',
+    exits: { '활화산으로': { to: 'volcano_kaleil', hours: 24 } },
+    boss: 'polaris', requireLv: 150,
+  },
+  // 기존 dragon_lair에서 펜드래곤 봉우리 입구 추가
+};
+// 추가 출구: dragon_lair → ice_wastes 외 다른 경로 필요
+LOCATIONS.ice_wastes.exits['백룡의 봉우리'] = { to: 'pendragon_peak', hours: 16 };
+LOCATIONS.bisrul_desert.exits['대지룡의 협곡'] = { to: 'kashirk_canyon', hours: 20 };
+
+// ───── 몬스터 ─────
+// drops: [[itemKey, 확률(0~1)]]
+const MONSTERS = {
+  // ─── Lv 1~10 (헬턴트~숲) ───
+  slime:     { name: '슬라임',     hp: 20, atk: 5, def: 1, exp: 8, gold: 5, tags: [], drops: [['potion_s', 0.10]] },
+  wolf:      { name: '늑대',       hp: 35, atk: 9, def: 3, exp: 15, gold: 10, tags: ['beast'], drops: [['potion_s', 0.15]] },
+  goblin:    { name: '고블린',     hp: 45, atk: 11, def: 4, exp: 22, gold: 18, tags: [], drops: [['dagger', 0.05], ['potion_s', 0.20]] },
+  bigSpider: { name: '거대거미',   hp: 55, atk: 13, def: 5, exp: 28, gold: 15, tags: ['beast'], drops: [['ether_s', 0.15]] },
+  bandit:    { name: '산적',       hp: 70, atk: 16, def: 7, exp: 40, gold: 50, tags: [], drops: [['shortsword', 0.05], ['potion_m', 0.10]] },
+  // ─── 페리윙클 평원 (Lv 4~10) ───
+  plain_wolf:{ name: '평원늑대',  hp: 50, atk: 14, def: 5, exp: 30, gold: 20, tags: ['beast'], drops: [['potion_s', 0.20]] },
+  wild_orc:  { name: '들오크',     hp: 80, atk: 18, def: 8, exp: 55, gold: 40, tags: [], drops: [['handaxe', 0.10], ['leather', 0.08]] },
+  hyena:     { name: '하이에나',  hp: 60, atk: 16, def: 6, exp: 40, gold: 25, tags: ['beast'], drops: [['potion_s', 0.25]] },
+  // ─── 황금사슬 도적굴 (Lv 12~18) ───
+  thug:      { name: '깡패',       hp: 110, atk: 22, def: 12, exp: 80, gold: 70, tags: [], drops: [['mace', 0.10], ['potion_m', 0.15]] },
+  rogue_mage:{ name: '도적 마법사', hp: 95, atk: 14, def: 8, exp: 90, gold: 90, tags: ['mag'], drops: [['ether_m', 0.20], ['wand', 0.08]] },
+  gold_chain_boss: { name: '두목 지스카', hp: 600, atk: 45, def: 22, exp: 500, gold: 800, tags: [], boss: true,
+    drops: [['cutlass', 0.40], ['gold_chain_amulet', 0.25], ['potion_l', 0.5]] },
+  // ─── 폐허된 성당 (Lv 18~25) ───
+  zombie:    { name: '좀비',       hp: 150, atk: 25, def: 12, exp: 100, gold: 30, tags: ['undead'], drops: [['potion_m', 0.20]] },
+  skeleton:  { name: '스켈레톤',   hp: 130, atk: 28, def: 14, exp: 110, gold: 40, tags: ['undead'], drops: [['rusty_blade', 0.10], ['bonebow', 0.08]] },
+  wraith:    { name: '망령',       hp: 180, atk: 35, def: 18, exp: 180, gold: 60, tags: ['undead', 'mag'], drops: [['ether_m', 0.25]] },
+  dark_priest_lord: { name: '흑사제장 칼릭스', hp: 1100, atk: 75, def: 35, exp: 1200, gold: 1500, tags: ['undead', 'mag'], boss: true,
+    drops: [['cursed_staff', 0.40], ['shadow_robe', 0.30], ['potion_l', 0.5]] },
+  // ─── 드워프 광산 (Lv 18~25) ───
+  kobold:    { name: '코볼트',     hp: 100, atk: 22, def: 10, exp: 75, gold: 50, tags: [], drops: [['shortsword', 0.10]] },
+  cave_spider:{ name: '동굴거미',  hp: 140, atk: 30, def: 14, exp: 120, gold: 60, tags: ['beast'], drops: [['ether_m', 0.20]] },
+  rock_golem:{ name: '록 골렘',    hp: 350, atk: 40, def: 35, exp: 350, gold: 150, tags: [], drops: [['warhammer', 0.15], ['plate', 0.10]] },
+  mine_golem:{ name: '광산 골렘 군주', hp: 1500, atk: 80, def: 60, exp: 1800, gold: 2000, tags: [], boss: true,
+    drops: [['mithril_axe', 0.40], ['mithril', 0.30], ['ring_def', 0.6]] },
+  // ─── 핸드레이크의 탑 (Lv 25~30) ───
+  arcane_construct: { name: '비전 골렘', hp: 280, atk: 35, def: 25, exp: 320, gold: 200, tags: ['mag'], drops: [['archstaff', 0.05], ['ether_l', 0.15]] },
+  mage_apprentice:  { name: '수련생', hp: 200, atk: 30, def: 20, exp: 280, gold: 180, tags: ['mag'], drops: [['ether_m', 0.30], ['robe', 0.10]] },
+  mirror_image:     { name: '거울상', hp: 240, atk: 38, def: 22, exp: 300, gold: 100, tags: ['mag'], drops: [['ether_l', 0.20]] },
+  tower_guardian:   { name: '탑의 수호자', hp: 2200, atk: 110, def: 60, exp: 4000, gold: 5000, tags: ['mag'], boss: true,
+    drops: [['handrake_staff', 0.30], ['dragon_wisdom_1', 1.0], ['ether_l', 0.5]] },
+  // ─── 비스럴 사막 (Lv 30~40) ───
+  sand_lizard:    { name: '모래 도마뱀', hp: 250, atk: 42, def: 22, exp: 300, gold: 150, tags: ['beast'], drops: [['scimitar', 0.10]] },
+  sand_worm:      { name: '사막 벌레',   hp: 400, atk: 55, def: 30, exp: 500, gold: 250, tags: ['beast'], drops: [['potion_l', 0.25]] },
+  mummy:          { name: '미라',         hp: 320, atk: 48, def: 28, exp: 420, gold: 400, tags: ['undead'], drops: [['ether_l', 0.20], ['ring_atk', 0.15]] },
+  darim_warrior:  { name: '다림 전사',   hp: 380, atk: 60, def: 32, exp: 480, gold: 350, tags: [], drops: [['scimitar', 0.20], ['darim_robe', 0.10]] },
+  sand_pharaoh:   { name: '사막의 파라오', hp: 3000, atk: 130, def: 70, exp: 6000, gold: 8000, tags: ['undead', 'mag'], boss: true,
+    drops: [['pharaoh_blade', 0.40], ['dragonring', 0.30], ['potion_x', 0.6]] },
+  // ─── 자이펀 지하감옥 (Lv 35~45) ───
+  imp:        { name: '임프',     hp: 280, atk: 50, def: 25, exp: 350, gold: 200, tags: [], drops: [['ether_l', 0.20]] },
+  demon:      { name: '데몬',     hp: 600, atk: 75, def: 40, exp: 850, gold: 600, tags: [], drops: [['demonsword', 0.15], ['potion_l', 0.30]] },
+  hellhound:  { name: '지옥견',   hp: 450, atk: 70, def: 35, exp: 700, gold: 400, tags: ['beast'], drops: [['potion_l', 0.30]] },
+  demon_lord: { name: '데몬 영주', hp: 4000, atk: 150, def: 80, exp: 8000, gold: 10000, tags: [], boss: true,
+    drops: [['demonblade_lord', 0.40], ['demon_armor', 0.30], ['elixir', 0.6]] },
+  // ─── 얼음 황무지 (Lv 40~50) ───
+  ice_wolf:      { name: '빙폭',         hp: 500, atk: 80, def: 40, exp: 800, gold: 350, tags: ['beast'], drops: [['potion_l', 0.30]] },
+  frost_giant:   { name: '서리 거인',   hp: 900, atk: 110, def: 55, exp: 1500, gold: 700, tags: [], drops: [['frost_hammer', 0.20], ['mithril', 0.15]] },
+  white_wyrmling:{ name: '백룡 새끼',   hp: 700, atk: 100, def: 50, exp: 1300, gold: 800, tags: ['dragon'], drops: [['ice_lance', 0.25]] },
+  frost_dragon:  { name: '프로스트 드래곤', hp: 5500, atk: 170, def: 90, exp: 12000, gold: 15000, tags: ['dragon', 'boss'], boss: true,
+    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['elixir', 1.0]] },
+  // ─── 활화산 칼라일 (Lv 45~55) ───
+  lava_slime:     { name: '용암 슬라임', hp: 600, atk: 90, def: 50, exp: 900, gold: 400, tags: [], drops: [['potion_l', 0.30]] },
+  fire_elemental: { name: '화염 정령',   hp: 800, atk: 120, def: 55, exp: 1500, gold: 800, tags: ['mag'], drops: [['flameblade', 0.20], ['ether_l', 0.30]] },
+  salamander:     { name: '샐러맨더',     hp: 1000, atk: 130, def: 60, exp: 1800, gold: 900, tags: ['beast'], drops: [['flame_robe', 0.15]] },
+  volcanic_drake: { name: '화산 드레이크', hp: 6500, atk: 180, def: 95, exp: 15000, gold: 18000, tags: ['dragon', 'boss'], boss: true,
+    drops: [['flameblade_legendary', 0.40], ['dragonring', 0.30], ['elixir', 1.0]] },
+  // ─── 신규 다수 (레벨별 다양화) ───
+  // 초반 (Lv 1~8)
+  hare:           { name: '산토끼',    hp: 15, atk: 3, def: 0, exp: 5, gold: 3, tags: ['beast'], drops: [['potion_s', 0.15]] },
+  forest_bee:     { name: '숲의 벌',    hp: 18, atk: 6, def: 1, exp: 8, gold: 4, tags: ['beast'] },
+  giant_beetle:   { name: '거대 딱정벌레', hp: 40, atk: 8, def: 6, exp: 20, gold: 10, tags: ['beast'] },
+  forest_sprite:  { name: '숲의 요정',  hp: 30, atk: 10, def: 3, exp: 18, gold: 20, tags: ['mag'], drops: [['ether_s', 0.20]] },
+  poor_thief:     { name: '잔챙이 도적', hp: 50, atk: 12, def: 5, exp: 25, gold: 30, tags: [] },
+  deer:           { name: '사슴',       hp: 45, atk: 7, def: 4, exp: 22, gold: 15, tags: ['beast'] },
+  // 중반 (Lv 10~25)
+  forest_troll:   { name: '숲 트롤',    hp: 160, atk: 26, def: 12, exp: 120, gold: 90, tags: [] },
+  bandit_archer:  { name: '산적 궁수',  hp: 85, atk: 22, def: 7, exp: 60, gold: 65, tags: [], drops: [['bow', 0.08]] },
+  dark_monk:      { name: '흑의 수도사', hp: 130, atk: 28, def: 14, exp: 140, gold: 100, tags: [], drops: [['robe', 0.05]] },
+  cursed_nun:     { name: '저주받은 수녀', hp: 110, atk: 26, def: 10, exp: 130, gold: 80, tags: ['undead','mag'] },
+  bone_knight:    { name: '뼈 기사',    hp: 260, atk: 38, def: 22, exp: 280, gold: 180, tags: ['undead'], drops: [['rusty_blade', 0.15]] },
+  mine_rat:       { name: '광산 쥐',    hp: 90, atk: 20, def: 6, exp: 70, gold: 35, tags: ['beast'] },
+  crystal_golem:  { name: '수정 골렘',  hp: 420, atk: 48, def: 40, exp: 400, gold: 250, tags: [], drops: [['ring_def', 0.08]] },
+  // 고원/산악 (Lv 15~30)
+  mountain_orc:   { name: '산악 오크',  hp: 200, atk: 34, def: 16, exp: 200, gold: 160, tags: [] },
+  griffin:        { name: '그리핀',     hp: 380, atk: 50, def: 24, exp: 480, gold: 350, tags: ['beast'] },
+  stone_drake:    { name: '돌 드레이크', hp: 320, atk: 48, def: 34, exp: 420, gold: 300, tags: ['dragon'] },
+  // 탑/마법 (Lv 20~35)
+  book_spirit:    { name: '책 정령',    hp: 220, atk: 32, def: 18, exp: 260, gold: 180, tags: ['mag'], drops: [['ether_m', 0.30]] },
+  orb_guardian:   { name: '수정구 수호자', hp: 340, atk: 42, def: 30, exp: 380, gold: 240, tags: ['mag'], drops: [['staff', 0.10]] },
+  // 사막 (Lv 30~45)
+  desert_wolf:    { name: '사막 늑대',  hp: 280, atk: 48, def: 24, exp: 360, gold: 160, tags: ['beast'] },
+  scorpion:       { name: '거대 전갈',  hp: 340, atk: 52, def: 28, exp: 420, gold: 200, tags: ['beast'] },
+  desert_ghost:   { name: '사막 유령',  hp: 300, atk: 55, def: 26, exp: 460, gold: 250, tags: ['undead','mag'] },
+  efreet:         { name: '이프리트',   hp: 520, atk: 70, def: 36, exp: 700, gold: 450, tags: ['mag'], drops: [['flameblade', 0.08]] },
+  // 감옥/악마 (Lv 35~50)
+  hellbat:        { name: '지옥 박쥐',  hp: 260, atk: 50, def: 22, exp: 340, gold: 180, tags: ['beast'] },
+  torturer:       { name: '고문술사',   hp: 480, atk: 72, def: 34, exp: 650, gold: 500, tags: [] },
+  succubus:       { name: '서큐버스',   hp: 420, atk: 68, def: 28, exp: 620, gold: 450, tags: ['mag'] },
+  hell_knight:    { name: '지옥 기사',  hp: 700, atk: 95, def: 55, exp: 1100, gold: 800, tags: [], drops: [['demonsword', 0.12]] },
+  // 얼음 (Lv 40~55)
+  snow_leopard:   { name: '설표',       hp: 520, atk: 88, def: 42, exp: 900, gold: 400, tags: ['beast'] },
+  ice_turtle:     { name: '얼음 거북',  hp: 850, atk: 70, def: 80, exp: 1200, gold: 600, tags: ['beast'], drops: [['ice_lance', 0.10]] },
+  frost_serpent:  { name: '서리 뱀',    hp: 600, atk: 100, def: 45, exp: 1100, gold: 500, tags: ['beast','mag'] },
+  // 화산 (Lv 45~60)
+  magma_giant:    { name: '용암 거인',  hp: 1200, atk: 140, def: 70, exp: 2000, gold: 1000, tags: [], drops: [['warhammer', 0.10]] },
+  fire_bat:       { name: '불의 박쥐',  hp: 450, atk: 95, def: 40, exp: 850, gold: 350, tags: ['beast'] },
+  magma_elem:     { name: '마그마 정령', hp: 700, atk: 115, def: 55, exp: 1400, gold: 700, tags: ['mag'], drops: [['flameblade', 0.15]] },
+  // 고급 (Lv 55~80)
+  elder_drake:    { name: '장년 드레이크', hp: 1800, atk: 160, def: 90, exp: 3500, gold: 2000, tags: ['dragon'] },
+  ancient_guard:  { name: '고대 수호자', hp: 2200, atk: 180, def: 110, exp: 4500, gold: 2500, tags: [] },
+  voidling:       { name: '공허의 자손', hp: 1500, atk: 200, def: 80, exp: 4000, gold: 2200, tags: ['mag'] },
+
+  // ─── 기존 ───
+  orc:       { name: '오크 전사', hp: 100, atk: 22, def: 10, exp: 70, gold: 60, tags: [], drops: [['handaxe', 0.10]] },
+  troll:     { name: '트롤',       hp: 180, atk: 28, def: 15, exp: 140, gold: 120, tags: [], drops: [['warhammer', 0.10]] },
+  wyvern:    { name: '와이번',     hp: 250, atk: 35, def: 18, exp: 220, gold: 180, tags: ['dragon'], drops: [['ice_lance', 0.05]] },
+  dark_knight:{ name: '흑기사',    hp: 500, atk: 60, def: 40, exp: 600, gold: 400, tags: [], drops: [['longsword', 0.15], ['plate', 0.10]] },
+  chimera:   { name: '키메라',     hp: 700, atk: 75, def: 45, exp: 900, gold: 600, tags: ['beast'], drops: [['las', 0.05]] },
+  lich_boss: { name: '고대 리치', hp: 1500, atk: 100, def: 50, exp: 2000, gold: 1200, tags: ['undead', 'mag'], boss: true,
+    drops: [['cursed_staff', 0.40], ['amulet', 0.30]] },
+  amurtat:   { name: '아무르타트', hp: 8000, atk: 250, def: 120, exp: 30000, gold: 15000, tags: ['dragon', 'boss'], boss: true,
+    drops: [['scale_of_amurtat', 1.0], ['dragonring', 1.0], ['excalibur', 0.3]] },
+
+  // ═══ 4대 드래곤 (최종 컨텐츠) ═══
+  // 능력치 차이 압도적. Lv 80~150+ 대상.
+  pendragon: { name: '백룡 펜드래곤', hp: 25000, atk: 450, def: 200, exp: 100000, gold: 50000,
+    tags: ['dragon', 'boss', 'mag'], boss: true,
+    drops: [['fang_of_pendragon', 1.0], ['heart_of_polaris', 0.05]] },
+  kashirk:   { name: '대지룡 카쉬르크', hp: 50000, atk: 700, def: 350, exp: 300000, gold: 150000,
+    tags: ['dragon', 'boss'], boss: true,
+    drops: [['claw_of_kashirk', 1.0], ['dragonring', 1.0], ['mithril', 1.0]] },
+  polaris:   { name: '신룡 폴라리스', hp: 150000, atk: 1500, def: 700, exp: 1000000, gold: 500000,
+    tags: ['dragon', 'boss', 'god'], boss: true,
+    drops: [['heart_of_polaris', 1.0], ['dragonring', 1.0]] },
+};
+
+// ───── 아이템 ─────
+const ITEMS = {
+  // 소비
+  potion_s:  { name: '하급 회복약', type: 'use', effect: 'heal', amount: 50, price: 30, desc: 'HP 50 회복.' },
+  potion_m:  { name: '중급 회복약', type: 'use', effect: 'heal', amount: 150, price: 100, desc: 'HP 150 회복.' },
+  potion_l:  { name: '상급 회복약', type: 'use', effect: 'heal', amount: 400, price: 300, desc: 'HP 400 회복.' },
+  potion_x:  { name: '고급 회복약', type: 'use', effect: 'heal', amount: 1000, price: 900, desc: 'HP 1000 회복.' },
+  ether_s:   { name: '하급 마나약', type: 'use', effect: 'mp', amount: 30, price: 40, desc: 'MP 30 회복.' },
+  ether_m:   { name: '중급 마나약', type: 'use', effect: 'mp', amount: 100, price: 150, desc: 'MP 100 회복.' },
+  ether_l:   { name: '상급 마나약', type: 'use', effect: 'mp', amount: 250, price: 400, desc: 'MP 250 회복.' },
+  elixir:    { name: '엘릭서',     type: 'use', effect: 'full', price: 1000, desc: 'HP/MP 전부 회복.' },
+  // 무기 (모든 무기에 스탯 보너스)
+  dagger:    { name: '단검',         type: 'weapon', atk: 4, dex: 1, price: 50, desc: '가벼운 단검 (DEX+1).' },
+  sword:     { name: '강철검',       type: 'weapon', atk: 10, str: 2, price: 300, desc: '표준검 (STR+2).' },
+  longsword: { name: '장검',         type: 'weapon', atk: 22, str: 4, vit: 2, price: 1500, desc: '양손 장검 (STR+4 VIT+2).' },
+  warhammer: { name: '전쟁망치',     type: 'weapon', atk: 18, str: 5, price: 900, desc: '드워프제 (STR+5).' },
+  claymore:  { name: '클레이모어',   type: 'weapon', atk: 35, str: 6, vit: 3, price: 3500, desc: '거대 양손검 (STR+6 VIT+3).' },
+  bow:       { name: '장궁',         type: 'weapon', atk: 12, dex: 3, price: 400, desc: '장궁 (DEX+3).' },
+  elfbow:    { name: '엘프 장궁',   type: 'weapon', atk: 28, dex: 6, luk: 2, price: 2500, desc: '엘프제 명궁 (DEX+6 LUK+2).' },
+  staff:     { name: '마법지팡이',   type: 'weapon', atk: 6, mag: 8, int: 3, price: 500, desc: '마력 (INT+3).' },
+  archstaff: { name: '대마법 지팡이', type: 'weapon', atk: 10, mag: 22, int: 6, wis: 3, price: 3000, desc: '비전 (INT+6 WIS+3).' },
+  excalibur: { name: '엑스칼리버',   type: 'weapon', atk: 60, str: 12, vit: 8, luk: 5, price: 20000, desc: '전설의 성검 (STR+12 VIT+8 LUK+5).' },
+  // 방어구
+  cloth:     { name: '천갑옷',   type: 'armor', def: 3, price: 60, desc: '헐렁한 천옷.' },
+  leather:   { name: '가죽갑옷', type: 'armor', def: 8, price: 250, desc: '무두질 가죽.' },
+  chain:     { name: '쇠사슬갑옷', type: 'armor', def: 14, price: 700, desc: '링메일.' },
+  plate:     { name: '판금갑옷', type: 'armor', def: 22, price: 1800, desc: '완전판금.' },
+  mithril:   { name: '미스릴 갑옷', type: 'armor', def: 40, price: 6000, desc: '드워프 최고작.' },
+  robe:      { name: '마법 로브', type: 'armor', def: 10, mag: 10, price: 1000, desc: '마력의 로브.' },
+  // 악세
+  ring_atk:  { name: '힘의 반지', type: 'acc', atk: 5, price: 400, desc: '공격 +5.' },
+  ring_def:  { name: '수호의 반지', type: 'acc', def: 5, price: 400, desc: '방어 +5.' },
+  amulet:    { name: '현자의 목걸이', type: 'acc', mag: 8, mp: 30, price: 800, desc: '마력 +8, MP+30.' },
+  dragonring:{ name: '용린의 반지', type: 'acc', atk: 15, def: 15, mag: 15, price: 10000, desc: '용의 비늘 반지.' },
+
+  // ═══ 신규 무기 (스탯 보너스 포함) ═══
+  shortsword:    { name: '단단검',         type: 'weapon', atk: 8, dex: 2, price: 180, desc: '튼튼한 단검 (DEX+2).' },
+  handaxe:       { name: '손도끼',         type: 'weapon', atk: 12, str: 3, price: 350, desc: '한손 도끼 (STR+3).' },
+  mace:          { name: '메이스',         type: 'weapon', atk: 14, str: 3, vit: 1, price: 500, desc: '둔기 (STR+3 VIT+1).' },
+  wand:          { name: '나무 지팡이',     type: 'weapon', atk: 3, mag: 5, int: 2, price: 200, desc: '입문 (INT+2).' },
+  rusty_blade:   { name: '녹슨 검',         type: 'weapon', atk: 7, price: 80, desc: '오래된 검.' },
+  bonebow:       { name: '뼈 활',           type: 'weapon', atk: 14, dex: 4, price: 600, desc: '죽은 자의 활 (DEX+4).' },
+  cutlass:       { name: '컷틀러스',         type: 'weapon', atk: 20, dex: 5, luk: 3, price: 1200, desc: '도적의 검 (DEX+5 LUK+3).' },
+  scimitar:      { name: '시미터',          type: 'weapon', atk: 26, dex: 6, str: 3, price: 2200, desc: '사막 검 (DEX+6 STR+3).' },
+  flameblade:    { name: '화염검',          type: 'weapon', atk: 32, mag: 12, str: 5, int: 4, price: 5000, desc: '화염 (STR+5 INT+4).' },
+  ice_lance:     { name: '얼음창',          type: 'weapon', atk: 30, mag: 10, dex: 6, int: 4, price: 4500, desc: '빙창 (DEX+6 INT+4).' },
+  cursed_staff:  { name: '저주받은 지팡이', type: 'weapon', atk: 12, mag: 30, int: 8, wis: -3, price: 5500, desc: '암흑 (INT+8 WIS-3).' },
+  mithril_axe:   { name: '미스릴 도끼',     type: 'weapon', atk: 38, str: 8, vit: 4, price: 6000, desc: '드워프 명품 (STR+8 VIT+4).' },
+  demonsword:    { name: '데몬 소드',       type: 'weapon', atk: 42, str: 10, vit: -3, price: 7000, desc: '악마의 검 (STR+10 VIT-3).' },
+  frost_hammer:  { name: '서리 망치',       type: 'weapon', atk: 45, mag: 10, str: 9, vit: 4, price: 8000, desc: '얼음 (STR+9 VIT+4).' },
+  pharaoh_blade: { name: '파라오의 검',     type: 'weapon', atk: 50, mag: 15, str: 8, int: 8, cha: 5, price: 12000, desc: '고대 (STR+8 INT+8 CHA+5).' },
+  // ═══ 전설 무기 (보스 드랍) ═══
+  las:                   { name: '라스(Las)',           type: 'weapon', atk: 55, str: 15, vit: 10, price: 0, restricted: ['warrior'], desc: '광전사의 명검 (STR+15 VIT+10).' },
+  handrake_staff:        { name: '핸드레이크의 지팡이', type: 'weapon', atk: 25, mag: 60, int: 20, wis: 15, price: 0, restricted: ['mage'], desc: '대마법사 유산 (INT+20 WIS+15).' },
+  flameblade_legendary:  { name: '진(眞) 화염검',       type: 'weapon', atk: 70, mag: 20, str: 12, int: 10, price: 0, desc: '드레이크의 정수 (STR+12 INT+10).' },
+  ice_lance_legendary:   { name: '진(眞) 얼음창',       type: 'weapon', atk: 65, mag: 25, dex: 14, int: 10, price: 0, desc: '백룡의 송곳니 (DEX+14 INT+10).' },
+  demonblade_lord:       { name: '데몬 군주의 검',     type: 'weapon', atk: 80, str: 18, vit: -5, price: 0, desc: '악마 군주 (STR+18 VIT-5).' },
+
+  // ═══ 4대 드래곤 무기 (최종 컨텐츠 — 드래곤 드랍) ═══
+  // proc 효과 포함 — 전투 시 확률 발동
+  scale_of_amurtat:    { name: '아무르타트의 검',  type: 'weapon', atk: 150, str: 30, vit: 20, mag: 30, price: 0,
+    proc: { burn_on_hit: 0.20 }, desc: '북부 용왕의 비늘. 20% 확률로 화상 부여.' },
+  fang_of_pendragon:   { name: '펜드래곤의 송곳니', type: 'weapon', atk: 140, mag: 80, int: 35, dex: 20, price: 0,
+    proc: { freeze_on_hit: 0.15 }, desc: '백룡의 송곳니. 15% 확률로 빙결.' },
+  claw_of_kashirk:     { name: '카쉬르크의 발톱',   type: 'weapon', atk: 180, str: 35, dex: 25, price: 0,
+    proc: { double_dmg: 0.15 }, desc: '대지룡의 발톱. 15% 확률로 피해 2배.' },
+  heart_of_polaris:    { name: '폴라리스의 심장',   type: 'weapon', atk: 100, mag: 120, int: 50, wis: 40, cha: 20, price: 0,
+    proc: { mp_cost_down: 0.30, extra_turn_chance: 0.10 }, desc: '신룡 폴라리스의 심장. MP -30%, 10% 추가 턴.' },
+
+  // ═══ 신규 방어구 ═══
+  shadow_robe:   { name: '그림자 로브', type: 'armor', def: 18, mag: 18, price: 3500, desc: '암흑 사제의 로브.' },
+  darim_robe:    { name: '다림 부족 옷', type: 'armor', def: 25, price: 3000, desc: '사막 전사 의복.' },
+  demon_armor:   { name: '데몬 갑옷',  type: 'armor', def: 50, price: 12000, desc: '악마의 비늘.' },
+  flame_robe:    { name: '화염 로브',  type: 'armor', def: 28, mag: 25, price: 6500, desc: '화염 저항.' },
+
+  // ═══ 신규 악세 ═══
+  gold_chain_amulet: { name: '황금사슬 목걸이', type: 'acc', atk: 8, luk: 5, price: 2000, desc: '도적단 두목의 보물.' },
+
+  // ═══ 전설 악세 (proc 효과 포함) ═══
+  // proc 효과 키:
+  //   dodge_chance: 확률로 피해 완전 무시
+  //   reflect_chance: 받은 피해 반사
+  //   dmg_reduce: 받는 피해 고정 감소%
+  //   mag_resist: 마법 피해 감소%
+  //   crit_bonus: 치명타 확률 +
+  //   double_dmg: 가한 피해 확률 2배
+  //   extra_turn_chance: 턴 종료 후 추가 턴 확률
+  //   auto_revive: 치명상 시 1회 부활 (세트)
+  //   hp_regen: 매턴 HP %
+  //   mp_regen: 매턴 MP 고정
+  //   mp_cost_down: 스킬 MP 소모%
+  //   gold_mul: 골드 획득 배율
+  //   drop_mul: 드랍률 배율
+  //   burn_on_hit / freeze_on_hit / poison_on_hit: 공격 적중 시 부여 확률
+
+  amulet_void:      { name: '무효의 부적',    type: 'acc', def: 15, price: 25000, requireLv: 30,
+    proc: { dodge_chance: 0.12 }, desc: '12% 확률로 적 공격을 완전히 무시.' },
+  ring_reflect:     { name: '반사의 반지',    type: 'acc', def: 20, mag: 15, price: 30000, requireLv: 35,
+    proc: { reflect_chance: 0.15 }, desc: '15% 확률로 받은 피해의 80% 반사.' },
+  phoenix_feather:  { name: '불사조의 깃털',  type: 'acc', hp: 200, vit: 10, price: 80000, requireLv: 50,
+    proc: { auto_revive: true, hp_regen: 0.05 }, desc: '전투 중 1회 부활 + 매턴 HP 5% 회복.' },
+  dragon_earring:   { name: '용신의 귀걸이',  type: 'acc', atk: 25, def: 20, mag: 20, price: 60000, requireLv: 50,
+    proc: { double_dmg: 0.12 }, desc: '12% 확률로 내 공격 피해 2배.' },
+  sage_bracelet:    { name: '현자의 팔찌',    type: 'acc', mag: 40, int: 15, wis: 15, price: 70000, requireLv: 50,
+    proc: { mp_regen: 15, mp_cost_down: 0.20 }, desc: '매턴 MP+15, 스킬 MP 소모 -20%.' },
+  holy_pendant:     { name: '신성한 펜던트',  type: 'acc', def: 25, vit: 15, wis: 15, price: 50000, requireLv: 40,
+    proc: { hp_regen: 0.08, mag_resist: 0.25 }, desc: '매턴 HP 8%, 마법 저항 +25%.' },
+  assassin_mark:    { name: '암살자의 징표',  type: 'acc', atk: 30, dex: 20, luk: 15, price: 75000, requireLv: 55,
+    proc: { crit_bonus: 0.25 }, desc: '치명타 확률 +25%.' },
+  eye_of_fate:      { name: '운명의 눈',      type: 'acc', luk: 30, cha: 15, price: 90000, requireLv: 60,
+    proc: { drop_mul: 1.5, gold_mul: 1.5, crit_bonus: 0.10 }, desc: '골드·드랍 +50%, 치명 +10%.' },
+  hourglass:        { name: '시간의 모래시계', type: 'acc', int: 20, wis: 20, cha: 10, price: 120000, requireLv: 70,
+    proc: { extra_turn_chance: 0.15 }, desc: '매턴 15% 확률로 추가 턴.' },
+  royal_scepter:    { name: '왕의 홀',        type: 'acc', str: 20, dex: 20, int: 20, vit: 20, wis: 20, luk: 20, cha: 20, price: 300000, requireLv: 80,
+    proc: { dmg_reduce: 0.15, gold_mul: 2.0 }, desc: '전 스탯 +20, 피해 -15%, 골드 2배.' },
+  raja_sigil:       { name: '라자의 징표',    type: 'acc', str: 40, dex: 40, int: 40, vit: 40, wis: 40, luk: 40, cha: 40, price: 1000000, requireLv: 120,
+    proc: { dodge_chance: 0.10, double_dmg: 0.20, extra_turn_chance: 0.10, auto_revive: true, hp_regen: 0.05, mp_regen: 20 }, desc: '드래곤 라자의 징표. 모든 proc.' },
+
+  // ═══ 전설 방어구 ═══
+  dragon_scale_armor: { name: '용비늘 갑옷',  type: 'armor', def: 80, hp: 500, vit: 20, price: 100000, requireLv: 60,
+    proc: { dmg_reduce: 0.10, mag_resist: 0.15 }, desc: '피해 -10%, 마법저항 +15%.' },
+  archmage_robe:      { name: '대현자의 대로브', type: 'armor', def: 40, mag: 60, int: 20, wis: 20, mp: 200, price: 80000, requireLv: 55,
+    proc: { mp_cost_down: 0.25, mag_resist: 0.30 }, desc: 'MP 소모 -25%, 마법저항 +30%.' },
+  emperor_plate:      { name: '제왕의 갑주',   type: 'armor', def: 120, hp: 800, str: 15, vit: 15, price: 200000, requireLv: 75,
+    proc: { dmg_reduce: 0.20, reflect_chance: 0.10 }, desc: '피해 -20%, 반사 10%.' },
+  invincible_armor:   { name: '불멸 성갑',     type: 'armor', def: 200, hp: 1500, str: 25, vit: 25, wis: 25, price: 500000, requireLv: 100,
+    proc: { dmg_reduce: 0.30, auto_revive: true, hp_regen: 0.05 }, desc: '피해 -30%, 부활, HP회복.' },
+
+  // ═══ 전설 무기 추가 ═══
+  time_greatsword:   { name: '시간의 대검',    type: 'weapon', atk: 200, str: 25, dex: 20, price: 180000, requireLv: 80,
+    proc: { extra_turn_chance: 0.12, double_dmg: 0.10 }, desc: '12% 추가턴, 10% 2배 피해.' },
+  eternal_bow:       { name: '영원의 활',      type: 'weapon', atk: 220, dex: 35, int: 15, price: 200000, requireLv: 85,
+    proc: { crit_bonus: 0.30 }, desc: '치명 +30%.' },
+  god_staff:         { name: '만신의 지팡이',  type: 'weapon', atk: 80, mag: 250, int: 40, wis: 40, price: 250000, requireLv: 90,
+    proc: { mp_cost_down: 0.40 }, desc: 'MP 소모 -40%.' },
+  oblivion_blade:    { name: '망각의 검',      type: 'weapon', atk: 280, str: 40, vit: -10, price: 300000, requireLv: 95,
+    proc: { double_dmg: 0.25, burn_on_hit: 0.20 }, desc: '25% 2배, 20% 화상.' },
+
+  // ═══ 퀘스트 아이템 ═══
+  dragon_wisdom_1: { name: '용의 지혜 (火)', type: 'quest', price: 0, desc: '현자 전직 재료. 핸드레이크의 탑.' },
+  dragon_wisdom_2: { name: '용의 지혜 (氷)', type: 'quest', price: 0, desc: '현자 전직 재료. 얼음 황무지.' },
+  dragon_wisdom_3: { name: '용의 지혜 (雷)', type: 'quest', price: 0, desc: '현자 전직 재료. 활화산.' },
+};
+
+// 상점 구성
+const SHOP_ITEMS = {
+  heltant:     ['potion_s', 'ether_s', 'dagger', 'shortsword', 'wand', 'cloth', 'leather'],
+  elf_village: ['potion_m', 'ether_m', 'bow', 'elfbow', 'leather', 'staff', 'ring_atk', 'ring_def'],
+  capital:     ['potion_m', 'potion_l', 'potion_x', 'ether_m', 'ether_l', 'sword', 'longsword', 'warhammer', 'claymore', 'mace', 'handaxe', 'archstaff', 'robe', 'chain', 'plate', 'mithril', 'amulet', 'elixir', 'dragonring'],
+  carmilkar:   ['potion_l', 'potion_x', 'ether_l', 'scimitar', 'flameblade', 'darim_robe', 'mithril', 'elixir', 'amulet', 'dragonring'],
+};
+
+// ═══════════ 무역 시스템 (도시간 시세차익) ═══════════
+// 각 도시의 상품은 단일 시세. 싸게 살 수 있는 도시에서 사서
+// 비싼 도시로 이동해 팔아 차익을 낸다.
+// 실제 거래: 매입 시 price 지불, 매도 시 price × 0.92 수령 (8% 거래세)
+const TRADE_GOODS = {
+  salt:        { name: '소금',         desc: '북해의 결정.' },
+  wine:        { name: '와인',         desc: '바이서스 명품.' },
+  spice:       { name: '향신료',       desc: '카밀카르 향료.' },
+  silk:        { name: '비단',         desc: '동방의 비단.' },
+  herb:        { name: '약초',         desc: '평원의 약초.' },
+  elf_string:  { name: '엘프 활시위',  desc: '신비한 섬유.' },
+  mithril_ore: { name: '미스릴 광석',  desc: '드워프 광산.' },
+  dragon_scale:{ name: '용 비늘',      desc: '드래곤 비늘 조각.' },
+};
+
+// 도시별 단일 시세. 판매 시 이 가격의 92% 수령.
+const TRADE_PRICES = {
+  heltant: {
+    salt:        60,   // 내륙이라 소금 비쌈
+    wine:        140,  // 수요 많음
+    spice:       200,  // 먼 곳에서 와서 매우 비쌈
+    herb:        35,
+  },
+  elf_village: {
+    elf_string:  70,   // 특산 — 저렴
+    herb:        18,   // 엘프 숲에 흔함
+    silk:        380,  // 먼 곳 수입 — 비쌈
+    wine:        110,
+  },
+  capital: {
+    salt:        45,
+    wine:        55,   // 명품 생산지 — 저렴
+    spice:       110,
+    silk:        240,
+    elf_string:  180,
+    mithril_ore: 260,
+    dragon_scale:1500,
+  },
+  carmilkar: {
+    salt:        25,   // 해안 도시 — 가장 쌈
+    wine:        95,
+    spice:       55,   // 특산
+    silk:        150,  // 실크로드 종점
+    herb:        55,
+  },
+  dwarf_mine: {
+    mithril_ore: 85,   // 산지 — 가장 쌈
+    salt:        52,
+    herb:        28,
+  },
+  dragon_lair: {
+    dragon_scale: 550, // 채집지 — 가장 쌈
+  },
+};
+
+// 매입/매도 수수료 비율
+const TRADE_BUY_MARKUP = 1.00;   // 매입은 시세 100%
+const TRADE_SELL_TAX   = 0.92;   // 매도는 시세 92% (8% 세금/수수료)
+
+// ═══════════ 상인 스킬 (누적 거래 이익으로 해금) ═══════════
+// 모든 직업이 거래 가능하지만, 상인계(line='merchant')는 이익 XP 3배
+// 누적 이익(state.totalTradeProfit) 도달 시 해금
+const TRADE_SKILLS = [
+  { id: 'ts_appraise',   name: '대금 감정',     reqProfit: 3000,   type: 'passive',
+    desc: '이익 +5%, 상점 -3%', effect: { tradeMul: 1.05, shopDisc: 0.03 } },
+  { id: 'ts_caravan',    name: '캐러밴',        reqProfit: 10000,  type: 'passive',
+    desc: '이동 중 도적 조우 -50%', effect: { safeTravel: 0.5 } },
+  { id: 'ts_market_sense', name: '시장 감각',    reqProfit: 30000,  type: 'passive',
+    desc: '이익 +15%', effect: { tradeMul: 1.15 } },
+  { id: 'ts_logistics',  name: '대륙 물류왕',    reqProfit: 80000,  type: 'passive',
+    desc: '골드 획득 +20%', effect: { goldMul: 1.20 } },
+  { id: 'ts_wealth_eye', name: '부의 눈',       reqProfit: 200000, type: 'passive',
+    desc: '이익 +30%, 드랍 +20%', effect: { tradeMul: 1.30, dropMul: 1.20 } },
+  { id: 'ts_gold_standard', name: '금본위',      reqProfit: 500000, type: 'passive',
+    desc: '이익 +50%, 상점 -15%', effect: { tradeMul: 1.50, shopDisc: 0.15 } },
+  { id: 'ts_midas_heir', name: '미다스의 후예',  reqProfit: 1500000, type: 'passive',
+    desc: '이익·골드 2배', effect: { tradeMul: 2.00, goldMul: 2.00 } },
+];
+
+// 퀘스트
+const QUESTS = {
+  q1: { id: 'q1', name: '늑대 퇴치', giver: '촌장', location: 'heltant',
+    desc: '마을 위협 늑대 3마리 처치.', target: { monster: 'wolf', count: 3 },
+    reward: { exp: 50, gold: 100, item: 'potion_s' }, requireLv: 1 },
+  q2: { id: 'q2', name: '고블린 소굴', giver: '촌장', location: 'heltant',
+    desc: '북쪽 숲 고블린 5마리.', target: { monster: 'goblin', count: 5 },
+    reward: { exp: 200, gold: 300, item: 'leather' }, requireLv: 3 },
+  q3: { id: 'q3', name: '수도의 부름', giver: '기사단장 리프크네', location: 'capital',
+    desc: '산적 3명 박멸.', target: { monster: 'bandit', count: 3 },
+    reward: { exp: 500, gold: 800, item: 'sword' }, requireLv: 4 },
+  q4: { id: 'q4', name: '엘프의 전언', giver: '장로 엘리안', location: 'elf_village',
+    desc: '와이번 2마리 처치.', target: { monster: 'wyvern', count: 2 },
+    reward: { exp: 2000, gold: 1500, item: 'amulet' }, requireLv: 10 },
+  q5: { id: 'q5', name: '드래곤 라자의 운명', giver: '국왕 다케온', location: 'palace',
+    desc: '아무르타트를 쓰러뜨려라.', target: { monster: 'amurtat', count: 1 },
+    reward: { exp: 20000, gold: 10000, item: 'excalibur' }, requireLv: 40 },
+};
+
+// ───── 전직 시스템 ─────
+// 각 2차/3차 직업은 JOBS에 from/reqLv/cost가 있다.
+// 여기선 누가(NPC) 어디서 전직시켜주는지 매핑.
+const ADVANCE_NPC = {
+  // 2차
+  knight:       { loc: 'capital',     npc: '기사단장 리프크네' },
+  gladiator:    { loc: 'capital',     npc: '기사단장 리프크네' },
+  elementalist: { loc: 'capital',     npc: '왕궁 마법사 핸드레이크' },
+  necromancer:  { loc: 'deep_forest', npc: '암흑 사제 모르간' },
+  paladin:      { loc: 'capital',     npc: '대주교 유스티스' },
+  bishop:       { loc: 'capital',     npc: '대주교 유스티스' },
+  assassin:     { loc: 'capital',     npc: '암살자 길드장' },
+  outlaw:       { loc: 'heltant',     npc: '술집주인 메이린' },
+  sniper:       { loc: 'capital',     npc: '궁사 길드장 이무스' },
+  tracker:      { loc: 'elf_village', npc: '수색자 카일란' },
+  // 3차
+  crusader:    { loc: 'capital',     npc: '기사단장 리프크네' },
+  dragoon:     { loc: 'capital',     npc: '기사단장 리프크네' },
+  berserker:   { loc: 'dragon_mt',   npc: '(야생 광전사)' },
+  monk:        { loc: 'elf_village', npc: '(방랑 무투가)' },
+  archmage:    { loc: 'capital',     npc: '왕궁 마법사 핸드레이크' },
+  sage:        { loc: 'capital',     npc: '왕궁 마법사 핸드레이크' },
+  lich:        { loc: 'deep_forest', npc: '암흑 사제 모르간' },
+  soulbinder:  { loc: 'deep_forest', npc: '암흑 사제 모르간' },
+  avatar:      { loc: 'capital',     npc: '대주교 유스티스' },
+  inquisitor:  { loc: 'capital',     npc: '대주교 유스티스' },
+  archbishop:  { loc: 'capital',     npc: '대주교 유스티스' },
+  warpriest:   { loc: 'capital',     npc: '대주교 유스티스' },
+  shadow:      { loc: 'capital',     npc: '암살자 길드장' },
+  nightblade:  { loc: 'capital',     npc: '암살자 길드장' },
+  swashbuckler:{ loc: 'capital',     npc: '암살자 길드장' },
+  adventurer:  { loc: 'heltant',     npc: '술집주인 메이린' },
+  dragonslayer:{ loc: 'capital',     npc: '궁사 길드장 이무스' },
+  magicshot:   { loc: 'capital',     npc: '궁사 길드장 이무스' },
+  druid:       { loc: 'elf_village', npc: '장로 엘리안' },
+  rangerking:  { loc: 'elf_village', npc: '장로 엘리안' },
+  // 상인 계열
+  trader:        { loc: 'capital',   npc: '상인 길드장 자히드' },
+  informer:      { loc: 'capital',   npc: '상인 길드장 자히드' },
+  guildmaster:   { loc: 'carmilkar', npc: '상인 길드장 자히드' },
+  goldking:      { loc: 'carmilkar', npc: '상인 길드장 자히드' },
+  shadowmerchant:{ loc: 'capital',   npc: '암살자 길드장' },
+  informerking:  { loc: 'capital',   npc: '왕궁 마법사 핸드레이크' },
+};
+
+// 기본 스탯 (레벨 1)
+const BASE_STATS = { str: 10, dex: 10, int: 10, vit: 10, wis: 10, luk: 10, cha: 10 };
+
+// ═══════════ 돈 쓰는 컨텐츠 ═══════════
+
+// 저택 (도시별, 매일 임대료 수익 + 무료 휴식)
+const PROPERTIES = {
+  heltant_house:    { name: '헬턴트 오두막',     loc: 'heltant',   price: 5000,   income: 10,  desc: '아담한 오두막.' },
+  capital_mansion:  { name: '바이서스 저택',     loc: 'capital',   price: 50000,  income: 200, desc: '귀족가의 저택.' },
+  carmilkar_villa:  { name: '카밀카르 빌라',     loc: 'carmilkar', price: 80000,  income: 350, desc: '사막의 휴양지.' },
+  elf_treehouse:    { name: '엘프 나무집',       loc: 'elf_village', price: 30000, income: 100, desc: '높이 솟은 거목의 집.' },
+};
+
+// 용병 (영구 동료 — 매 전투에 추가 행동)
+// 고급 용병은 특수 지역에서만 고용 가능 + 레벨 제한
+const MERCENARIES = {
+  knight_merc:   { name: '용병 기사 발렌',   hire: 'capital',        price: 15000,  requireLv: 15, atk: 80,   desc: '왕립 용병단의 검사. 매턴 적 1명 공격.' },
+  mage_merc:     { name: '용병 마법사 셀라', hire: 'capital',        price: 20000,  requireLv: 20, mag: 100,  desc: '왕궁 마법사 길드 출신. 매턴 전체 공격.' },
+  priest_merc:   { name: '용병 사제 일라이', hire: 'capital',        price: 25000,  requireLv: 25, heal: 150, desc: '교회 파견 사제. 매턴 HP 회복.' },
+  elite_warrior: { name: '엘리트 검사 카로스', hire: 'carmilkar',    price: 80000,  requireLv: 50, atk: 250,  desc: '투기장 챔피언. 카밀카르 투기장에서만.' },
+  archmage_merc: { name: '대마법사 비라크', hire: 'handrake_tower', price: 150000, requireLv: 70, mag: 500,  desc: '핸드레이크의 제자. 탑에서만 만날 수 있다.' },
+};
+
+// 무기/방어구 강화 (대장장이 흐랄 — 수도)
+// +1 ~ +10 단계, 단계별 ATK/DEF 증가, 비용 증가, 실패율 증가 (실패 시 -1)
+const ENHANCEMENT = {
+  costs:    [500, 1500, 3000, 6000, 12000, 25000, 50000, 100000, 250000, 500000],
+  bonuses:  [0.20, 0.45, 0.75, 1.10, 1.50, 2.00, 2.60, 3.30, 4.10, 5.00], // 누적 배수
+  failRate: [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.75, 0.80, 0.85],
+};
+
+// 도박장 (수도)
+const CASINO = {
+  loc: 'capital',
+  games: {
+    coin:    { name: '동전 던지기', odds: 0.50, payout: 2,   desc: '50% 확률 ×2.' },
+    dice:    { name: '주사위',      odds: 0.30, payout: 3,   desc: '30% ×3.' },
+    slot:    { name: '슬롯',        odds: 0.10, payout: 10,  desc: '10% ×10.' },
+    jackpot: { name: '잭팟',        odds: 0.01, payout: 100, desc: '1% ×100.' },
+  },
+};
+
+// 고급 요리 (각 1회만 먹을 수 있음 — 영구 +스탯)
+const GOURMET = {
+  loc: 'carmilkar',  // 카밀카르 미식 거리
+  dishes: {
+    spice_curry:   { name: '향신료 카레',       price: 3000,   bonus: { vit: 3 }, desc: 'VIT +3 영구.' },
+    dragon_steak:  { name: '드래곤 스테이크',   price: 15000,  bonus: { str: 5, vit: 3 }, desc: 'STR+5 VIT+3.' },
+    elf_wine:      { name: '엘프 와인 숙성주',  price: 8000,   bonus: { int: 4, wis: 2 }, desc: 'INT+4 WIS+2.' },
+    pixie_cake:    { name: '요정 케이크',       price: 12000,  bonus: { dex: 4, luk: 3 }, desc: 'DEX+4 LUK+3.' },
+    sage_tea:      { name: '현자의 차',         price: 25000,  bonus: { wis: 8 }, desc: 'WIS+8.' },
+    royal_feast:   { name: '왕실 만찬',         price: 50000,  bonus: { cha: 10, luk: 5 }, desc: 'CHA+10 LUK+5.' },
+    god_ambrosia:  { name: '신들의 음식',       price: 200000, bonus: { str:5, dex:5, int:5, vit:5, wis:5, luk:5, cha:5 }, desc: '전 스탯 +5 (1회 한정).' },
+  },
+};
+
+// 작위 구매 (왕궁)
+const TITLES = {
+  loc: 'palace',
+  ranks: {
+    knight:  { name: '기사작',  price: 50000,    bonus: { str: 5, vit: 5 } },
+    baron:   { name: '남작',    price: 200000,   bonus: { cha: 10, str: 5, vit: 5 } },
+    viscount:{ name: '자작',    price: 500000,   bonus: { cha: 15, all: 5 } },
+    earl:    { name: '백작',    price: 1500000,  bonus: { cha: 25, all: 10 } },
+    duke:    { name: '공작',    price: 5000000,  bonus: { cha: 40, all: 20 } },
+  },
+};
+
+// 드래곤 펫 — 전설 생물이므로 각자 어울리는 특별 지역에서만 입수
+const PETS = {
+  baby_dragon: { name: '새끼 드래곤', loc: 'dragon_lair', price: 200000, requireLv: 50,
+    requireBoss: 'amurtat',
+    skill: { name: '용의 숨결', atk: 200, desc: '매턴 적에게 화염 200 데미지.' },
+    desc: '아무르타트가 남긴 알에서 부화. 용의 둥지에서만.' },
+  phoenix:     { name: '불사조',     loc: 'volcano_kaleil', price: 500000, requireLv: 70,
+    requireBoss: 'volcanic_drake',
+    skill: { name: '재생의 깃털', heal: 100, desc: '매턴 HP 100 회복 + 죽으면 1회 부활.' },
+    desc: '활화산 깊은 곳에 산다. 용암 속에서 거듭 태어나는 불멸의 새.' },
+  shadow_wolf: { name: '그림자 늑대', loc: 'zaipun_dungeon', price: 350000, requireLv: 60,
+    requireBoss: 'demon_lord',
+    skill: { name: '그림자 추격', atk: 350, desc: '매턴 단일 적 강타.' },
+    desc: '자이펀 지하감옥의 어둠에서 솟아난 짐승.' },
+};
+
+// 마차 (1회용 - 다음 이동 시간 50%)
+const CARRIAGE_PRICE = 1500;
+
+// ═══════════ 수련장 (집중수련 전용) ═══════════
+// 실제 시간(분) 단위로 진행. 진행 중엔 다른 행동 불가, 중단 가능.
+// 완료 시: XP = 레벨 × 분 × 수련장배율
+// 10% 확률로 "깨달음 이벤트" → XP 2배 + 플레이버 텍스트
+// 각 수련장마다 고유 특성
+// effects:
+//   eventMul: 깨달음 이벤트 확률 배율
+//   lineBonus: 특정 직업 계열 XP 배율 (종족 전용 직업도 포함)
+//   raceBonus: 특정 종족 XP 배율
+//   trainTimeMul: 누적 수련시간 카운팅 배율 (스킬 해금 가속)
+//   restoreMp: 수련 후 MP 완전 회복
+//   restoreAll: HP/MP 완전 회복
+//   titleMul: 작위 보유 시 추가 XP 배율
+//   statBoost: 주스탯에 XP 비례 영구 훈련점 (매우 소량)
+//   skillChance: 끝날 때 수련 스킬 즉시 해금 (확률)
+const TRAINING_HALLS = {
+  heltant: {
+    name: '마을 수련장', mul: 1.0,
+    desc: '마을 사람들이 체력 단련하는 곳. 초심자 친화적.',
+    trait: '깨달음 이벤트 확률 2배',
+    effects: { eventMul: 2.0 },
+  },
+  elf_village: {
+    name: '엘프의 수련소', mul: 1.3,
+    desc: '정령이 흐른다. 엘프·마법 계열의 성지.',
+    trait: '엘프/마법 계열 +40%, 수련 후 MP 완전 회복',
+    effects: {
+      raceBonus: { elf: 1.4 },
+      lineBonus: { mage: 1.4, spiritcaller: 1.6, priest: 1.2 },
+      restoreMp: true,
+    },
+  },
+  capital: {
+    name: '바이서스 수련장', mul: 1.5,
+    desc: '왕립 수련장. 체계적 커리큘럼.',
+    trait: '누적 수련시간 +50% (스킬 해금 가속)',
+    effects: { trainTimeMul: 1.5 },
+  },
+  carmilkar: {
+    name: '투기장', mul: 1.6,
+    desc: '실전의 땅. 검투사의 성지.',
+    trait: '전사·도적·궁사 계열 +40%, 엘리트급 실전 XP',
+    effects: {
+      lineBonus: { warrior: 1.4, thief: 1.4, ranger: 1.4, hero: 1.3, titan: 1.3 },
+    },
+  },
+  palace: {
+    name: '왕궁 비밀 수련실', mul: 2.0,
+    desc: '왕실 전용. 최고위 수련.',
+    trait: '작위 보유 시 +70%, 모든 계열 소폭 보너스',
+    effects: { titleMul: 1.7 },
+  },
+  polaris_shrine: {
+    name: '신의 수련장', mul: 3.0,
+    desc: '폴라리스의 공간. 신화급.',
+    trait: '이벤트 3배 + 10% 확률로 수련 스킬 즉시 해금',
+    effects: { eventMul: 3.0, skillChance: 0.10, restoreAll: true },
+  },
+  dragon_lair: {
+    name: '용의 둥지', mul: 2.5,
+    desc: '아무르타트의 영역. 용의 기운.',
+    trait: '드래곤라자 계열 +100%, 전 능력 소량 훈련',
+    effects: {
+      lineBonus: { raja: 2.0, mage: 1.3, warrior: 1.3 },
+      statBoost: 0.005, // 수련 완료 시 주스탯에 매우 소량 영구 +
+    },
+  },
+};
+
+// 수련 옵션 — 실제 시간 + 게임 내 경과 일수
+// name = 수련 이름, min = 실제 분, days = 게임 내 경과 일수
+const TRAIN_DURATIONS = [
+  { min: 5,   name: '가벼운 명상',   days: 2   },
+  { min: 15,  name: '기초 수련',     days: 5   },
+  { min: 30,  name: '심화 수련',     days: 10  },
+  { min: 60,  name: '집중 수련',     days: 20  },
+  { min: 120, name: '극한 수련',     days: 40  },
+];
+
+// ═══════════ 탐험 랜덤 이벤트 ═══════════
+// explore 시 전투 대신 간혹 이벤트 발생. 선택에 따라 다른 결과.
+// { id, name, desc, options: [{ label, effect, result }] }
+// effect 종류:
+//   gold(+/-), xp(+), hp(+/-), mp(+/-), item(key), heal, mp_full, mp_zero,
+//   random_item, stat_up(key), random_event(다시 주사위)
+const RANDOM_EVENTS = [
+  {
+    id: 'chest', name: '보물 상자',
+    desc: '길가에 낡은 상자가 놓여있다. 함정일지도 모른다.',
+    options: [
+      { label: '조심스럽게 연다 (DEX 판정)', check: 'dex', dc: 12, success: { gold: 300, xp: 100, msg: '상자를 열자 금화가 쏟아진다.' }, fail: { hp: -30, msg: '독침! HP -30' } },
+      { label: '망치로 부순다', result: { gold: 150, msg: '대충 부숴서 반 정도 챙겼다.' } },
+      { label: '그냥 간다', result: { msg: '의심은 오래 사는 비결이다.' } },
+    ],
+  },
+  {
+    id: 'merchant_rare', name: '수상한 상인',
+    desc: '복면을 쓴 상인이 희귀품을 팔고 있다.',
+    options: [
+      { label: '상급 회복약 사기 (300G)', result: { gold: -300, item: 'potion_l', msg: '상자를 받았다.' }, requireGold: 300 },
+      { label: '중급 마나약 사기 (150G)', result: { gold: -150, item: 'ether_m', msg: '물병을 받았다.' }, requireGold: 150 },
+      { label: '그냥 간다', result: {} },
+    ],
+  },
+  {
+    id: 'spring', name: '신비한 샘',
+    desc: '맑은 샘이 있다. 물에서 은은한 빛이 난다.',
+    options: [
+      { label: '물을 마신다', result: { heal: true, mp_full: true, msg: 'HP/MP가 완전 회복되었다!' } },
+      { label: '얼굴을 씻는다', result: { random_stat: 1, msg: '어쩐지 정신이 맑아진다.' } },
+      { label: '그냥 간다', result: {} },
+    ],
+  },
+  {
+    id: 'beggar', name: '거지',
+    desc: '낡은 옷차림의 노인이 동전을 구걸한다.',
+    options: [
+      { label: '100G를 준다', result: { gold: -100, karma: 1, msg: '노인이 축복을 빈다. 언젠가 보답이 있을지도.' }, requireGold: 100 },
+      { label: '10G를 준다', result: { gold: -10, msg: '노인이 고마워한다.' }, requireGold: 10 },
+      { label: '무시한다', result: { msg: '갈 길을 간다.' } },
+    ],
+  },
+  {
+    id: 'riddle', name: '수수께끼',
+    desc: '어느 스핑크스가 나타나 수수께끼를 낸다.\n"아침엔 네 발, 낮엔 두 발, 밤엔 세 발인 것은?"',
+    options: [
+      { label: '용', result: { hp: -50, msg: '"틀렸다." 숨결이 그대를 휩쓴다.' } },
+      { label: '사람', result: { xp: 500, gold: 200, msg: '"지혜롭다." 스핑크스가 보상을 남기고 사라진다.' } },
+      { label: '드래곤', result: { hp: -50, msg: '"틀렸다." 발톱이 스친다.' } },
+    ],
+  },
+  {
+    id: 'traveler', name: '길 잃은 여행자',
+    desc: '수레가 망가져 곤란해하는 여행자가 있다.',
+    options: [
+      { label: '돕는다 (시간 -1h)', result: { xp: 150, item: 'potion_m', msg: '감사의 인사와 함께 회복약을 받았다.', time: 1 } },
+      { label: '지나친다', result: {} },
+    ],
+  },
+  {
+    id: 'ambush', name: '매복!',
+    desc: '갑자기 산적들이 나타났다!',
+    options: [
+      { label: '싸운다', result: { fight: ['bandit', 'bandit'] } },
+      { label: '도망친다 (DEX)', check: 'dex', dc: 14, success: { msg: '간신히 도망쳤다.' }, fail: { hp: -40, gold: -50, msg: '당했다! HP -40, 골드 -50' } },
+      { label: '돈을 준다', result: { gold: -200, msg: '돈을 주고 빠져나왔다.' }, requireGold: 200 },
+    ],
+  },
+  {
+    id: 'altar', name: '고대 제단',
+    desc: '잊혀진 신을 모신 제단이다. 향을 피우면 축복을 받을 수 있다.',
+    options: [
+      { label: '기도한다 (500G 기부)', result: { gold: -500, stat_up_rand: 2, msg: '신의 축복을 받았다!' }, requireGold: 500 },
+      { label: '관찰만 한다', result: { xp: 50, msg: '흥미로운 조각을 발견했다.' } },
+    ],
+  },
+  {
+    id: 'hunter', name: '사냥꾼',
+    desc: '늙은 사냥꾼이 이야기를 건다. "요즘 젊은이들은..."',
+    options: [
+      { label: '이야기를 듣는다 (시간 -1h)', result: { xp: 300, msg: '옛이야기에서 지혜를 얻었다.', time: 1 } },
+      { label: '술 한 잔 산다 (50G)', result: { gold: -50, xp: 500, item: 'potion_s', msg: '사냥꾼이 오랜 포션을 나눠주었다.', time: 1 }, requireGold: 50 },
+      { label: '인사만 하고 간다', result: {} },
+    ],
+  },
+  {
+    id: 'cursed_statue', name: '저주받은 석상',
+    desc: '이상한 기운이 감도는 석상이다.',
+    options: [
+      { label: '만진다', result: { random_curse: true, msg: '손이 얼어붙는 느낌. 운 시험.' } },
+      { label: '기도한다', result: { hp: -20, xp: 200, msg: '석상이 그대의 피를 원한다.' } },
+      { label: '파괴한다 (STR)', check: 'str', dc: 15, success: { gold: 300, xp: 300, msg: '석상이 부서지며 보석이 떨어진다!' }, fail: { hp: -50, msg: '반동에 다쳤다.' } },
+    ],
+  },
+];
+
+// ═══════════ 던전 ═══════════
+// 다층 구조. 층마다 몬스터 조우, 3·6층에 중간보스, 마지막 층에 최종보스.
+// 깊이 들어갈수록 보상 증가. 언제든 탈출 가능.
+const DUNGEONS = {
+  abandoned_mine: {
+    name: '버려진 광산', loc: 'dwarf_mine', minLv: 18, floors: 10,
+    monsters: ['kobold', 'cave_spider', 'rock_golem'],
+    miniBossFloors: { 3: 'rock_golem', 6: 'chimera' },
+    finalBoss: 'mine_golem',
+    clearReward: { gold: 5000, item: 'mithril_axe', xp: 3000 },
+    desc: '고대 드워프가 만든 미로. 깊은 곳엔 대장군 골렘이 있다.',
+  },
+  cursed_tower: {
+    name: '저주받은 탑', loc: 'ruined_cathedral', minLv: 25, floors: 12,
+    monsters: ['zombie', 'skeleton', 'wraith'],
+    miniBossFloors: { 3: 'wraith', 6: 'dark_knight', 9: 'lich_boss' },
+    finalBoss: 'dark_priest_lord',
+    clearReward: { gold: 12000, item: 'cursed_staff', xp: 8000 },
+    desc: '망령들이 울부짖는 무너진 성당의 지하.',
+  },
+  demon_prison: {
+    name: '자이펀 악마 감옥', loc: 'zaipun_dungeon', minLv: 35, floors: 15,
+    monsters: ['imp', 'hellhound', 'demon'],
+    miniBossFloors: { 5: 'demon', 10: 'chimera' },
+    finalBoss: 'demon_lord',
+    clearReward: { gold: 30000, item: 'demonblade_lord', xp: 25000 },
+    desc: '왕국이 봉인한 악마들의 탑. 내려갈수록 어둠이 짙어진다.',
+  },
+  frost_spire: {
+    name: '빙마의 첨탑', loc: 'ice_wastes', minLv: 50, floors: 20,
+    monsters: ['ice_wolf', 'frost_giant', 'white_wyrmling'],
+    miniBossFloors: { 5: 'frost_giant', 10: 'white_wyrmling', 15: 'wyvern' },
+    finalBoss: 'frost_dragon',
+    clearReward: { gold: 80000, item: 'ice_lance_legendary', xp: 80000 },
+    desc: '얼음으로 이뤄진 탑. 정상엔 프로스트 드래곤이 잠든다.',
+  },
+  god_trial: {
+    name: '신의 시련', loc: 'polaris_shrine', minLv: 120, floors: 50,
+    monsters: ['wyvern', 'demon', 'frost_giant', 'hellhound'],
+    miniBossFloors: { 10: 'dark_knight', 20: 'demon_lord', 30: 'frost_dragon', 40: 'pendragon' },
+    finalBoss: 'polaris',
+    clearReward: { gold: 500000, item: 'heart_of_polaris', xp: 1000000 },
+    desc: '신룡이 시험하는 50층 미궁. 끝엔 폴라리스.',
+  },
+};
+
+// ═══════════ 일일 도전 ═══════════
+// 매일(게임 내 Day 기준) 리셋. 3개 중 원하는 거 도전.
+// 완료 시 보상 수령. 7일 연속 완료 시 큰 보너스.
+const DAILY_TEMPLATES = [
+  { id: 'kill', name: '사냥꾼', descF: n => `몬스터 ${n}마리 처치`, target: { kill: 15 }, reward: { gold: 800, xp: 1500 } },
+  { id: 'kill_much', name: '학살자', descF: n => `몬스터 ${n}마리 처치`, target: { kill: 40 }, reward: { gold: 2000, xp: 5000 } },
+  { id: 'explore', name: '탐험가', descF: n => `${n}번 탐험`, target: { explore: 20 }, reward: { gold: 600, xp: 1000 } },
+  { id: 'spend', name: '소비왕', descF: n => `${n}G 소비`, target: { spend: 3000 }, reward: { gold: 500, xp: 2000 } },
+  { id: 'train', name: '수련생', descF: n => `수련장에서 ${n}분 수련`, target: { train_min: 30 }, reward: { gold: 1000, xp: 3000 } },
+  { id: 'trade_profit', name: '무역상', descF: n => `무역으로 ${n}G 이익`, target: { trade_profit: 500 }, reward: { gold: 1500, xp: 2000 } },
+  { id: 'travel', name: '여행자', descF: n => `${n}번 이동`, target: { travel: 5 }, reward: { gold: 400, xp: 800 } },
+  { id: 'boss', name: '보스헌터', descF: n => `보스 ${n}마리 처치`, target: { boss: 1 }, reward: { gold: 5000, xp: 10000, item: 'elixir' } },
+];
+
+// ═══════════ 수련 스킬 (누적 수련 시간으로 해금) ═══════════
+// type: 'passive' = 영구 효과 / 'active' = 전투 스킬
+// reqMin: 누적 수련 시간(분) 충족 시 습득
+const TRAIN_SKILLS = [
+  // ─ 초반 passive ─
+  { id: 'tr_iron_body',    name: '강철의 몸',   reqMin: 30,   type: 'passive', effect: { hpBonus: 0.10 },    desc: 'HP 최대치 +10%.' },
+  { id: 'tr_focused_mind', name: '집중된 정신', reqMin: 60,   type: 'passive', effect: { mpBonus: 0.15 },    desc: 'MP 최대치 +15%.' },
+  { id: 'tr_swift',        name: '민첩 수련',   reqMin: 120,  type: 'passive', effect: { evaBonus: 0.05 },   desc: '회피 +5%.' },
+
+  // ─ 중반 active & passive ─
+  { id: 'tr_chi_burst',    name: '기공 폭발',   reqMin: 180,  type: 'active',
+    skill: { id: 'tr_chi_burst', name: '기공 폭발', lv: 1, mp: 30, power: 2.8, type: 'mag_aoe', desc: '수련의 기를 폭발시킨다.' },
+    desc: '전투 스킬: 광역 마법 공격 (MP 30).' },
+  { id: 'tr_inner_peace',  name: '내면의 평화', reqMin: 300,  type: 'passive', effect: { hpRegenT: 0.03, mpRegenT: 3 }, desc: '매턴 HP 3%, MP 3 회복.' },
+  { id: 'tr_fury_punch',   name: '분노의 주먹', reqMin: 480,  type: 'active',
+    skill: { id: 'tr_fury_punch', name: '분노의 주먹', lv: 1, mp: 40, power: 3.5, type: 'phys', effect: 'crit_plus', desc: '수련의 분노를 담은 일격.' },
+    desc: '전투 스킬: 치명 확률 증가 강타 (MP 40).' },
+  { id: 'tr_battle_sense', name: '전투 직감',   reqMin: 600,  type: 'passive', effect: { critBonus: 0.08 }, desc: '치명타 확률 +8%.' },
+
+  // ─ 후반 ─
+  { id: 'tr_mindseye',     name: '심안',       reqMin: 900,  type: 'active',
+    skill: { id: 'tr_mindseye', name: '심안', lv: 1, mp: 50, type: 'buff', effect: 'lock_on', turns: 3, desc: '3턴간 확정 치명타.' },
+    desc: '전투 스킬: 3턴 확정 치명 (MP 50).' },
+  { id: 'tr_awakening',    name: '깨달음',     reqMin: 1200, type: 'passive', effect: { expMul: 1.15, goldMul: 1.15 }, desc: 'EXP·골드 +15%.' },
+  { id: 'tr_unity',        name: '초식 일체',   reqMin: 2400, type: 'active',
+    skill: { id: 'tr_unity', name: '초식 일체', lv: 1, mp: 80, type: 'utility', effect: 'extra_turn', desc: '추가 턴 획득.' },
+    desc: '전투 스킬: 추가 턴 (MP 80).' },
+  { id: 'tr_transcend',    name: '초월',       reqMin: 4800, type: 'passive', effect: { dmgReduce: 0.10, critBonus: 0.05 }, desc: '피해 -10%, 치명 +5%.' },
+  { id: 'tr_ascension',    name: '승화',       reqMin: 9999, type: 'passive', effect: { allStat: 10 }, desc: '누적 수련 약 166시간. 전 스탯 +10.' },
+];
+
+// 수련 중 랜덤 이벤트 (30~60초마다 체크)
+const TRAIN_EVENTS = [
+  { chance: 0.08, text: '✦ 깨달음의 순간! 무언가 툭 하고 맞아떨어진다...', bonus: 2.0 },
+  { chance: 0.05, text: '💡 섬광처럼 스치는 통찰.', bonus: 1.5 },
+  { chance: 0.03, text: '🔥 몸이 가벼워진다. 한계를 넘어서는 기분.', bonus: 1.8 },
+  { chance: 0.02, text: '⚡ 검기가 일어난다. 이 순간만큼은 최고의 자신이 된다.', bonus: 2.5 },
+  { chance: 0.04, text: '❄ 호흡이 고요해진다. 내면이 맑아진다.', bonus: 1.3 },
+];
+
+// ═══════════ 깨달음 시련 (Awakening Trial) ═══════════
+// 전직 시 단순 골드 지불이 아닌, 깨달음 시련을 통과해야 한다.
+// 각 시련은 [명상→시련의 전투→깨달음 확인]의 3단계.
+// trial 명령으로 시작. 도중 사망/실패 시 다시 도전 가능.
+//
+// 구조:
+//   meditation: 3개 선택지 - 직업 정신과 맞는 것을 골라야 통과
+//                옳은 선택은 'correct' 인덱스
+//   battle: 시련의 적 (강화된 몬스터)
+//   awakening: 통과 시 보여줄 깨달음 메시지
+const AWAKENINGS = {
+  // ═════ 2차 전직 시련 ═════
+  knight: {
+    name: '명예의 시련',
+    intro: '기사단장 리프크네가 그대를 시험한다.\n"기사란 검을 휘두르는 자가 아니라, 무엇을 지키는지 아는 자다."',
+    meditation: {
+      q: '"네 검은 누구를 위한 것인가?"',
+      options: [
+        '강한 자가 약한 자를 짓밟지 못하게 하기 위해',
+        '내 명예와 영광을 드높이기 위해',
+        '왕국에 봉사하기 위해',
+      ],
+      correct: 0,
+      hints: ['약자를 보호하는 것이 기사도의 첫번째 덕목이다.', '명예는 따라오는 것일 뿐.', '왕국도 결국 백성을 위해 존재한다.'],
+    },
+    battle: { foes: ['dark_knight'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '검에서 빛이 흘러나온다. "그래... 이 검은 약자를 위해 휘두르는 것이다."\n그대는 진정한 기사가 되었다.',
+  },
+  gladiator: {
+    name: '투기장의 시련',
+    intro: '투기장의 모래 위. 군중의 함성이 그대를 둘러싼다.\n"무기를 들고 죽이거나, 죽거나."',
+    meditation: {
+      q: '"왜 싸우는가?"',
+      options: [
+        '내가 살아있음을 증명하기 위해',
+        '돈과 명예를 위해',
+        '죽이지 않으면 죽으니까',
+      ],
+      correct: 0,
+      hints: ['검투사는 매 순간 죽음 옆에 선다 — 그래서 살아있음을 안다.', '얕다.', '아직 깨닫지 못했다.'],
+    },
+    battle: { foes: ['orc', 'orc', 'troll'], buff: { hp: 1.2, atk: 1.0 } },
+    awakening: '심장이 뛴다. 모래에 흩날리는 핏자국 위에서, 그대는 진정 살아있다.\n검투사의 길을 걷게 되었다.',
+  },
+  elementalist: {
+    name: '4원소의 시련',
+    intro: '핸드레이크가 4개의 정수를 그대 앞에 놓는다.\n"불, 물, 바람, 흙. 어느 것이 가장 강한가?"',
+    meditation: {
+      q: '"어느 원소를 택하겠는가?"',
+      options: [
+        '불 — 가장 파괴적이다',
+        '어느 하나만 선택할 수 없다. 4원소는 균형이다',
+        '물 — 모든 것을 흐르게 한다',
+      ],
+      correct: 1,
+      hints: ['파괴는 일면일 뿐.', '균형이야말로 원소술의 본질이다.', '한 면만 본다.'],
+    },
+    battle: { foes: ['fire_elemental'], buff: { hp: 0.7, atk: 1.0 } },
+    awakening: '4가지 원소가 그대 손에 모인다. 균형 속에서 진정한 힘이 깨어난다.',
+  },
+  necromancer: {
+    name: '죽음과의 대화',
+    intro: '모르간이 그대를 폐허로 데려간다.\n"죽음을 두려워하는 자는 강령술을 다룰 수 없다."',
+    meditation: {
+      q: '"죽음이란 무엇인가?"',
+      options: [
+        '두려운 종말',
+        '또다른 형태의 존재',
+        '잊혀짐',
+      ],
+      correct: 1,
+      hints: ['두려움은 통제하지 못한다.', '죽음은 끝이 아니라 변형이다.', '존재는 사라지지 않는다.'],
+    },
+    battle: { foes: ['skeleton', 'skeleton', 'wraith'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '망령들이 그대 앞에 무릎 꿇는다. 죽음이 그대를 받아들였다.',
+  },
+  paladin: {
+    name: '빛의 맹세',
+    intro: '대주교 유스티스가 그대 앞에 성수를 내려놓는다.\n"빛은 검과 함께 들어야 가치가 있다."',
+    meditation: {
+      q: '"악과 마주쳤을 때, 그대는?"',
+      options: [
+        '검을 들고 베어낸다',
+        '먼저 정화의 기도를 올린다',
+        '검을 들되, 마음에 자비를 둔다',
+      ],
+      correct: 2,
+      hints: ['폭력만이 답은 아니다.', '기도만으로 충분치 않다.', '강함과 자비의 균형. 그것이 성기사다.'],
+    },
+    battle: { foes: ['demon'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '검에 신성한 빛이 깃든다. 그대는 빛의 검사가 되었다.',
+  },
+  bishop: {
+    name: '봉사의 시련',
+    intro: '"100명의 영혼을 어루만져야 하나의 기적을 부를 수 있다."',
+    meditation: {
+      q: '"가장 큰 치유란?"',
+      options: [
+        '상처의 치료',
+        '죽은 자의 부활',
+        '마음의 회복',
+      ],
+      correct: 2,
+      hints: ['몸은 다시 다친다.', '죽음을 거스를 수 없다.', '마음의 상처가 가장 깊다.'],
+    },
+    battle: { foes: ['wraith', 'wraith'], buff: { hp: 0.6, atk: 1.0 } },
+    awakening: '치유의 빛이 그대 손에서 흘러넘친다. 모든 상처를 어루만질 수 있게 되었다.',
+  },
+  assassin: {
+    name: '그림자의 계약',
+    intro: '암살자 길드장이 단검을 그대 손에 쥐여준다.\n"그림자는 망설이지 않는다."',
+    meditation: {
+      q: '"표적과 마주쳤다. 그대는?"',
+      options: [
+        '발각되기 전에 일격에 끝낸다',
+        '결투를 신청한다',
+        '도망친다',
+      ],
+      correct: 0,
+      hints: ['망설임은 죽음이다.', '결투는 암살이 아니다.', '암살자는 도망치지 않는다 — 사라질 뿐.'],
+    },
+    battle: { foes: ['rogue_mage', 'thug'], buff: { hp: 0.7, atk: 1.0 } },
+    awakening: '그림자가 그대를 받아들였다. 발소리도 없이 죽음을 가져오는 자가 되었다.',
+  },
+  outlaw: {
+    name: '자유의 길',
+    intro: '메이린이 술잔을 건넨다.\n"법도 권력도, 너를 묶을 수 있을까?"',
+    meditation: {
+      q: '"무엇이 너를 자유롭게 하는가?"',
+      options: [
+        '돈',
+        '아무것도 두려워하지 않는 마음',
+        '강한 무력',
+      ],
+      correct: 1,
+      hints: ['돈은 또다른 사슬.', '두려움이 없을 때 진정 자유롭다.', '힘은 자유의 도구일 뿐 자유 자체가 아니다.'],
+    },
+    battle: { foes: ['bandit', 'bandit', 'thug'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '바람처럼 자유로워졌다. 가도의 협객이 그대를 받아들인다.',
+  },
+  sniper: {
+    name: '천 걸음의 시련',
+    intro: '이무스가 활을 건넨다.\n"천 걸음 너머의 사과를 맞추어라. 화살은 단 하나."',
+    meditation: {
+      q: '"활을 쏠 때 가장 중요한 것은?"',
+      options: [
+        '강한 팔',
+        '바람을 읽는 눈',
+        '쏘는 순간의 침묵 — 호흡과 심장박동까지',
+      ],
+      correct: 2,
+      hints: ['팔은 도구일 뿐.', '눈은 필요하나 충분치 않다.', '저격은 곧 명상이다. 자아조차 잊을 때 화살이 표적을 찾는다.'],
+    },
+    battle: { foes: ['arcane_construct'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '화살이 정확히 사과를 가른다. 천 걸음 밖이라도 그대의 화살은 빗나가지 않는다.',
+  },
+  tracker: {
+    name: '자연의 부름',
+    intro: '카일란이 숲으로 그대를 인도한다.\n"숲의 소리를 들어라. 그것이 너에게 길을 알려줄 것이다."',
+    meditation: {
+      q: '"사냥의 본질은?"',
+      options: [
+        '죽임',
+        '추적과 이해',
+        '생존',
+      ],
+      correct: 1,
+      hints: ['사냥은 살육이 아니다.', '진정한 사냥꾼은 표적이 되기 전에 표적을 안다.', '생존만이 목적이라면 그저 짐승.'],
+    },
+    battle: { foes: ['plain_wolf', 'wild_orc'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '숲의 소리가 들린다. 모든 짐승의 발자국이 그대 앞에 펼쳐진다.',
+  },
+
+  // ═════ 3차 전직 시련 (간단 버전) ═════
+  crusader:    { name: '성전의 맹세', intro: '"성전이란 신을 위한 것인가, 백성을 위한 것인가?"',
+    meditation: { q: '"성전의 의미?"', options: ['신의 영광', '약자의 보호', '죄의 정화'], correct: 1, hints: ['', '', ''] },
+    battle: { foes: ['demon', 'demon'], buff: { hp: 1.0, atk: 1.2 } },
+    awakening: '성전의 횃불이 그대 손에 들린다.' },
+  dragoon: { name: '용기병의 약속', intro: '와이번 한 마리가 그대 앞에 내려앉는다.',
+    meditation: { q: '"용을 어떻게 다루는가?"', options: ['힘으로 굴복시킨다', '마음을 나눈다', '두려움으로'], correct: 1, hints: [] },
+    battle: { foes: ['white_wyrmling'], buff: { hp: 1.0, atk: 1.2 } },
+    awakening: '와이번이 그대를 인정한다. 함께 하늘을 날 동반자가 되었다.' },
+  berserker: { name: '광기의 시련', intro: '광전사의 광기를 넘어선다.',
+    meditation: { q: '"광기란?"', options: ['통제 상실', '내면 깊은 불꽃을 풀어놓는 것', '폭력'], correct: 1, hints: [] },
+    battle: { foes: ['troll', 'troll'], buff: { hp: 1.5, atk: 1.5 } },
+    awakening: '내면의 불꽃이 폭발한다. 두려움을 모르는 자가 되었다.' },
+  monk: { name: '심연의 명상', intro: '7일간의 단식. 마음을 비워라.',
+    meditation: { q: '"무도의 정점?"', options: ['천 번의 주먹', '단 한 번의 주먹', '주먹이 필요 없는 경지'], correct: 2, hints: [] },
+    battle: { foes: ['salamander'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '주먹과 마음이 하나가 된다.' },
+  archmage: { name: '비전의 봉인 해제', intro: '핸드레이크가 비전서 한 권을 건넨다.',
+    meditation: { q: '"마법의 원천?"', options: ['지식', '의지', '균형'], correct: 1, hints: [] },
+    battle: { foes: ['lich_boss'], buff: { hp: 0.7, atk: 1.0 } },
+    awakening: '비전이 그대 안에서 깨어난다.' },
+  sage: {
+    name: '용의 지혜 시련',
+    intro: '핸드레이크가 진중히 그대를 응시한다.\n"현자란 단순히 지혜로운 자가 아니다.\n드래곤과 대화할 수 있는 자만이 현자라 불린다."',
+    requireItems: ['dragon_wisdom_1', 'dragon_wisdom_2', 'dragon_wisdom_3'],
+    meditation: {
+      q: '"드래곤의 본질이란 무엇인가?"',
+      options: [
+        '강함의 구현',
+        '시간을 초월한 지혜',
+        '오만한 파괴자',
+      ],
+      correct: 1,
+      hints: ['강함은 결과일 뿐.', '드래곤은 천년을 살며 모든 것을 본다.', '편견이다.'],
+    },
+    battle: { foes: ['white_wyrmling', 'white_wyrmling'], buff: { hp: 1.0, atk: 1.2 } },
+    awakening: '핸드레이크가 미소짓는다.\n"이제 자네는 용과 대화할 수 있다."\n그대는 현자가 되었다. 드래곤 라자의 길이 열린다.',
+  },
+  lich: { name: '불멸의 의식', intro: '영혼을 성물에 봉인하라.',
+    meditation: { q: '"불멸이란?"', options: ['축복', '저주', '책임'], correct: 2, hints: [] },
+    battle: { foes: ['lich_boss'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '그대의 심장이 멈춘다. 그러나 의지는 영원하다.' },
+  soulbinder: { name: '영혼의 결속', intro: '망자의 영혼을 받아들여라.',
+    meditation: { q: '"영혼이란?"', options: ['지속되는 의식', '전기신호', '환상'], correct: 0, hints: [] },
+    battle: { foes: ['wraith', 'wraith', 'wraith'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '죽은 자들의 목소리가 들린다.' },
+  avatar: { name: '신의 그릇', intro: '신성을 그대 안에 받아들여라.',
+    meditation: { q: '"신의 화신이 된다는 것은?"', options: ['신이 됨', '신의 도구가 됨', '신의 손길'], correct: 2, hints: [] },
+    battle: { foes: ['demon_lord'], buff: { hp: 0.5, atk: 0.8 } },
+    awakening: '신성한 빛이 그대를 감싼다.' },
+  inquisitor: { name: '심판자의 시련', intro: '이단을 분별하라.',
+    meditation: { q: '"심판의 기준?"', options: ['교리', '양심', '결과'], correct: 1, hints: [] },
+    battle: { foes: ['rogue_mage', 'rogue_mage', 'rogue_mage'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '심판의 횃불이 들린다.' },
+  archbishop: { name: '기적의 시련', intro: '한 영혼을 죽음에서 되돌려라.',
+    meditation: { q: '"기적이란?"', options: ['신의 직접 개입', '믿음의 결과', '확률'], correct: 1, hints: [] },
+    battle: { foes: ['wraith', 'wraith'], buff: { hp: 0.5, atk: 0.7 } },
+    awakening: '진정한 기적은 그대 안에서 솟아난다.' },
+  warpriest: { name: '검과 기도', intro: '검과 기도가 하나가 되라.',
+    meditation: { q: '"무엇이 더 강한가?"', options: ['검', '기도', '둘이 하나가 될 때'], correct: 2, hints: [] },
+    battle: { foes: ['demon'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '검 끝에 신성이 깃든다.' },
+  shadow: { name: '어둠의 결혼', intro: '그림자와 하나가 되라.',
+    meditation: { q: '"그림자에 사는 자의 이름은?"', options: ['암살자', '없음', '죽은 자'], correct: 1, hints: [] },
+    battle: { foes: ['demon'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '그대의 이름이 사라진다. 그대는 그림자 그 자체가 되었다.' },
+  nightblade: { name: '달빛의 검무', intro: '달빛 아래 100번 검을 휘둘러라.',
+    meditation: { q: '"검무의 끝?"', options: ['적의 죽음', '검과의 일체', '아름다움'], correct: 1, hints: [] },
+    battle: { foes: ['demon', 'imp'], buff: { hp: 0.9, atk: 1.0 } },
+    awakening: '검이 달빛처럼 흐른다.' },
+  swashbuckler: { name: '결투자의 길', intro: '결투에서 패배한 적이 없는 자만 풍운아가 된다.',
+    meditation: { q: '"결투의 본질?"', options: ['이김', '예의', '존엄을 건 대화'], correct: 2, hints: [] },
+    battle: { foes: ['darim_warrior'], buff: { hp: 1.0, atk: 1.2 } },
+    awakening: '결투의 신이 그대를 인정한다.' },
+  adventurer: { name: '방랑의 시작', intro: '한 곳에 머무르지 않는 자가 되어라.',
+    meditation: { q: '"왜 떠도는가?"', options: ['보물', '명성', '세상 그 자체'], correct: 2, hints: [] },
+    battle: { foes: ['darim_warrior', 'sand_lizard'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '바람이 그대 친구가 된다.' },
+  dragonslayer: { name: '용살자의 맹세', intro: '용을 사냥하기 위해 태어난 자.',
+    meditation: { q: '"용을 사냥하는 이유?"', options: ['전리품', '명예', '균형의 회복'], correct: 2, hints: [] },
+    battle: { foes: ['white_wyrmling'], buff: { hp: 1.0, atk: 1.2 } },
+    awakening: '활시위에 용을 죽일 의지가 깃든다.' },
+  magicshot: { name: '마탄의 의식', intro: '활과 마법이 하나가 되라.',
+    meditation: { q: '"마탄의 사수란?"', options: ['이중 클래스', '활에 마법을 담는 자', '마법사 궁수'], correct: 1, hints: [] },
+    battle: { foes: ['arcane_construct', 'arcane_construct'], buff: { hp: 0.9, atk: 1.0 } },
+    awakening: '화살이 마법으로 빛난다.' },
+  druid: { name: '자연의 일원', intro: '동물과 식물의 언어를 배워라.',
+    meditation: { q: '"드루이드란?"', options: ['자연 마법사', '자연의 일부가 된 자', '숲의 주인'], correct: 1, hints: [] },
+    battle: { foes: ['cave_spider', 'cave_spider'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '나무가 그대에게 인사한다.' },
+  rangerking: { name: '숲의 왕관', intro: '숲의 모든 짐승이 그대를 따라야 한다.',
+    meditation: { q: '"왕이란?"', options: ['지배', '책임', '봉사'], correct: 2, hints: [] },
+    battle: { foes: ['wild_orc', 'plain_wolf', 'plain_wolf'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '짐승들이 그대 앞에 무릎 꿇는다.' },
+
+  // ─── 상인 계열 시련 ───
+  trader: {
+    name: '대륙 횡단의 시련',
+    intro: '자히드: "거상이란 단순히 비싸게 파는 자가 아니다.\n흐름을 읽는 자다."',
+    meditation: {
+      q: '"무역의 본질은?"',
+      options: [
+        '싸게 사고 비싸게 판다',
+        '정보의 비대칭을 이용한다',
+        '필요한 자에게 필요한 것을 가져다 준다',
+      ],
+      correct: 2,
+      hints: ['1차원적인 답.', '한 면.', '진정한 무역상은 세상을 잇는 자다.'],
+    },
+    battle: { foes: ['bandit', 'bandit', 'thug'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '대륙의 길이 그대 머릿속에 펼쳐진다. 거상의 길이 열렸다.',
+  },
+  informer: {
+    name: '비밀의 거래',
+    intro: '자히드: "정보상은 칼보다 위험하다.\n사람의 약점을 사고파는 자다."',
+    meditation: {
+      q: '"가장 비싼 정보는?"',
+      options: [
+        '왕의 비밀',
+        '미래에 대한 예측',
+        '사람들이 진정 두려워하는 것',
+      ],
+      correct: 2,
+      hints: ['이미 흘렀다.', '확실하지 않다.', '두려움은 영원하다 — 그것을 알면 그를 지배한다.'],
+    },
+    battle: { foes: ['rogue_mage', 'wraith'], buff: { hp: 0.9, atk: 1.0 } },
+    awakening: '사람들의 비밀이 그대에게 들린다. 정보상의 길.',
+  },
+  guildmaster: {
+    name: '길드의 왕좌',
+    intro: '"천 명의 상인이 그대를 따른다. 그들의 무게를 견딜 수 있는가?"',
+    meditation: {
+      q: '"길드마스터의 책임은?"',
+      options: ['이윤 극대화', '구성원의 안위', '대륙 경제의 균형'],
+      correct: 1,
+      hints: ['일면.', '리더의 본분.', '너무 거시적이다.'],
+    },
+    battle: { foes: ['demon', 'demon'], buff: { hp: 1.0, atk: 1.2 } },
+    awakening: '천 명의 상인이 그대 깃발 아래 모인다.',
+  },
+  goldking: {
+    name: '미다스의 시련',
+    intro: '"황금에 손대는 모든 것이 변한다 — 무엇을 변하게 할 것인가?"',
+    meditation: {
+      q: '"무한한 부를 얻으면?"',
+      options: ['세계를 산다', '모두에게 나눈다', '의미를 잃는다'],
+      correct: 0,
+      hints: ['황금왕은 지배자다.', '나누면 황금왕이 아니다.', '실패자의 답.'],
+    },
+    battle: { foes: ['demon_lord'], buff: { hp: 0.6, atk: 0.8 } },
+    awakening: '그대의 손길에 황금이 흐른다. 황금왕이 되었다.',
+  },
+  shadowmerchant: {
+    name: '암시장의 계약',
+    intro: '"그림자에서만 거래되는 것이 있다. 영혼, 비밀, 그리고 죽음."',
+    meditation: {
+      q: '"가장 비싼 거래 품목?"',
+      options: ['황금', '권력', '비밀'],
+      correct: 2,
+      hints: ['일반 시장에 있다.', '비밀에 비하면 가볍다.', '비밀을 가진 자가 모든 것을 가진다.'],
+    },
+    battle: { foes: ['demon', 'wraith'], buff: { hp: 0.9, atk: 1.0 } },
+    awakening: '암시장의 군주가 되었다. 어디서든 거래를 열 수 있다.',
+  },
+  informerking: {
+    name: '진실의 왕좌',
+    intro: '핸드레이크: "그대는 왕도 두려워하는 자가 될 것이다.\n진실은 무서운 것이니까."',
+    meditation: {
+      q: '"진실이란?"',
+      options: ['사실', '권력의 도구', '본질에 대한 통찰'],
+      correct: 2,
+      hints: ['표면.', '용도.', '정보왕은 본질을 본다.'],
+    },
+    battle: { foes: ['lich_boss'], buff: { hp: 0.7, atk: 1.0 } },
+    awakening: '대륙의 모든 비밀이 그대에게 흘러든다. 정보왕이 되었다.',
+  },
+};
+
+module.exports = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS };

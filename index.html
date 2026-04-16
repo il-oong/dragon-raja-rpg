@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>System Monitor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Malgun Gothic', 'Consolas', 'Courier New', monospace;
+      background: #0c0c0c; color: #cccccc; font-size: 13px;
+    }
+
+    /* ═══════ 위장 모드 ═══════ */
+    #disguise { display: none; height: 100vh; padding: 10px 14px; background: #0c0c0c; color: #ccc; overflow: auto; }
+    #disguise.active { display: block; }
+    #disguise h1 { font-size: 14px; color: #eee; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+    .drow { display: flex; gap: 20px; margin: 4px 0; }
+    .drow .k { color: #888; width: 160px; }
+    .drow .v { color: #7ec7ff; }
+    .bar { height: 14px; background: #1a1a1a; border: 1px solid #333; width: 300px; position: relative; }
+    .bar .fill { height: 100%; background: linear-gradient(to right,#2e8b57,#6eb85a); }
+    #procTable { margin-top: 14px; width: 100%; border-collapse: collapse; font-size: 12px; }
+    #procTable th, #procTable td { text-align: left; padding: 2px 8px; border-bottom: 1px dotted #222; }
+    #procTable th { color: #888; font-weight: normal; border-bottom: 1px solid #444; }
+    #hint { margin-top: 16px; color: #555; font-size: 11px; }
+
+    /* ═══════ 게임 화면 (업무툴 위장 스타일) ═══════ */
+    /* 전체적으로 IDE/로그뷰어 느낌. 색상 최소화. */
+    #game {
+      display: none; height: 100vh; background: #1e1e1e;
+      grid-template-columns: 1fr 320px;
+      grid-template-rows: auto 2fr 3fr;
+      grid-template-areas: "top top" "output side" "actions side";
+    }
+    #game.active { display: grid; }
+
+    #topbar {
+      grid-area: top;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 14px; background: #252526; border-bottom: 1px solid #3a3a3a;
+      color: #858585; font-size: 11px;
+    }
+    #topbar .t1 { color: #bbb; font-weight: normal; font-size: 12px; }
+
+    #output {
+      grid-area: output;
+      padding: 10px 14px; overflow-y: auto;
+      white-space: pre-wrap; word-break: keep-all; overflow-wrap: normal;
+      color: #b4b4b4; line-height: 1.5;
+      font-family: 'Consolas', 'Courier New', monospace; font-size: 12.5px;
+      background: #1e1e1e;
+      border-bottom: 1px solid #3a3a3a;
+    }
+    #output::-webkit-scrollbar { width: 8px; }
+    #output::-webkit-scrollbar-thumb { background: #3a3a3a; }
+    .line-title { color: #d4d4d4; font-weight: bold; font-size: 13px; }
+    .line-warn  { color: #a0a0a0; }
+    .line-good  { color: #b4b4b4; }
+    .line-sys   { color: #8a8a8a; }
+    .line-dim   { color: #555; }
+
+    #side {
+      grid-area: side;
+      background: #252526; border-left: 1px solid #3a3a3a;
+      padding: 10px 14px; overflow-y: auto; font-size: 12px;
+      font-family: 'Consolas', 'Segoe UI', monospace;
+    }
+    .s-block { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #333; }
+    .s-block:last-child { border-bottom: none; }
+    .s-title {
+      color: #858585; font-size: 10.5px; letter-spacing: 0.5px;
+      margin-bottom: 4px; font-weight: normal; text-transform: uppercase;
+    }
+    .s-row {
+      display: flex; justify-content: space-between; padding: 2px 0;
+      color: #b4b4b4; gap: 8px; align-items: baseline;
+    }
+    .s-row .k { color: #707070; flex-shrink: 0; font-size: 11.5px; }
+    .s-row .v {
+      color: #cccccc; font-weight: normal; font-size: 12px;
+      text-align: right; word-break: break-all;
+    }
+    .s-hpbar, .s-mpbar { height: 6px; background: #1e1e1e; border: 1px solid #333; margin: 3px 0; overflow: hidden; }
+    .s-hpbar .fill, .s-mpbar .fill { height: 100%; background: #707070; }
+
+    #actions {
+      grid-area: actions;
+      background: #252526;
+      padding: 10px 14px; overflow-y: auto;
+      border-top: 1px solid #3a3a3a;
+    }
+    #actions::-webkit-scrollbar { width: 8px; }
+    #actions::-webkit-scrollbar-thumb { background: #3a3a3a; }
+    .act-label {
+      color: #858585; font-size: 11px; font-weight: normal;
+      margin-right: 8px; display: inline-block; min-width: 50px;
+      letter-spacing: 0.3px; text-transform: uppercase;
+    }
+    .act-row {
+      display: flex; flex-wrap: wrap; gap: 5px;
+      align-items: center; margin: 4px 0;
+      padding: 5px 0;
+      border-bottom: 1px solid #2d2d2d;
+    }
+    .act-row:last-child { border-bottom: none; }
+
+    button {
+      background: #3c3c3c; color: #cccccc; border: 1px solid #4a4a4a;
+      padding: 6px 12px; font-family: inherit; font-size: 12.5px;
+      cursor: pointer; border-radius: 2px; transition: background 0.1s;
+      min-height: 30px;
+    }
+    button:hover:not(:disabled) { background: #505050; border-color: #5a5a5a; color: #eee; }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+    /* 모든 색 변형 제거 — 단일 톤으로 통일 */
+    button.primary, button.danger, button.success, button.gold {
+      background: #3c3c3c; border-color: #4a4a4a; color: #cccccc; font-weight: normal;
+    }
+    button.primary:hover:not(:disabled),
+    button.danger:hover:not(:disabled),
+    button.success:hover:not(:disabled),
+    button.gold:hover:not(:disabled) { background: #505050; color: #eee; }
+    button.mini { padding: 4px 9px; font-size: 11.5px; min-height: 24px; }
+    button.big { padding: 10px 16px; font-size: 13px; min-height: 40px; }
+
+    input[type="text"], input[type="number"] {
+      background: #0c0c15; color: #e0e6ed; border: 1px solid #333;
+      padding: 5px 8px; font-family: inherit; font-size: 13px; border-radius: 3px;
+    }
+    input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #4a6aac; }
+  </style>
+</head>
+<body>
+
+<!-- 위장: 시스템 모니터 -->
+<div id="disguise" class="active">
+  <h1>System Resource Monitor v2.14 &nbsp; — &nbsp; WIN-MONITOR-01</h1>
+  <div class="drow"><div class="k">CPU Usage</div>
+    <div class="bar"><div class="fill" id="cpuFill" style="width:32%"></div></div>
+    <div class="v" id="cpuVal">32%</div></div>
+  <div class="drow"><div class="k">Memory</div>
+    <div class="bar"><div class="fill" id="memFill" style="width:54%"></div></div>
+    <div class="v" id="memVal">8.7 / 16.0 GB</div></div>
+  <div class="drow"><div class="k">Disk I/O</div>
+    <div class="bar"><div class="fill" id="diskFill" style="width:12%"></div></div>
+    <div class="v" id="diskVal">24 MB/s</div></div>
+  <div class="drow"><div class="k">Network</div>
+    <div class="bar"><div class="fill" id="netFill" style="width:8%"></div></div>
+    <div class="v" id="netVal">↑ 1.2 MB/s   ↓ 3.8 MB/s</div></div>
+  <div class="drow"><div class="k">System Uptime</div><div class="v" id="uptime">0d 0h 0m</div></div>
+  <div class="drow"><div class="k">Active Processes</div><div class="v" id="procCount">142</div></div>
+  <table id="procTable">
+    <thead><tr><th>PID</th><th>Process</th><th>CPU%</th><th>Memory</th><th>Status</th></tr></thead>
+    <tbody id="procBody"></tbody>
+  </table>
+  <div id="hint">[ Ctrl+Shift+D: toggle view | Ctrl+Shift+B: hide | Ctrl+Shift+Q: quit ]</div>
+</div>
+
+<!-- 게임 -->
+<div id="game">
+  <div id="topbar">
+    <span class="t1">드래곤 라자 — 바이서스 연대기</span>
+    <span>Ctrl+Shift+D: 위장 / Ctrl+Shift+B: 숨김 / Ctrl+Shift+Q: 종료</span>
+  </div>
+  <div id="output"></div>
+  <div id="side"></div>
+  <div id="actions"></div>
+</div>
+
+<script>
+  const { ipcRenderer } = require('electron');
+  const { Game } = require('./game/engine.js');
+  const D = require('./game/data.js');
+  const { LOCATIONS, JOBS, ITEMS, MONSTERS, RACES, SHOP_ITEMS, TRADE_PRICES, TRADE_GOODS, TRADE_SELL_TAX, TRADE_SKILLS,
+          QUESTS, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
+          GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS } = D;
+
+  // ═══════ 출력 ═══════
+  const out = document.getElementById('output');
+  function print(text, kind) {
+    if (kind === 'cls') { out.innerHTML = ''; return; }
+    const div = document.createElement('div');
+    if (kind === 'title') div.className = 'line-title';
+    else if (kind === 'warn') div.className = 'line-warn';
+    else if (kind === 'good') div.className = 'line-good';
+    else if (kind === 'sys') div.className = 'line-sys';
+    else if (kind === 'dim') div.className = 'line-dim';
+    div.textContent = text;
+    out.appendChild(div);
+    out.scrollTop = out.scrollHeight;
+  }
+
+  const game = new Game((t, k) => print(t, k));
+
+  let uiMode = 'main';
+  let uiCtx = {};
+  let currentCharId = null;     // 현재 플레이 중인 캐릭터 id
+  let savesList = [];           // 캐릭터 목록 캐시
+  function enterMode(mode, cmd, ctx = {}) {
+    uiMode = mode;
+    uiCtx = ctx;
+    if (cmd) game.handleInput(cmd);
+    render();
+  }
+
+  // ═══════ 집중 수련 (실시간, 수련장 전용) ═══════
+  // 지정 시간 동안 UI 잠김, 중간에 랜덤 이벤트, 완료/중단 시 XP 지급.
+  // 백그라운드에서도 진행됨 (위장모드/창 숨김 시에도 계속).
+  let focusActive = false;
+  let focusState = null;
+  // { hall, durationMs, startedAt, endsAt, baseXp, xpAwarded, eventLog, lv0, timer }
+
+  function canStartFocus() {
+    if (!game.state) return false;
+    return !!TRAINING_HALLS[game.state.location];
+  }
+
+  function startFocus(durationMin, gameDays) {
+    if (focusActive || !canStartFocus()) return;
+    const s = game.state;
+    const hall = TRAINING_HALLS[s.location];
+    const eff = hall.effects || {};
+    const durationMs = durationMin * 60 * 1000;
+    // 기본 XP: 레벨 × 분 × 수련장배율 × 20
+    let baseXp = s.lv * durationMin * 20 * hall.mul;
+    // 수련장 특성: 계열 보너스
+    const myLine = JOBS[s.job].line;
+    if (eff.lineBonus && eff.lineBonus[myLine]) baseXp *= eff.lineBonus[myLine];
+    // 종족 보너스
+    if (eff.raceBonus && eff.raceBonus[s.race]) baseXp *= eff.raceBonus[s.race];
+    // 작위 보너스
+    if (eff.titleMul && s.title) baseXp *= eff.titleMul;
+    baseXp = Math.round(baseXp);
+
+    // 이벤트 간격: eventMul이 높을수록 짧아짐
+    const eventInterval = (30000 + Math.random() * 30000) / (eff.eventMul || 1);
+    focusState = {
+      hall: s.location,
+      hallName: hall.name,
+      hallEffects: eff,
+      durationMs,
+      gameDays: gameDays || 0,
+      startedAt: Date.now(),
+      endsAt: Date.now() + durationMs,
+      baseXp, xpAwarded: 0,
+      eventLog: [],
+      lv0: s.lv,
+      nextEventAt: Date.now() + eventInterval,
+      timer: null,
+    };
+    focusActive = true;
+    print(`\n── ${hall.name} 입장 ──`, 'title');
+    print(`${hall.desc}`);
+    print(`${durationMin}분 동안 집중 수련 시작. 예상 XP +${baseXp.toLocaleString()}`, 'good');
+    print(`(중간에 깨달음 이벤트 발생 가능 · 중지 버튼 누르면 경과 비례 XP 획득)`, 'dim');
+
+    focusState.timer = setInterval(() => {
+      if (!focusActive) return;
+      const now = Date.now();
+      if (now >= focusState.nextEventAt) {
+        rollFocusEvent();
+        const eff = focusState.hallEffects || {};
+        focusState.nextEventAt = now + (30000 + Math.random() * 30000) / (eff.eventMul || 1);
+      }
+      if (now >= focusState.endsAt) {
+        finishFocus('완료');
+        return;
+      }
+      renderSide();
+      render();
+    }, 1000);
+    render();
+  }
+
+  function rollFocusEvent() {
+    for (const e of TRAIN_EVENTS) {
+      if (Math.random() < e.chance) {
+        const bonusXp = Math.round(focusState.baseXp * 0.05 * e.bonus);
+        game.state.exp += bonusXp;
+        focusState.xpAwarded += bonusXp;
+        focusState.eventLog.push(e.text);
+        print(`${e.text}  (+${bonusXp} XP)`, 'good');
+        game.checkLevel();
+        if (currentCharId) ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
+        return;
+      }
+    }
+  }
+
+  function formatRemaining() {
+    if (!focusState) return '';
+    const ms = Math.max(0, focusState.endsAt - Date.now());
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(sec).padStart(2,'0')}`;
+  }
+
+  function finishFocus(reason) {
+    if (!focusActive || !focusState) return;
+    clearInterval(focusState.timer);
+    const elapsed = Math.min(focusState.durationMs, Date.now() - focusState.startedAt);
+    const progress = elapsed / focusState.durationMs;
+    const earnedBase = Math.round(focusState.baseXp * progress);
+    const totalToAward = Math.max(0, earnedBase - focusState.xpAwarded);
+    if (totalToAward > 0) {
+      game.state.exp += totalToAward;
+      focusState.xpAwarded += totalToAward;
+      game.checkLevel();
+    }
+    // 게임 내 시간 경과 (경과 비율만큼)
+    const daysElapsed = Math.round((focusState.gameDays || 0) * progress);
+    if (daysElapsed > 0) game.advanceTime(daysElapsed * 24);
+    // 수련장 고유 효과 적용
+    const eff = focusState.hallEffects || {};
+    // 누적 수련 시간 — trainTimeMul 적용
+    const rawMin = Math.round(elapsed / 60000);
+    const countedMin = Math.round(rawMin * (eff.trainTimeMul || 1));
+    if (countedMin > 0) game.addTrainedMinutes(countedMin);
+    // 수련 완료 후 MP/HP 회복
+    if (eff.restoreAll) {
+      game.state.hp = game.getHpMax(); game.state.mp = game.getMpMax();
+      print(`  ✦ [${focusState.hallName}] HP/MP 완전 회복!`, 'good');
+    } else if (eff.restoreMp) {
+      game.state.mp = game.getMpMax();
+      print(`  ✦ [${focusState.hallName}] MP 완전 회복!`, 'good');
+    }
+    // 주스탯 영구 훈련점 (용의 둥지)
+    if (eff.statBoost) {
+      const job = JOBS[game.state.job];
+      const mainStats = job.mainStats || [];
+      const bonusPts = Math.max(1, Math.round(rawMin * eff.statBoost));
+      mainStats.forEach(st => { game.state.stats[st] += bonusPts; });
+      if (mainStats.length) print(`  ✦ 주스탯 [${mainStats.join(', ')}] 영구 +${bonusPts}`, 'good');
+    }
+    // 신의 수련장: 수련 스킬 즉시 해금 확률
+    if (eff.skillChance && Math.random() < eff.skillChance) {
+      const lockedSkills = (require('./game/data.js').TRAIN_SKILLS).filter(ts => !(game.state.trainedSkills||[]).includes(ts.id));
+      if (lockedSkills.length) {
+        const pick = lockedSkills[Math.floor(Math.random() * lockedSkills.length)];
+        game.state.trainedMinutes = Math.max(game.state.trainedMinutes || 0, pick.reqMin);
+        game.addTrainedMinutes(0); // 재체크
+        print(`  ✦ 신의 은총! [${pick.name}] 즉시 해금!`, 'good');
+      }
+    }
+    const lvGain = game.state.lv - focusState.lv0;
+    const mins = Math.round(elapsed / 60000 * 10) / 10;
+    print(`\n── 수련 종료 [${reason}] ──`, 'title');
+    print(`경과: 실시간 ${mins}분 / 게임 ${daysElapsed}일`, 'sys');
+    print(`획득 XP: +${focusState.xpAwarded.toLocaleString()}${lvGain > 0 ? ` · 레벨업 ${lvGain}` : ''}`, 'good');
+    if (focusState.eventLog.length) print(`깨달음 ${focusState.eventLog.length}회 발생.`, 'dim');
+    if (currentCharId) ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
+    focusActive = false;
+    focusState = null;
+    render();
+  }
+
+  async function init() {
+    savesList = await ipcRenderer.invoke('list-saves');
+    if (savesList && savesList.length > 0) {
+      uiMode = 'select';
+      print('─ 캐릭터 선택 ─', 'title');
+      render();
+    } else {
+      uiMode = 'main';
+      currentCharId = 'char_' + Date.now();
+      game.newGame();
+      render();
+    }
+  }
+
+  async function refreshSaves() {
+    savesList = await ipcRenderer.invoke('list-saves');
+  }
+
+  function loadCharacter(id) {
+    const save = savesList.find(s => s.id === id);
+    if (!save) return;
+    const migrated = migrateSave(JSON.parse(JSON.stringify(save)));
+    game.state = migrated;
+    game.awaiting = null;
+    game.combat = null;
+    game.trial = null;
+    currentCharId = id;
+    uiMode = 'main';
+    print('', 'cls');
+    print(`─ ${save.name} 캐릭터를 불러왔다 ─`, 'good');
+    game.lookAround();
+    render();
+  }
+
+  async function deleteCharacter(id) {
+    const save = savesList.find(s => s.id === id);
+    if (!save) return;
+    if (!confirm(`"${save.name}" (Lv.${save.lv}) 캐릭터를 정말 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    await ipcRenderer.invoke('delete-char', id);
+    await refreshSaves();
+    if (currentCharId === id) {
+      currentCharId = null;
+      game.state = null;
+    }
+    if (savesList.length === 0) {
+      uiMode = 'main';
+      currentCharId = 'char_' + Date.now();
+      game.newGame();
+    } else {
+      uiMode = 'select';
+      print(`${save.name} 삭제됨.`, 'warn');
+    }
+    render();
+  }
+
+  function newCharacter() {
+    currentCharId = 'char_' + Date.now();
+    uiMode = 'main';
+    game.state = null;
+    game.awaiting = null;
+    game.combat = null;
+    game.trial = null;
+    print('', 'cls');
+    game.newGame();
+    render();
+  }
+
+  function backToSelect() {
+    if (focusActive) { alert('수련 중에는 이동할 수 없다. 먼저 중지.'); return; }
+    if (game.combat) { alert('전투 중에는 이동할 수 없다.'); return; }
+    if (game.trial) { alert('시련 중에는 이동할 수 없다.'); return; }
+    // 현재 상태 자동 저장
+    if (currentCharId && game.state && game.state.name) {
+      ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
+    }
+    refreshSaves().then(() => {
+      uiMode = 'select';
+      print('', 'cls');
+      print('─ 캐릭터 선택 ─', 'title');
+      render();
+    });
+  }
+
+  function migrateSave(s) {
+    if (!s || !s.stats) return null;
+    ['str','dex','int','vit','wis','luk','cha'].forEach(k => {
+      if (typeof s.stats[k] !== 'number') s.stats[k] = 10;
+    });
+    if (!Array.isArray(s.jobs)) s.jobs = [s.job];
+    if (typeof s.pendingPoints !== 'number') s.pendingPoints = 0;
+    if (!s.buffsPersistent) s.buffsPersistent = {};
+    if (typeof s.hpMaxBase !== 'number') s.hpMaxBase = s.hpMax || 100;
+    if (typeof s.mpMaxBase !== 'number') s.mpMaxBase = s.mpMax || 50;
+    if (!s.time) s.time = { day: 1, hour: 6 };
+    if (!s.completedTrials) s.completedTrials = {};
+    if (!s.tradeInv) s.tradeInv = {};
+    if (!s.enhancement) s.enhancement = { weapon: 0, armor: 0 };
+    if (!s.properties) s.properties = {};
+    if (!s.mercs) s.mercs = [];
+    if (!s.eaten) s.eaten = {};
+    if (typeof s.title === 'undefined') s.title = null;
+    if (typeof s.pet === 'undefined') s.pet = null;
+    if (!s.flags) s.flags = {};
+    if (typeof s.trainedMinutes !== 'number') s.trainedMinutes = 0;
+    if (!Array.isArray(s.trainedSkills)) s.trainedSkills = [];
+    if (typeof s.totalTradeProfit !== 'number') s.totalTradeProfit = 0;
+    if (!Array.isArray(s.tradeSkills)) s.tradeSkills = [];
+    if (!s.tradeBook) s.tradeBook = {};
+    return s;
+  }
+
+  // ═══════ 상태 사이드바 ═══════
+  function renderSide() {
+    const side = document.getElementById('side');
+    side.innerHTML = '';
+    const s = game.state;
+    if (!s || !s.name) { side.innerHTML = '<div class="s-title">캐릭터 생성 중...</div>'; return; }
+
+    const hpPct = Math.max(0, Math.min(100, (s.hp / game.getHpMax()) * 100));
+    const mpPct = Math.max(0, Math.min(100, (s.mp / game.getMpMax()) * 100));
+    const expPct = Math.min(100, (s.exp / game.expForNext(s.lv)) * 100);
+
+    side.innerHTML = `
+      <div class="s-block">
+        <div class="s-title">${s.name}</div>
+        <div class="s-row"><span class="k">${RACES[s.race].name} · ${JOBS[s.job].name}</span><span class="v">Lv.${s.lv}</span></div>
+        ${s.title ? `<div class="s-row"><span class="k">작위</span><span class="v">👑 ${TITLES.ranks[s.title].name}</span></div>` : ''}
+      </div>
+      <div class="s-block">
+        <div class="s-row"><span class="k">HP</span><span class="v">${s.hp} / ${game.getHpMax()}</span></div>
+        <div class="s-hpbar"><div class="fill" style="width:${hpPct}%"></div></div>
+        <div class="s-row"><span class="k">MP</span><span class="v">${s.mp} / ${game.getMpMax()}</span></div>
+        <div class="s-mpbar"><div class="fill" style="width:${mpPct}%"></div></div>
+        <div class="s-row"><span class="k">EXP</span><span class="v">${s.exp} / ${game.expForNext(s.lv)}</span></div>
+        <div class="s-mpbar"><div class="fill" style="width:${expPct}%; background: linear-gradient(to right,#c88a2a,#e5c24c);"></div></div>
+      </div>
+      <div class="s-block">
+        <div class="s-row"><span class="k">💰 골드</span><span class="v">${s.gold.toLocaleString()}</span></div>
+        <div class="s-row"><span class="k">🕒 시간</span><span class="v">D${s.time.day} ${String(s.time.hour).padStart(2,'0')}:00</span></div>
+        <div class="s-row"><span class="k">📍 위치</span><span class="v">${LOCATIONS[s.location].name}</span></div>
+      </div>
+      <div class="s-block">
+        <div class="s-title">전투 능력치</div>
+        <div class="s-row"><span class="k">ATK</span><span class="v">${game.getAtk()}</span></div>
+        <div class="s-row"><span class="k">DEF</span><span class="v">${game.getDef()}</span></div>
+        <div class="s-row"><span class="k">MAG</span><span class="v">${game.getMag()}</span></div>
+        <div class="s-row"><span class="k">치명</span><span class="v">${(game.getCritRate()*100).toFixed(0)}%</span></div>
+        <div class="s-row"><span class="k">회피</span><span class="v">${(game.getEvaRate()*100).toFixed(0)}%</span></div>
+      </div>
+      <div class="s-block">
+        <div class="s-title">스탯 ${s.pendingPoints > 0 ? `<span style="color:#e5c24c">(+${s.pendingPoints})</span>` : ''}</div>
+        <div class="s-row"><span class="k">STR</span><span class="v">${game.S('str')}</span></div>
+        <div class="s-row"><span class="k">DEX</span><span class="v">${game.S('dex')}</span></div>
+        <div class="s-row"><span class="k">INT</span><span class="v">${game.S('int')}</span></div>
+        <div class="s-row"><span class="k">VIT</span><span class="v">${game.S('vit')}</span></div>
+        <div class="s-row"><span class="k">WIS</span><span class="v">${game.S('wis')}</span></div>
+        <div class="s-row"><span class="k">LUK</span><span class="v">${game.S('luk')}</span></div>
+        <div class="s-row"><span class="k">CHA</span><span class="v">${game.S('cha')}</span></div>
+      </div>
+      <div class="s-block">
+        <div class="s-title">장비</div>
+        <div class="s-row"><span class="k">무기</span><span class="v">${s.equip.weapon ? ITEMS[s.equip.weapon].name + (s.enhancement?.weapon ? ' +'+s.enhancement.weapon : '') : '-'}</span></div>
+        <div class="s-row"><span class="k">방어구</span><span class="v">${s.equip.armor ? ITEMS[s.equip.armor].name + (s.enhancement?.armor ? ' +'+s.enhancement.armor : '') : '-'}</span></div>
+        <div class="s-row"><span class="k">악세</span><span class="v">${s.equip.acc ? ITEMS[s.equip.acc].name : '-'}</span></div>
+      </div>
+      ${renderInvBlock(s)}
+      ${s.pet ? `<div class="s-block"><div class="s-title">🐉 펫</div><div class="s-row"><span class="v">${PETS[s.pet].name}</span></div></div>` : ''}
+      ${s.mercs && s.mercs.length ? `<div class="s-block"><div class="s-title">⚔ 용병</div>${s.mercs.map(m => `<div class="s-row"><span class="v">${MERCENARIES[m].name}</span></div>`).join('')}</div>` : ''}
+      ${focusActive && focusState ? `<div class="s-block" style="border-left: 2px solid #6a6a6a; padding-left: 8px;">
+        <div class="s-title">● 수련 중</div>
+        <div class="s-row"><span class="k">장소</span><span class="v">${focusState.hallName}</span></div>
+        <div class="s-row"><span class="k">남은 시간</span><span class="v">${formatRemaining()}</span></div>
+        <div class="s-row"><span class="k">누적 XP</span><span class="v">+${focusState.xpAwarded.toLocaleString()}</span></div>
+        <div class="s-row"><span class="k">깨달음</span><span class="v">${focusState.eventLog.length}회</span></div>
+      </div>` : ''}
+    `;
+  }
+
+  function renderInvBlock(s) {
+    const entries = Object.entries(s.inv||{}).filter(([,v]) => v > 0);
+    const trade = Object.entries(s.tradeInv||{}).filter(([,v]) => v > 0);
+    if (entries.length === 0 && trade.length === 0) return '';
+    // 타입별 분류
+    const use = [], gear = [], quest = [], other = [];
+    entries.forEach(([k, v]) => {
+      const it = ITEMS[k]; if (!it) return;
+      if (it.type === 'use') use.push([k,v,it]);
+      else if (['weapon','armor','acc'].includes(it.type)) gear.push([k,v,it]);
+      else if (it.type === 'quest') quest.push([k,v,it]);
+      else other.push([k,v,it]);
+    });
+    let html = `<div class="s-block"><div class="s-title">🎒 인벤토리</div>`;
+    const group = (title, arr) => {
+      if (!arr.length) return '';
+      return `<div style="color:#888;font-size:10px;margin-top:4px;">${title}</div>` +
+        arr.map(([k,v,it]) => `<div class="s-row"><span class="k" title="${it.desc||''}">${it.name}</span><span class="v">x${v}</span></div>`).join('');
+    };
+    html += group('소비', use);
+    html += group('장비', gear);
+    html += group('퀘스트', quest);
+    html += group('기타', other);
+    if (trade.length) {
+      html += `<div style="color:#888;font-size:10px;margin-top:4px;">📦 무역품</div>`;
+      html += trade.map(([k,v]) => `<div class="s-row"><span class="k">${TRADE_GOODS[k].name}</span><span class="v">x${v}</span></div>`).join('');
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  // ═══════ 액션 패널 ═══════
+  const act = document.getElementById('actions');
+
+  function mkBtn(label, cb, opts = {}) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (opts.primary) b.className = 'primary';
+    if (opts.danger) b.className = 'danger';
+    if (opts.success) b.className = 'success';
+    if (opts.gold) b.className = 'gold';
+    if (opts.mini) b.className = (b.className + ' mini').trim();
+    if (opts.disabled) b.disabled = true;
+    if (opts.title) b.title = opts.title;
+    b.onclick = () => {
+      if (typeof cb === 'function') cb();
+      else if (typeof cb === 'string') game.handleInput(cb);
+      render();
+    };
+    return b;
+  }
+
+  function mkSection(label) {
+    const s = document.createElement('div');
+    s.className = 'act-row';
+    if (label) {
+      const l = document.createElement('span');
+      l.className = 'act-label';
+      l.textContent = label;
+      s.appendChild(l);
+    }
+    return s;
+  }
+
+  function render() {
+    renderSide();
+    act.innerHTML = '';
+
+    // -1) 캐릭터 선택 화면 (최상위)
+    if (uiMode === 'select') return renderCharSelect();
+
+    // 0) 수련 중 — 최우선 잠금
+    if (focusActive) return renderFocusActive();
+
+    // 1) 캐릭터 생성
+    if (game.awaiting === 'name')  return renderNameInput();
+    if (game.awaiting === 'race')  return renderRace();
+    if (game.awaiting === 'job')   return renderJob();
+
+    // 2) 시련 명상
+    if (game.trial && game.trial.stage === 'meditation') return renderMeditation();
+
+    // 3) 전투
+    if (game.combat) return renderCombat();
+
+    // 4) 모드별 서브 메뉴
+    if (uiMode === 'shop')     return renderShop();
+    if (uiMode === 'trade')    return renderTrade();
+    if (uiMode === 'npc')      return renderNpc();
+    if (uiMode === 'allocate') return renderAllocate();
+    if (uiMode === 'enhance')  return renderEnhance();
+    if (uiMode === 'casino')   return renderCasino();
+    if (uiMode === 'mansion')  return renderMansion();
+    if (uiMode === 'hire')     return renderHire();
+    if (uiMode === 'gourmet')  return renderGourmet();
+    if (uiMode === 'title')    return renderTitle();
+    if (uiMode === 'pet')      return renderPet();
+    if (uiMode === 'jobs')     return renderJobTree();
+    if (uiMode === 'inv')      return renderInv();
+    if (uiMode === 'train')    return renderTrain();
+
+    // 5) 기본 메뉴
+    renderMain();
+  }
+
+  // ─── 캐릭터 선택 ───
+  function renderCharSelect() {
+    const intro = mkSection();
+    const d = document.createElement('div');
+    d.style.cssText = 'color:#ccc;font-size:13px;margin-bottom:4px;';
+    d.innerHTML = `<b>캐릭터 선택</b> — 저장된 캐릭터: ${savesList.length}개`;
+    intro.appendChild(d);
+    act.appendChild(intro);
+
+    if (savesList.length === 0) {
+      const empty = mkSection();
+      const e = document.createElement('span');
+      e.style.color = '#858585';
+      e.textContent = '저장된 캐릭터가 없다. 새로 만들어 시작하라.';
+      empty.appendChild(e);
+      act.appendChild(empty);
+    } else {
+      // 최근 플레이 순 정렬
+      const sorted = [...savesList].sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+      sorted.forEach(s => {
+        const row = mkSection();
+        // 좌측 정보
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:260px;';
+        const raceName = RACES[s.race] ? RACES[s.race].name : s.race;
+        const jobName = JOBS[s.job] ? JOBS[s.job].name : s.job;
+        const locName = LOCATIONS[s.location] ? LOCATIONS[s.location].name : s.location;
+        const titleBadge = s.title && TITLES.ranks[s.title] ? `👑 ${TITLES.ranks[s.title].name} ` : '';
+        const playedStr = s.lastPlayed ? new Date(s.lastPlayed).toLocaleString('ko-KR') : '-';
+        info.innerHTML = `
+          <div style="color:#e0e6ed;font-size:13px;">
+            <b>${s.name}</b> · ${titleBadge}${raceName} ${jobName} <span style="color:#f4c96b;">Lv.${s.lv}</span>
+          </div>
+          <div style="color:#858585;font-size:11px;margin-top:2px;">
+            📍 ${locName} · 💰 ${(s.gold||0).toLocaleString()}G · 🕒 D${s.time?s.time.day:'-'}
+            · 직업수 ${(s.jobs||[]).length}
+          </div>
+          <div style="color:#666;font-size:10.5px;">마지막 플레이: ${playedStr}</div>
+        `;
+        row.appendChild(info);
+
+        // 우측 버튼
+        row.appendChild(mkBtn('플레이', () => loadCharacter(s.id), { primary: true }));
+        row.appendChild(mkBtn('삭제', () => deleteCharacter(s.id), { danger: true, mini: true }));
+
+        act.appendChild(row);
+      });
+    }
+
+    // 새 캐릭터 버튼
+    const newRow = mkSection();
+    newRow.appendChild(mkBtn('+ 새 캐릭터 만들기', newCharacter, { success: true, big: true }));
+    act.appendChild(newRow);
+  }
+
+  // ─── 캐릭터 생성: 이름 ───
+  function renderNameInput() {
+    const s = mkSection('이름:');
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = '캐릭터 이름 (12자 이내)';
+    inp.maxLength = 12;
+    inp.style.flex = '1';
+    inp.style.minWidth = '200px';
+    const btn = mkBtn('확정', () => {
+      if (inp.value.trim()) game.handleInput(inp.value.trim());
+    }, { primary: true });
+    inp.onkeydown = e => { if (e.key === 'Enter') btn.click(); };
+    s.appendChild(inp);
+    s.appendChild(btn);
+    act.appendChild(s);
+    setTimeout(() => inp.focus(), 50);
+
+    // 추천 이름 버튼
+    const r = mkSection('추천:');
+    ['후치', '칼 헬턴트', '아프나이델', '카리스탄', '지이스'].forEach(n =>
+      r.appendChild(mkBtn(n, () => game.handleInput(n), { mini: true })));
+    act.appendChild(r);
+  }
+
+  // ─── 종족 선택 ───
+  function renderRace() {
+    Object.entries(RACES).forEach(([k, r]) => {
+      const row = mkSection(r.name);
+      row.appendChild(mkBtn('선택', `race ${k}`, { primary: true, title: r.desc }));
+      const info = document.createElement('span');
+      info.style.cssText = 'color:#888;font-size:11px;margin-left:8px;line-height:1.6;';
+      const m = r.mod;
+      const bonus = Object.entries(m).filter(([,v]) => v !== 0).map(([s,v]) => `${s}${v>0?'+':''}${v}`).join(' ');
+      info.innerHTML = `${bonus} · <b style="color:#b4b4b4;">패시브 [${r.passive.name}]</b> ${r.passive.desc}`;
+      row.appendChild(info);
+      act.appendChild(row);
+    });
+  }
+
+  // ─── 직업 선택 ───
+  function renderJob() {
+    const race = game.tmpRace;
+    const passive = race ? RACES[race].passive : null;
+    // 종족 패시브 안내
+    if (passive) {
+      const r = mkSection();
+      const d = document.createElement('span');
+      d.style.cssText = 'color:#a0a0a0;font-size:12px;';
+      d.innerHTML = `<b style="color:#ccc;">${RACES[race].name}</b> 패시브: <b>${passive.name}</b> — ${passive.desc}`;
+      r.appendChild(d);
+      act.appendChild(r);
+    }
+    // 종족 전용 직업 먼저
+    const exclusive = Object.entries(JOBS).filter(([, j]) => j.tier === 1 && j.raceOnly === race);
+    if (exclusive.length) {
+      const lbl = mkSection(`[${RACES[race].name} 전용]`);
+      act.appendChild(lbl);
+      exclusive.forEach(([k, j]) => {
+        const row = mkSection(j.name);
+        row.appendChild(mkBtn('선택', `job ${k}`, { primary: true, title: j.desc }));
+        const info = document.createElement('span');
+        info.style.cssText = 'color:#888;font-size:11px;margin-left:8px;';
+        info.textContent = `${j.desc} (HP${j.base.hp} MP${j.base.mp} ATK${j.base.atk} MAG${j.base.mag}) [${j.mainStats.join(',')}]`;
+        row.appendChild(info);
+        act.appendChild(row);
+      });
+    }
+    // 공용 직업
+    const common = Object.entries(JOBS).filter(([, j]) => j.tier === 1 && !j.raceOnly);
+    const commonLbl = mkSection('[공용 직업]');
+    act.appendChild(commonLbl);
+    common.forEach(([k, j]) => {
+      const row = mkSection(j.name);
+      row.appendChild(mkBtn('선택', `job ${k}`, { title: j.desc }));
+      const info = document.createElement('span');
+      info.style.cssText = 'color:#888;font-size:11px;margin-left:8px;';
+      info.textContent = `${j.desc} (HP${j.base.hp} MP${j.base.mp} ATK${j.base.atk} MAG${j.base.mag}) [${j.mainStats.join(',')}]`;
+      row.appendChild(info);
+      act.appendChild(row);
+    });
+  }
+
+  // ─── 시련 명상 ───
+  function renderMeditation() {
+    const t = AWAKENINGS[game.trial.target];
+    const s = mkSection('선택:');
+    t.meditation.options.forEach((opt, i) => {
+      s.appendChild(mkBtn(`${i+1}. ${opt}`, `${i+1}`, { primary: i === 0 }));
+    });
+    act.appendChild(s);
+  }
+
+  // ─── 전투 ───
+  function renderCombat() {
+    const row1 = mkSection('행동:');
+    row1.appendChild(mkBtn('⚔ 공격', 'attack', { primary: true }));
+    if (!game.combat.trialMode) row1.appendChild(mkBtn('🏃 도주', 'run', { danger: true }));
+    act.appendChild(row1);
+
+    // 스킬
+    const skillRow = mkSection('스킬:');
+    let hasSkill = false;
+    game.state.jobs.forEach(jk => JOBS[jk].skills.forEach(sk => {
+      if (game.state.skills.includes(sk.id)) {
+        hasSkill = true;
+        const mpCost = game.combat.buffs.mag_mastery ? Math.round(sk.mp * 0.5) : sk.mp;
+        const can = game.state.mp >= mpCost;
+        skillRow.appendChild(mkBtn(`${sk.name}(${mpCost})`, `skill ${sk.id}`,
+          { disabled: !can, title: sk.desc }));
+      }
+    }));
+    if (hasSkill) act.appendChild(skillRow);
+
+    // 소비 아이템
+    const itemRow = mkSection('아이템:');
+    let hasItem = false;
+    Object.entries(game.state.inv).forEach(([k, v]) => {
+      if (v > 0 && ITEMS[k] && ITEMS[k].type === 'use') {
+        hasItem = true;
+        itemRow.appendChild(mkBtn(`${ITEMS[k].name}x${v}`, `use ${k}`, { mini: true }));
+      }
+    });
+    if (hasItem) act.appendChild(itemRow);
+  }
+
+  // ─── 기본 메뉴 ───
+  function renderMain() {
+    const loc = LOCATIONS[game.state.location];
+
+    // 상태/정보
+    const row1 = mkSection('정보:');
+    row1.appendChild(mkBtn('상태', 's'));
+    row1.appendChild(mkBtn('인벤토리', () => enterMode('inv', 'i')));
+    row1.appendChild(mkBtn('스킬', 'skills'));
+    row1.appendChild(mkBtn('퀘스트', 'q'));
+    row1.appendChild(mkBtn('직업트리', () => enterMode('jobs', 'jobs')));
+    row1.appendChild(mkBtn('시간', 'time'));
+    row1.appendChild(mkBtn('저장', saveGame, { success: true }));
+    row1.appendChild(mkBtn('캐릭터 선택', backToSelect, { danger: true, mini: true }));
+    if (game.state.pendingPoints > 0) {
+      row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; }, { gold: true }));
+    }
+    act.appendChild(row1);
+
+    // 주 활동
+    const row2 = mkSection('행동:');
+    row2.appendChild(mkBtn('탐험', 'explore', { primary: true }));
+    if (loc.inn || Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location)) {
+      row2.appendChild(mkBtn(Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location) ? '저택 휴식' : '여관', 'rest'));
+    }
+    if (loc.shop) row2.appendChild(mkBtn('상점', () => enterMode('shop', 'shop')));
+    if (TRADE_PRICES[game.state.location]) row2.appendChild(mkBtn('무역', () => enterMode('trade', 'trade')));
+    // 수련장 (해당 지역에 수련장 있을 때만)
+    if (TRAINING_HALLS[game.state.location]) {
+      row2.appendChild(mkBtn('● 수련장', () => enterMode('train'), { primary: true }));
+    }
+    act.appendChild(row2);
+
+    // 이동
+    if (loc.exits) {
+      const row3 = mkSection('이동:');
+      Object.entries(loc.exits).forEach(([dst, info]) => {
+        const h = (typeof info === 'object') ? info.hours : '?';
+        const toKey = (typeof info === 'object') ? info.to : info;
+        const reqLv = LOCATIONS[toKey].requireLv || 0;
+        const can = game.state.lv >= reqLv;
+        const label = `${dst} (${h}h)${reqLv ? ` Lv${reqLv}+` : ''}`;
+        row3.appendChild(mkBtn(label, `go ${dst}`, { disabled: !can }));
+      });
+      act.appendChild(row3);
+    }
+
+    // NPC 대화
+    if (loc.npcs && loc.npcs.length) {
+      const row4 = mkSection('대화:');
+      loc.npcs.forEach(npc => {
+        row4.appendChild(mkBtn(`💬 ${npc}`, () => enterMode('npc', `talk ${npc}`, { npc }), { mini: true }));
+      });
+      act.appendChild(row4);
+    }
+
+    // 전직/시련
+    const curJob = game.state.job;
+    const nextJobs = Object.entries(JOBS).filter(([, j]) => j.from === curJob && game.state.lv >= (j.reqLv||0));
+    if (nextJobs.length) {
+      const row5 = mkSection('전직:');
+      nextJobs.forEach(([k, j]) => {
+        if (!game.state.completedTrials[k]) {
+          row5.appendChild(mkBtn(`✦ 시련: ${j.name}`, `trial ${k}`, { gold: true,
+            title: `Lv.${j.reqLv} 필요 · ${j.cost}G\n${AWAKENINGS[k]?.name || ''}` }));
+        } else {
+          const adv = ADVANCE_NPC[k];
+          const here = adv && adv.loc === game.state.location;
+          row5.appendChild(mkBtn(`⚔ 전직: ${j.name}`, `advance ${k}`,
+            { success: true, disabled: !here, title: here ? `${j.cost}G` : `${LOCATIONS[adv.loc].name}에서만` }));
+        }
+      });
+      act.appendChild(row5);
+    }
+
+    // 골드 컨텐츠
+    const row6 = mkSection('💰 고급:');
+    if (game.state.location === 'capital')
+      row6.appendChild(mkBtn('강화', () => enterMode('enhance'), { gold: true }));
+    row6.appendChild(mkBtn('🏠 부동산', () => enterMode('mansion', 'mansion'), { gold: true }));
+    row6.appendChild(mkBtn('⚔ 용병', () => enterMode('hire', 'hire'), { gold: true }));
+    if (game.state.location === 'capital')
+      row6.appendChild(mkBtn('🎰 도박', () => enterMode('casino', 'casino'), { gold: true }));
+    if (game.state.location === 'carmilkar')
+      row6.appendChild(mkBtn('🍷 미식', () => enterMode('gourmet', 'gourmet'), { gold: true }));
+    if (game.state.location === 'palace')
+      row6.appendChild(mkBtn('👑 작위', () => enterMode('title', 'title'), { gold: true }));
+    row6.appendChild(mkBtn('🐉 펫', () => enterMode('pet', 'pet'), { gold: true }));
+    row6.appendChild(mkBtn('🐎 마차', 'carriage', { mini: true }));
+    if (Object.keys(game.state.properties||{}).length)
+      row6.appendChild(mkBtn('💰 수금', 'income', { mini: true }));
+    act.appendChild(row6);
+  }
+
+  // ─── 모드별 화면들 ───
+  function backBtn() {
+    const r = mkSection();
+    r.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'main'; uiCtx = {}; }, { danger: true }));
+    return r;
+  }
+
+  function renderShop() {
+    const list = SHOP_ITEMS[game.state.location];
+    if (list) {
+      list.forEach(k => {
+        const it = ITEMS[k];
+        const price = Math.round(it.price * (1 - game.getShopDisc()));
+        const row = mkSection(it.name);
+        const can = game.state.gold >= price;
+        row.appendChild(mkBtn(`사기 (${price}G)`, `buy ${k}`, { primary: true, disabled: !can, title: it.desc }));
+        act.appendChild(row);
+      });
+    }
+    // 판매
+    const sellables = Object.entries(game.state.inv).filter(([,v]) => v > 0);
+    if (sellables.length) {
+      const sellRow = mkSection('판매:');
+      sellables.forEach(([k, v]) => {
+        if (!ITEMS[k]) return;
+        const price = Math.round((ITEMS[k].price||10) * 0.5);
+        sellRow.appendChild(mkBtn(`${ITEMS[k].name} x${v} (${price}G)`, `sell ${k}`, { mini: true }));
+      });
+      act.appendChild(sellRow);
+    }
+    // 장비
+    const gear = Object.entries(game.state.inv).filter(([k,v]) => v > 0 && ITEMS[k] && ['weapon','armor','acc'].includes(ITEMS[k].type));
+    if (gear.length) {
+      const gearRow = mkSection('장비:');
+      gear.forEach(([k]) => gearRow.appendChild(mkBtn(`장착 ${ITEMS[k].name}`, `equip ${k}`, { mini: true })));
+      act.appendChild(gearRow);
+    }
+    act.appendChild(backBtn());
+  }
+
+  function renderTrade() {
+    const here = TRADE_PRICES[game.state.location];
+    const s = game.state;
+
+    // 헤더: 현재 도시·누적 이익
+    const header = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#ccc;line-height:1.7;width:100%;';
+    h.innerHTML = `
+      <b>${LOCATIONS[s.location].name} 거래소</b>
+      <span style="color:#858585;font-size:11px;"> · 매입 100% · 매도 시 ${(TRADE_SELL_TAX*100).toFixed(0)}% 수령 (${(100-TRADE_SELL_TAX*100).toFixed(0)}% 세금)</span>
+      <div style="color:#f4c96b;font-size:12px;">누적 거래 이익: ${(s.totalTradeProfit||0).toLocaleString()}G ${JOBS[s.job].line==='merchant'?'[상인 이익 XP ×3]':''}</div>
+    `;
+    header.appendChild(h);
+    act.appendChild(header);
+
+    // 각 상품: 시세, 보유, 매입/매도 버튼 + "어디 팔면 이득" 힌트
+    Object.entries(here).forEach(([k, price]) => {
+      const have = (s.tradeInv||{})[k] || 0;
+      const book = (s.tradeBook||{})[k] || 0;
+      const avg = have > 0 ? Math.round(book / have) : 0;
+      const sellReceive = Math.round(price * TRADE_SELL_TAX);
+
+      const row = mkSection();
+      // 상품 정보
+      const info = document.createElement('div');
+      info.style.cssText = 'flex:1;min-width:220px;';
+      const perUnitProfit = have > 0 ? (sellReceive - avg) : 0;
+      const profitColor = perUnitProfit > 0 ? '#7ed957' : perUnitProfit < 0 ? '#ff6b6b' : '#858585';
+      info.innerHTML = `
+        <div><b>${TRADE_GOODS[k].name}</b> <span style="color:#858585;font-size:11px;">시세 ${price}G · 매도 시 ${sellReceive}G</span></div>
+        <div style="font-size:11px;color:#888;">보유 ${have}개${have>0 ? ` · 평균 매입 ${avg}G · <span style="color:${profitColor}">여기 팔면 개당 ${perUnitProfit>=0?'+':''}${perUnitProfit}G</span>` : ''}</div>
+      `;
+      row.appendChild(info);
+
+      // 매입 / 매도 버튼
+      row.appendChild(mkBtn(`매입 1 (${price}G)`, `trade buy ${k} 1`, { mini: true, disabled: s.gold < price }));
+      row.appendChild(mkBtn(`매입 10 (${price*10}G)`, `trade buy ${k} 10`, { mini: true, disabled: s.gold < price*10 }));
+      row.appendChild(mkBtn(`매도 1`, `trade sell ${k} 1`, { mini: true, disabled: have < 1 }));
+      if (have >= 10) row.appendChild(mkBtn(`매도 10`, `trade sell ${k} 10`, { mini: true }));
+      if (have >= 1) row.appendChild(mkBtn(`매도 전부(${have})`, `trade sell ${k} ${have}`, { mini: true }));
+
+      act.appendChild(row);
+    });
+
+    // 다른 도시 시세 비교 — "이 상품은 어디로 가야 이익?"
+    const tip = mkSection();
+    const t = document.createElement('div');
+    t.style.cssText = 'color:#ccc;width:100%;margin-top:8px;';
+    t.innerHTML = `<b style="color:#f4c96b;">💡 다른 도시 시세 — 어디로 옮겨 팔면 이득?</b>`;
+    tip.appendChild(t);
+    act.appendChild(tip);
+
+    Object.keys(here).forEach(k => {
+      const myPrice = here[k];
+      const bases = Object.entries(TRADE_PRICES)
+        .filter(([city, prices]) => city !== s.location && prices[k])
+        .map(([city, prices]) => ({ city, price: prices[k], profit: Math.round(prices[k] * TRADE_SELL_TAX - myPrice) }))
+        .sort((a, b) => b.profit - a.profit);
+      if (bases.length === 0) return;
+      const row = mkSection();
+      const d = document.createElement('div');
+      d.style.cssText = 'color:#b4b4b4;font-size:11.5px;width:100%;';
+      const list = bases.slice(0, 3).map(b => {
+        const c = b.profit > 0 ? '#7ed957' : b.profit < 0 ? '#ff6b6b' : '#888';
+        return `${LOCATIONS[b.city].name} <span style="color:${c}">(${b.profit>0?'+':''}${b.profit}G/개)</span>`;
+      }).join(' · ');
+      d.innerHTML = `  ${TRADE_GOODS[k].name}: ${list}`;
+      row.appendChild(d);
+      act.appendChild(row);
+    });
+
+    // 상인 스킬 진행도
+    const learned = s.tradeSkills || [];
+    const skRow = mkSection();
+    const sk = document.createElement('div');
+    sk.style.cssText = 'color:#ccc;width:100%;margin-top:10px;';
+    sk.innerHTML = `<b style="color:#f4c96b;">💰 상인 스킬 진행 (${learned.length}/${TRADE_SKILLS.length})</b>`;
+    skRow.appendChild(sk);
+    act.appendChild(skRow);
+
+    const next3 = TRADE_SKILLS.filter(ts => !learned.includes(ts.id)).slice(0, 3);
+    next3.forEach(ts => {
+      const row = mkSection();
+      const d = document.createElement('div');
+      d.style.cssText = 'color:#a0a0a0;font-size:11.5px;width:100%;';
+      const cur = s.totalTradeProfit || 0;
+      const pct = Math.min(100, Math.round(cur / ts.reqProfit * 100));
+      d.innerHTML = `
+        <div><b style="color:#ccc;">${ts.name}</b> — ${ts.desc}</div>
+        <div style="color:#707070;">${cur.toLocaleString()}/${ts.reqProfit.toLocaleString()}G (${pct}%)</div>
+      `;
+      row.appendChild(d);
+      act.appendChild(row);
+    });
+    if (learned.length) {
+      const lr = mkSection();
+      const ld = document.createElement('div');
+      ld.style.cssText = 'color:#858585;font-size:11px;width:100%;';
+      ld.innerHTML = `<b style="color:#9d9;">✦ 해금:</b> ` + learned.map(id => {
+        const ts = TRADE_SKILLS.find(t => t.id === id);
+        return ts ? ts.name : id;
+      }).join(', ');
+      lr.appendChild(ld);
+      act.appendChild(lr);
+    }
+
+    act.appendChild(backBtn());
+  }
+
+  function renderNpc() {
+    const npc = uiCtx.npc;
+    if (!npc) { uiMode = 'main'; uiCtx = {}; render(); return; }
+    const curJob = game.state.job;
+    // 전직 버튼
+    const advances = Object.entries(ADVANCE_NPC).filter(([,v]) => v.loc === game.state.location && v.npc === npc);
+    advances.forEach(([jk]) => {
+      const j = JOBS[jk];
+      if (j.from !== curJob || game.state.lv < j.reqLv) return;
+      const row = mkSection(j.name);
+      if (!game.state.completedTrials[jk]) {
+        row.appendChild(mkBtn(`✦ 시련 도전`, `trial ${jk}`, { gold: true, title: AWAKENINGS[jk]?.name }));
+      } else {
+        const can = game.state.gold >= j.cost;
+        row.appendChild(mkBtn(`⚔ 전직 (${j.cost}G)`, `advance ${jk}`, { success: true, disabled: !can }));
+      }
+      act.appendChild(row);
+    });
+    // 퀘스트
+    const q = Object.values(QUESTS).find(q => q.location === game.state.location && q.giver === npc &&
+      game.state.lv >= q.requireLv && !game.state.quests[q.id]);
+    if (q) {
+      const qr = mkSection('퀘스트:');
+      qr.appendChild(mkBtn(`📜 ${q.name} 수락`, `accept ${q.id}`, { success: true, title: q.desc }));
+      act.appendChild(qr);
+    }
+    // 수락한 퀘스트 완료
+    const completeable = Object.entries(game.state.quests).filter(([id, q]) => {
+      const qi = QUESTS[id];
+      return qi.giver === npc && !q.done && q.progress >= qi.target.count;
+    });
+    if (completeable.length) {
+      const cr = mkSection('완료:');
+      completeable.forEach(([id]) => cr.appendChild(mkBtn(`✓ ${QUESTS[id].name} 보고`, `complete ${id}`, { success: true })));
+      act.appendChild(cr);
+    }
+    act.appendChild(backBtn());
+  }
+
+  function renderAllocate() {
+    const s = game.state;
+    const info = mkSection();
+    const d = document.createElement('span');
+    d.innerHTML = `분배 가능: <b style="color:#e5c24c">${s.pendingPoints}</b>점`;
+    info.appendChild(d);
+    act.appendChild(info);
+    ['str','dex','int','vit','wis','luk','cha'].forEach(k => {
+      const row = mkSection(`${k.toUpperCase()} (${game.S(k)})`);
+      row.appendChild(mkBtn('+1', `allocate ${k} 1`, { disabled: s.pendingPoints < 1 }));
+      row.appendChild(mkBtn('+5', `allocate ${k} 5`, { disabled: s.pendingPoints < 5 }));
+      row.appendChild(mkBtn('+10', `allocate ${k} 10`, { disabled: s.pendingPoints < 10 }));
+      act.appendChild(row);
+    });
+    act.appendChild(backBtn());
+  }
+
+  function renderEnhance() {
+    if (game.state.location !== 'capital') {
+      print('강화는 수도 대장장이에게서만.', 'warn');
+      uiMode = 'main'; render(); return;
+    }
+    const info = mkSection();
+    const d = document.createElement('span');
+    const eW = game.state.enhancement?.weapon || 0;
+    const eA = game.state.enhancement?.armor || 0;
+    d.innerHTML = `무기 +${eW} / 방어구 +${eA} &nbsp; (최대 +10)`;
+    info.appendChild(d);
+    act.appendChild(info);
+
+    ['weapon','armor'].forEach(slot => {
+      const lv = game.state.enhancement?.[slot] || 0;
+      const eq = game.state.equip[slot];
+      const row = mkSection(slot === 'weapon' ? '무기' : '방어구');
+      if (!eq) { row.appendChild(document.createTextNode('장비 없음')); act.appendChild(row); return; }
+      if (lv >= 10) { row.appendChild(document.createTextNode(`${ITEMS[eq].name} +10 (최대)`)); act.appendChild(row); return; }
+      const cost = ENHANCEMENT.costs[lv];
+      const fail = ENHANCEMENT.failRate[lv];
+      row.appendChild(document.createTextNode(`${ITEMS[eq].name} +${lv} → +${lv+1}`));
+      row.appendChild(mkBtn(`강화 (${cost}G, 실패율 ${fail*100}%)`, `enhance ${slot}`,
+        { gold: true, disabled: game.state.gold < cost }));
+      act.appendChild(row);
+    });
+    act.appendChild(backBtn());
+  }
+
+  function renderCasino() {
+    if (game.state.location !== 'capital') { uiMode = 'main'; render(); return; }
+    [100, 500, 1000, 5000, 10000].forEach(amt => {
+      if (game.state.gold < amt) return;
+      const r = mkSection(`${amt}G 베팅`);
+      Object.entries(CASINO.games).forEach(([k, g]) => {
+        r.appendChild(mkBtn(`${g.name} (${g.payout}×)`, `bet ${k} ${amt}`, { mini: true, gold: true }));
+      });
+      act.appendChild(r);
+    });
+    act.appendChild(backBtn());
+  }
+
+  function renderMansion() {
+    Object.entries(PROPERTIES).forEach(([k, p]) => {
+      const row = mkSection(p.name);
+      const own = (game.state.properties||{})[k];
+      const here = game.state.location === p.loc;
+      if (own) row.appendChild(document.createTextNode(' ✓ 보유 중'));
+      else row.appendChild(mkBtn(`구매 ${p.price}G @${LOCATIONS[p.loc].name}`, `mansion ${k}`,
+        { gold: true, disabled: !here || game.state.gold < p.price, title: p.desc }));
+      act.appendChild(row);
+    });
+    if (Object.keys(game.state.properties||{}).length) {
+      const ir = mkSection('임대료:');
+      ir.appendChild(mkBtn('💰 수금', 'income', { success: true }));
+      act.appendChild(ir);
+    }
+    act.appendChild(backBtn());
+  }
+
+  function renderHire() {
+    Object.entries(MERCENARIES).forEach(([k, m]) => {
+      const row = mkSection(m.name);
+      const own = (game.state.mercs||[]).includes(k);
+      const here = game.state.location === m.hire;
+      if (own) row.appendChild(document.createTextNode(' ✓ 고용 중'));
+      else row.appendChild(mkBtn(`고용 ${m.price}G @${LOCATIONS[m.hire].name}`, `hire ${k}`,
+        { gold: true, disabled: !here || game.state.gold < m.price, title: m.desc }));
+      act.appendChild(row);
+    });
+    act.appendChild(backBtn());
+  }
+
+  function renderGourmet() {
+    if (game.state.location !== GOURMET.loc) { uiMode = 'main'; render(); return; }
+    Object.entries(GOURMET.dishes).forEach(([k, d]) => {
+      const row = mkSection(d.name);
+      const eaten = (game.state.eaten||{})[k];
+      const b = Object.entries(d.bonus).map(([s,v]) => `${s.toUpperCase()}+${v}`).join(' ');
+      if (eaten) row.appendChild(document.createTextNode(` ✓ 먹음 (${b})`));
+      else row.appendChild(mkBtn(`식사 ${d.price}G (${b})`, `dine ${k}`,
+        { gold: true, disabled: game.state.gold < d.price }));
+      act.appendChild(row);
+    });
+    act.appendChild(backBtn());
+  }
+
+  function renderTitle() {
+    if (game.state.location !== TITLES.loc) { uiMode = 'main'; render(); return; }
+    Object.entries(TITLES.ranks).forEach(([k, t]) => {
+      const row = mkSection(t.name);
+      const own = game.state.title === k;
+      const b = Object.entries(t.bonus).map(([s,v]) => `${s.toUpperCase()}+${v}`).join(' ');
+      if (own) row.appendChild(document.createTextNode(' 👑 현재 작위'));
+      else row.appendChild(mkBtn(`수여 ${t.price.toLocaleString()}G (${b})`, `title ${k}`,
+        { gold: true, disabled: game.state.gold < t.price }));
+      act.appendChild(row);
+    });
+    act.appendChild(backBtn());
+  }
+
+  function renderPet() {
+    Object.entries(PETS).forEach(([k, p]) => {
+      const row = mkSection(p.name);
+      const own = game.state.pet === k;
+      const here = game.state.location === p.loc;
+      const canLv = game.state.lv >= p.requireLv;
+      if (own) row.appendChild(document.createTextNode(' 🐾 입양 중'));
+      else row.appendChild(mkBtn(`입양 ${p.price.toLocaleString()}G @${LOCATIONS[p.loc].name} Lv.${p.requireLv}+`, `pet ${k}`,
+        { gold: true, disabled: !here || !canLv || game.state.gold < p.price, title: p.skill.desc }));
+      act.appendChild(row);
+    });
+    act.appendChild(backBtn());
+  }
+
+  function renderJobTree() {
+    act.appendChild(backBtn());
+  }
+
+  function renderTrain() {
+    // 현재 지역이 수련장인지 확인
+    const hall = TRAINING_HALLS[game.state.location];
+    if (!hall) {
+      const r = mkSection();
+      const d = document.createElement('span');
+      d.style.color = '#858585';
+      d.textContent = `이 지역엔 수련장이 없다. 수련장이 있는 도시로 이동.`;
+      r.appendChild(d);
+      act.appendChild(r);
+      // 수련장 목록 안내
+      const r2 = mkSection('수련장 위치:');
+      const list = document.createElement('div');
+      list.style.cssText = 'color:#b4b4b4;font-size:12px;line-height:1.8;';
+      Object.entries(TRAINING_HALLS).forEach(([k, h]) => {
+        list.innerHTML += `<div>• ${LOCATIONS[k].name} — ${h.name} (배율 ×${h.mul})</div>`;
+      });
+      r2.appendChild(list);
+      act.appendChild(r2);
+      act.appendChild(backBtn());
+      return;
+    }
+
+    // 수련장 입장 — 시간 선택
+    const intro = mkSection();
+    const i = document.createElement('div');
+    i.style.cssText = 'color:#cccccc;line-height:1.7;';
+    i.innerHTML = `<b>${hall.name}</b> · 배율 ×${hall.mul}
+      <br><span style="color:#858585;">${hall.desc}</span>
+      ${hall.trait ? `<br><span style="color:#f4c96b;font-size:11.5px;">✦ 특성: ${hall.trait}</span>` : ''}`;
+    intro.appendChild(i);
+    act.appendChild(intro);
+
+    const notice = mkSection();
+    const n = document.createElement('span');
+    n.style.cssText = 'color:#a0a0a0;font-size:12px;';
+    n.innerHTML = `수련 시작 시 <b>실제 시간이 흐르며 다른 행동 불가</b>. 중단은 언제든 가능 (경과 비례 XP 획득).<br>중간에 깨달음 이벤트가 발생해 보너스 XP를 받을 수 있다.`;
+    notice.appendChild(n);
+    act.appendChild(notice);
+
+    // 수련 선택 — 수련 이름을 크게, 실시간/게임일수를 작게
+    TRAIN_DURATIONS.forEach(d => {
+      const expectXp = Math.round(game.state.lv * d.min * 20 * hall.mul);
+      const row = mkSection();
+      const btn = mkBtn(d.name, () => startFocus(d.min, d.days), { primary: true });
+      btn.style.minWidth = '140px';
+      row.appendChild(btn);
+      const info = document.createElement('span');
+      info.style.cssText = 'color:#858585;font-size:11px;margin-left:10px;line-height:1.5;';
+      info.innerHTML = `<span style="color:#a0a0a0;">실시간 ${d.min}분</span> · <span style="color:#a0a0a0;">게임 ${d.days}일 경과</span> · 예상 +${expectXp.toLocaleString()} XP`;
+      row.appendChild(info);
+      act.appendChild(row);
+    });
+
+    // 누적 수련 시간 + 해금 스킬 진행도
+    const totalMin = game.state.trainedMinutes || 0;
+    const learned  = game.state.trainedSkills || [];
+    const sumRow = mkSection();
+    const sumInfo = document.createElement('div');
+    sumInfo.style.cssText = 'color:#b4b4b4;font-size:12px;line-height:1.8;width:100%;margin-top:6px;';
+    sumInfo.innerHTML = `<b style="color:#ccc;">누적 수련</b>: ${totalMin}분 (${(totalMin/60).toFixed(1)}시간) · 해금 ${learned.length}/${TRAIN_SKILLS.length}`;
+    sumRow.appendChild(sumInfo);
+    act.appendChild(sumRow);
+
+    // 다음 해금 3개 + 습득 완료 스킬
+    const next = TRAIN_SKILLS.filter(ts => !learned.includes(ts.id)).slice(0, 3);
+    if (next.length) {
+      next.forEach(ts => {
+        const r = mkSection();
+        const d2 = document.createElement('div');
+        d2.style.cssText = 'color:#a0a0a0;font-size:11.5px;width:100%;';
+        const rem = ts.reqMin - totalMin;
+        const pct = Math.min(100, Math.round((totalMin / ts.reqMin) * 100));
+        d2.innerHTML = `
+          <div>[${ts.type === 'active' ? '액티브' : '패시브'}] <b style="color:#ccc;">${ts.name}</b> — ${ts.desc}</div>
+          <div style="color:#707070;">진행: ${totalMin}/${ts.reqMin}분 (${pct}%) · 앞으로 ${rem}분</div>
+        `;
+        r.appendChild(d2);
+        act.appendChild(r);
+      });
+    }
+    // 이미 해금한 스킬
+    if (learned.length) {
+      const lr = mkSection();
+      const ld = document.createElement('div');
+      ld.style.cssText = 'color:#858585;font-size:11px;width:100%;';
+      ld.innerHTML = `<b style="color:#9d9;">✦ 해금:</b> ` + learned.map(id => {
+        const ts = TRAIN_SKILLS.find(t => t.id === id);
+        return ts ? ts.name : id;
+      }).join(', ');
+      lr.appendChild(ld);
+      act.appendChild(lr);
+    }
+
+    act.appendChild(backBtn());
+  }
+
+  function renderFocusActive() {
+    const s = focusState;
+    if (!s) { focusActive = false; render(); return; }
+    const elapsed = Date.now() - s.startedAt;
+    const total = s.durationMs;
+    const pct = Math.min(100, Math.round(elapsed / total * 100));
+    const bar = '[' + '='.repeat(Math.floor(pct/4)) + '-'.repeat(25 - Math.floor(pct/4)) + ']';
+    const remaining = formatRemaining();
+
+    // 큰 안내 블록
+    const header = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#e0e6ed;font-size:14px;line-height:1.8;width:100%;';
+    h.innerHTML = `
+      <div style="color:#f4c96b;">● 집중 수련 진행 중 — ${s.hallName}</div>
+      <div style="font-family:Consolas;font-size:13px;color:#b4b4b4;">${bar} ${pct}%</div>
+      <div style="color:#a0a0a0;">남은 시간: <b style="color:#e0e6ed">${remaining}</b> · 현재 획득 XP: <b style="color:#e0e6ed">+${s.xpAwarded.toLocaleString()}</b> · 깨달음 ${s.eventLog.length}회</div>
+      <div style="color:#666;font-size:11px;margin-top:4px;">다른 행동 잠김. 중단 시 경과 비례 XP 획득.</div>
+    `;
+    header.appendChild(h);
+    act.appendChild(header);
+
+    const row = mkSection();
+    row.appendChild(mkBtn('중지 (경과 비례 XP)', () => finishFocus('수동 중단'), { danger: true, big: true }));
+    act.appendChild(row);
+  }
+
+  function renderInv() {
+    // 장비 장착
+    const gear = Object.entries(game.state.inv).filter(([k,v]) => v > 0 && ITEMS[k] && ['weapon','armor','acc'].includes(ITEMS[k].type));
+    if (gear.length) {
+      const row = mkSection('장착:');
+      gear.forEach(([k]) => row.appendChild(mkBtn(`${ITEMS[k].name}`, `equip ${k}`, { mini: true, title: ITEMS[k].desc })));
+      act.appendChild(row);
+    }
+    // 해제
+    if (game.state.equip.weapon || game.state.equip.armor || game.state.equip.acc) {
+      const row = mkSection('해제:');
+      ['weapon','armor','acc'].forEach(s => {
+        if (game.state.equip[s]) row.appendChild(mkBtn(`${s} 해제`, `unequip ${s}`, { mini: true }));
+      });
+      act.appendChild(row);
+    }
+    // 소비
+    const useables = Object.entries(game.state.inv).filter(([k,v]) => v > 0 && ITEMS[k] && ITEMS[k].type === 'use');
+    if (useables.length) {
+      const row = mkSection('사용:');
+      useables.forEach(([k, v]) => row.appendChild(mkBtn(`${ITEMS[k].name} x${v}`, `use ${k}`, { mini: true })));
+      act.appendChild(row);
+    }
+    act.appendChild(backBtn());
+  }
+
+  // ─── 저장 ───
+  async function saveGame() {
+    if (!currentCharId) currentCharId = 'char_' + Date.now();
+    const r = await ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
+    print(r.ok ? '저장 완료.' : '저장 실패: ' + r.error, r.ok ? 'good' : 'warn');
+  }
+
+  // ═══════ 위장 ═══════
+  const disguise = document.getElementById('disguise');
+  const gameView = document.getElementById('game');
+  let disguised = true;
+  function setDisguise(on) {
+    disguised = on;
+    if (on) { disguise.classList.add('active'); gameView.classList.remove('active'); }
+    else    { disguise.classList.remove('active'); gameView.classList.add('active'); }
+  }
+  setDisguise(true);
+  ipcRenderer.on('toggle-disguise', () => setDisguise(!disguised));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setDisguise(true); });
+
+  // ═══════ 위장 애니메이션 ═══════
+  const procNames = ['System','svchost.exe','explorer.exe','chrome.exe','Code.exe','Teams.exe','Outlook.exe','OneDrive.exe','msedge.exe','WINWORD.EXE','EXCEL.EXE','Slack.exe','node.exe','git.exe','powershell.exe','RuntimeBroker.exe','dwm.exe','conhost.exe'];
+  const procBody = document.getElementById('procBody');
+  let procs = procNames.slice(0,14).map((n,i) => ({ pid: 1000+i*13+Math.floor(Math.random()*97), name: n, cpu: Math.random()*8, mem: Math.random()*400+30, status: 'Running' }));
+  function renderProcs() {
+    procBody.innerHTML = '';
+    procs.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${p.pid}</td><td>${p.name}</td><td>${p.cpu.toFixed(1)}</td><td>${p.mem.toFixed(0)} MB</td><td>${p.status}</td>`;
+      procBody.appendChild(tr);
+    });
+  }
+  renderProcs();
+  const startTime = Date.now();
+  setInterval(() => {
+    const cpu=20+Math.random()*40, mem=40+Math.random()*30, disk=Math.random()*60, net=Math.random()*30;
+    document.getElementById('cpuFill').style.width=cpu+'%';
+    document.getElementById('cpuVal').textContent=cpu.toFixed(0)+'%';
+    document.getElementById('memFill').style.width=mem+'%';
+    document.getElementById('memVal').textContent=(mem*0.16).toFixed(1)+' / 16.0 GB';
+    document.getElementById('diskFill').style.width=disk+'%';
+    document.getElementById('diskVal').textContent=disk.toFixed(0)+' MB/s';
+    document.getElementById('netFill').style.width=net+'%';
+    document.getElementById('netVal').textContent=`↑ ${(Math.random()*3).toFixed(1)} MB/s   ↓ ${(Math.random()*8).toFixed(1)} MB/s`;
+    const sec=Math.floor((Date.now()-startTime)/1000);
+    const d=Math.floor(sec/86400), h=Math.floor((sec%86400)/3600), m=Math.floor((sec%3600)/60);
+    document.getElementById('uptime').textContent=`${d}d ${h}h ${m}m`;
+    document.getElementById('procCount').textContent=140+Math.floor(Math.random()*10);
+    procs.forEach(p => { p.cpu=Math.max(0,p.cpu+(Math.random()-0.5)*2); p.mem=Math.max(10,p.mem+(Math.random()-0.5)*15); });
+    renderProcs();
+  }, 1500);
+
+  init();
+</script>
+</body>
+</html>

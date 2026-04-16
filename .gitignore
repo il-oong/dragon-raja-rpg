@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Electron saves (개인 플레이 데이터)
+save.json
+saves.json
+*.bak
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build output
+dist/
+out/
+build/
