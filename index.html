@@ -187,9 +187,75 @@
 </div>
 
 <script>
-  const { ipcRenderer } = require('electron');
-  const { Game } = require('./game/engine.js');
-  const D = require('./game/data.js');
+  // ═══════ 런타임 감지 (Electron vs Tauri) ═══════
+  const isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
+  const isElectron = !isTauri && typeof require === 'function';
+</script>
+
+<!-- Tauri 모드: data.js/engine.js를 classic script로 로드 (CommonJS → window 전역 경로) -->
+<script>
+  if (window.__TAURI_INTERNALS__) {
+    // require/module 폴리필
+    window.module = { exports: {} };
+    window.__gm_registry = {};
+    window.require = function (p) {
+      const key = p.replace(/^\.\//, '').replace(/\.js$/, '');
+      if (window.__gm_registry[key]) return window.__gm_registry[key];
+      throw new Error('모듈을 찾을 수 없음: ' + p);
+    };
+    // classic script로 data.js와 engine.js 동기 로드
+    document.write('<script src="game/data.js"><\/script>');
+    document.write('<script>window.__gm_registry["data"] = window.__GAME_DATA__; window.module = { exports: {} };<\/script>');
+    document.write('<script src="game/engine.js"><\/script>');
+    document.write('<script>window.__gm_registry["engine"] = window.__GAME_ENGINE__;<\/script>');
+  }
+</script>
+
+<script>
+  let ipcRenderer, Game, D;
+  if (isElectron) {
+    ipcRenderer = require('electron').ipcRenderer;
+    Game = require('./game/engine.js').Game;
+    D = require('./game/data.js');
+  } else if (isTauri) {
+    Game = window.__GAME_ENGINE__?.Game;
+    D = window.__GAME_DATA__;
+  }
+
+  // IPC 통합 래퍼 — 두 런타임 모두 동일 API 제공
+  const ipc = {
+    async invoke(channel, ...args) {
+      if (isElectron) return await ipcRenderer.invoke(channel, ...args);
+      if (isTauri) {
+        // Electron 채널명 → Tauri command명 매핑
+        const cmd = channel.replace(/-/g, '_');
+        const { invoke } = window.__TAURI__.core;
+        if (cmd === 'list_saves') return await invoke('list_saves');
+        if (cmd === 'save_char') {
+          const { id, data } = args[0] || {};
+          try { await invoke('save_char', { id, data }); return { ok: true }; }
+          catch (e) { return { ok: false, error: String(e) }; }
+        }
+        if (cmd === 'delete_char') {
+          try { await invoke('delete_char', { id: args[0] }); return { ok: true }; }
+          catch (e) { return { ok: false, error: String(e) }; }
+        }
+        if (cmd === 'import_saves') {
+          return await invoke('import_saves', { args: args[0] });
+        }
+        // save-game/load-game (구버전) — 빈 응답
+        if (cmd === 'load_game') return null;
+        if (cmd === 'save_game') return { ok: true };
+        return null;
+      }
+    },
+    on(channel, cb) {
+      if (isElectron) return ipcRenderer.on(channel, cb);
+      if (isTauri) return window.__TAURI__.event.listen(channel, cb);
+    }
+  };
+  // 기존 코드가 ipcRenderer.invoke 를 직접 부르던 곳 대응
+  if (!ipcRenderer) ipcRenderer = ipc;
   const { LOCATIONS, JOBS, ITEMS, MONSTERS, RACES, SHOP_ITEMS, TRADE_PRICES, TRADE_GOODS, TRADE_SELL_TAX, TRADE_SKILLS,
           QUESTS, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
           GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, THEMES } = D;

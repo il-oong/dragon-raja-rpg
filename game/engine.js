@@ -1,4 +1,7 @@
-const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS } = require('./data.js');
+const __DATA__ = (typeof require === 'function')
+  ? require('./data.js')
+  : (typeof window !== 'undefined' ? window.__GAME_DATA__ : globalThis.__GAME_DATA__);
+const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS } = __DATA__;
 
 const rnd = (n) => Math.floor(Math.random() * n);
 const chance = (p) => Math.random() < p;
@@ -1856,4 +1859,5 @@ class Game {
   }
 }
 
-module.exports = { Game };
+if (typeof module !== 'undefined' && module.exports) module.exports = { Game };
+if (typeof window !== 'undefined') window.__GAME_ENGINE__ = { Game };

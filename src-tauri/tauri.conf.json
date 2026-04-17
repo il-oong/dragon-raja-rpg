@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "System Monitor",
+  "version": "1.0.0",
+  "identifier": "com.sys.monitor",
+  "build": {
+    "frontendDist": "../"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "System Monitor",
+        "width": 1100,
+        "height": 720,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.png"],
+    "copyright": "",
+    "category": "Utility",
+    "shortDescription": "System Monitor",
+    "longDescription": "System Resource Monitor",
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "perUser",
+        "displayLanguageSelector": false
+      }
+    }
+  },
+  "plugins": {
+    "global-shortcut": {
+      "all": true
+    }
+  }
+}
