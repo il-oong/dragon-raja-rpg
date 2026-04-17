@@ -225,6 +225,53 @@
 
   const game = new Game((t, k) => print(t, k));
 
+  // ═══════ 서버 연동 (Railway) ═══════
+  const SERVER_URL = 'https://dragon-raja-rpg-production.up.railway.app';
+  let currentToken = null;
+  let currentUsername = null;
+
+  async function api(path, method = 'GET', body = null) {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (currentToken) headers.Authorization = `Bearer ${currentToken}`;
+      const opts = { method, headers };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(SERVER_URL + path, opts);
+      return await res.json();
+    } catch (err) {
+      return { ok: false, error: '서버 연결 실패: ' + err.message };
+    }
+  }
+
+  function saveAuth() {
+    try { localStorage.setItem('dr_auth', JSON.stringify({ token: currentToken, username: currentUsername })); } catch {}
+  }
+  function loadAuth() {
+    try {
+      const a = JSON.parse(localStorage.getItem('dr_auth') || '{}');
+      currentToken = a.token || null;
+      currentUsername = a.username || null;
+    } catch {}
+  }
+  function clearAuth() {
+    currentToken = null; currentUsername = null;
+    try { localStorage.removeItem('dr_auth'); } catch {}
+  }
+  loadAuth();
+
+  async function updateLeaderboard(s) {
+    if (!currentToken || !s || !s.name) return;
+    const bossesKilled = Object.keys(s.flags || {}).filter(k => k.startsWith('boss_') && k.endsWith('_dead')).length;
+    await api('/api/leaderboard/update', 'POST', {
+      level: s.lv || 1,
+      gold: s.gold || 0,
+      job: (JOBS[s.job] && JOBS[s.job].name) || '',
+      bosses_killed: bossesKilled,
+      total_trade_profit: s.totalTradeProfit || 0,
+      mastered_lines: (s.masteredLines || []).length,
+    });
+  }
+
   let uiMode = 'main';
   let uiCtx = {};
   let currentCharId = null;     // 현재 플레이 중인 캐릭터 id
@@ -647,6 +694,12 @@
     if (uiMode === 'select') return renderCharSelect();
     if (uiMode === 'export') return renderExport();
     if (uiMode === 'import') return renderImport();
+    if (uiMode === 'auth_login')   return renderAuthLogin();
+    if (uiMode === 'auth_register')return renderAuthRegister();
+    if (uiMode === 'cloud_sync')   return renderCloudSync();
+    if (uiMode === 'leaderboard')  return renderLeaderboard();
+    if (uiMode === 'mail')         return renderMail();
+    if (uiMode === 'mail_send')    return renderMailSend();
 
     // 0) 수련 중 — 최우선 잠금
     if (focusActive) return renderFocusActive();
@@ -737,10 +790,31 @@
     act.appendChild(newRow);
 
     // 클라우드 동기화 (Export/Import)
-    const cloudRow = mkSection('동기화:');
+    const cloudRow = mkSection('오프라인:');
     cloudRow.appendChild(mkBtn('📤 세이브 내보내기', () => { uiMode = 'export'; render(); }, { mini: true, title: '모든 캐릭터 데이터를 텍스트로 복사 — 다른 PC에서 가져오기 가능' }));
     cloudRow.appendChild(mkBtn('📥 세이브 가져오기', () => { uiMode = 'import'; render(); }, { mini: true, title: '다른 PC에서 내보낸 텍스트를 붙여넣기' }));
     act.appendChild(cloudRow);
+
+    // 서버 로그인/멀티 섹션
+    const netRow = mkSection('서버:');
+    if (currentToken && currentUsername) {
+      const info = document.createElement('span');
+      info.style.cssText = 'color:#b4b4b4;font-size:12px;margin-right:8px;';
+      info.innerHTML = `접속: <b style="color:#e0e6ed">${currentUsername}</b>`;
+      netRow.appendChild(info);
+      netRow.appendChild(mkBtn('☁ 클라우드 동기화', () => { uiMode = 'cloud_sync'; render(); }, { success: true, mini: true }));
+      netRow.appendChild(mkBtn('🏆 리더보드', () => { uiMode = 'leaderboard'; render(); }, { mini: true }));
+      netRow.appendChild(mkBtn('📮 우편함', () => { uiMode = 'mail'; render(); }, { mini: true }));
+      netRow.appendChild(mkBtn('로그아웃', () => { clearAuth(); print(`로그아웃 완료.`, 'good'); render(); }, { danger: true, mini: true }));
+    } else {
+      const info = document.createElement('span');
+      info.style.cssText = 'color:#858585;font-size:12px;margin-right:8px;';
+      info.textContent = '로그인하면 클라우드 저장 · 리더보드 · 우편함 사용 가능';
+      netRow.appendChild(info);
+      netRow.appendChild(mkBtn('로그인', () => { uiMode = 'auth_login'; render(); }, { primary: true, mini: true }));
+      netRow.appendChild(mkBtn('회원가입', () => { uiMode = 'auth_register'; render(); }, { mini: true }));
+    }
+    act.appendChild(netRow);
   }
 
   // ─── 세이브 Export ───
@@ -811,6 +885,366 @@
       if (confirm('기존의 모든 캐릭터가 삭제되고 붙여넣은 데이터로 대체됩니다. 정말 진행하시겠습니까?')) doImport('replace');
     }, { danger: true }));
     btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }));
+    act.appendChild(btnRow);
+  }
+
+  // ═══════ 서버 — 로그인/회원가입 ═══════
+  function renderAuthLogin() {
+    const intro = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#ccc;width:100%;line-height:1.7;';
+    h.innerHTML = `<b>🔑 로그인</b><div style="color:#858585;font-size:11.5px;">서버에 접속하여 클라우드 저장·리더보드·우편함 사용.</div>`;
+    intro.appendChild(h);
+    act.appendChild(intro);
+
+    const idRow = mkSection('닉네임:');
+    const idInp = document.createElement('input');
+    idInp.type = 'text'; idInp.placeholder = '닉네임'; idInp.style.flex = '1'; idInp.style.minWidth = '200px';
+    idInp.maxLength = 20;
+    idRow.appendChild(idInp);
+    act.appendChild(idRow);
+
+    const pwRow = mkSection('비밀번호:');
+    const pwInp = document.createElement('input');
+    pwInp.type = 'password'; pwInp.placeholder = '비밀번호 (4자 이상)'; pwInp.style.flex = '1'; pwInp.style.minWidth = '200px';
+    pwRow.appendChild(pwInp);
+    act.appendChild(pwRow);
+
+    const btnRow = mkSection();
+    const submit = async () => {
+      if (!idInp.value.trim() || !pwInp.value) { print('닉네임/비밀번호 입력.', 'warn'); return; }
+      const r = await api('/api/auth/login', 'POST', { username: idInp.value.trim(), password: pwInp.value });
+      if (r.ok) {
+        currentToken = r.token; currentUsername = r.username; saveAuth();
+        print(`✦ ${r.username}으로 로그인 완료.`, 'good');
+        uiMode = 'select'; render();
+      } else {
+        print(r.error || '로그인 실패', 'warn');
+      }
+    };
+    idInp.onkeydown = (e) => { if (e.key === 'Enter') pwInp.focus(); };
+    pwInp.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+    btnRow.appendChild(mkBtn('로그인', submit, { primary: true }));
+    btnRow.appendChild(mkBtn('회원가입으로', () => { uiMode = 'auth_register'; render(); }));
+    btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }, { danger: true }));
+    act.appendChild(btnRow);
+    setTimeout(() => idInp.focus(), 50);
+  }
+
+  function renderAuthRegister() {
+    const intro = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#ccc;width:100%;line-height:1.7;';
+    h.innerHTML = `<b>📝 회원가입</b><div style="color:#858585;font-size:11.5px;">별도 인증 없음. 닉네임만 중복 확인. 이메일 X, 실명 X.</div>`;
+    intro.appendChild(h);
+    act.appendChild(intro);
+
+    const idRow = mkSection('닉네임:');
+    const idInp = document.createElement('input');
+    idInp.type = 'text'; idInp.placeholder = '2~20자'; idInp.style.flex = '1'; idInp.style.minWidth = '200px';
+    idInp.maxLength = 20;
+    idRow.appendChild(idInp);
+    act.appendChild(idRow);
+
+    const pwRow = mkSection('비밀번호:');
+    const pwInp = document.createElement('input');
+    pwInp.type = 'password'; pwInp.placeholder = '4자 이상'; pwInp.style.flex = '1'; pwInp.style.minWidth = '200px';
+    pwRow.appendChild(pwInp);
+    act.appendChild(pwRow);
+
+    const pw2Row = mkSection('비밀번호 확인:');
+    const pw2Inp = document.createElement('input');
+    pw2Inp.type = 'password'; pw2Inp.placeholder = '비밀번호 재입력'; pw2Inp.style.flex = '1'; pw2Inp.style.minWidth = '200px';
+    pw2Row.appendChild(pw2Inp);
+    act.appendChild(pw2Row);
+
+    const btnRow = mkSection();
+    const submit = async () => {
+      if (!idInp.value.trim()) { print('닉네임 입력.', 'warn'); return; }
+      if (!pwInp.value || pwInp.value.length < 4) { print('비밀번호는 4자 이상.', 'warn'); return; }
+      if (pwInp.value !== pw2Inp.value) { print('비밀번호 확인이 일치하지 않습니다.', 'warn'); return; }
+      const r = await api('/api/auth/register', 'POST', { username: idInp.value.trim(), password: pwInp.value });
+      if (r.ok) {
+        currentToken = r.token; currentUsername = r.username; saveAuth();
+        print(`✦ ${r.username} 가입 + 로그인 완료.`, 'good');
+        uiMode = 'select'; render();
+      } else {
+        print(r.error || '가입 실패', 'warn');
+      }
+    };
+    idInp.onkeydown  = (e) => { if (e.key === 'Enter') pwInp.focus(); };
+    pwInp.onkeydown  = (e) => { if (e.key === 'Enter') pw2Inp.focus(); };
+    pw2Inp.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+    btnRow.appendChild(mkBtn('가입하기', submit, { success: true }));
+    btnRow.appendChild(mkBtn('로그인으로', () => { uiMode = 'auth_login'; render(); }));
+    btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }, { danger: true }));
+    act.appendChild(btnRow);
+    setTimeout(() => idInp.focus(), 50);
+  }
+
+  // ═══════ 클라우드 동기화 ═══════
+  function renderCloudSync() {
+    const intro = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#ccc;width:100%;line-height:1.7;';
+    h.innerHTML = `<b>☁ 클라우드 동기화</b>
+      <div style="color:#858585;font-size:11.5px;">
+        <b>${currentUsername}</b>의 서버 저장소에 세이브를 올리거나 내려받기.<br>
+        한 계정 = 세이브 묶음 하나. 업로드 시 기존 클라우드 내용 덮어씀.
+      </div>`;
+    intro.appendChild(h);
+    act.appendChild(intro);
+
+    const info = mkSection();
+    const d = document.createElement('div');
+    d.style.cssText = 'color:#b4b4b4;font-size:12px;';
+    d.innerHTML = `로컬 캐릭터 수: <b>${savesList.length}개</b>`;
+    info.appendChild(d);
+    act.appendChild(info);
+
+    const up = mkSection();
+    up.appendChild(mkBtn('📤 클라우드에 업로드 (로컬 → 서버)', async () => {
+      const r = await api('/api/cloud/save', 'POST', { saves: savesList });
+      if (r.ok) print(`✦ 클라우드에 ${savesList.length}개 캐릭터 업로드 완료.`, 'good');
+      else print(r.error, 'warn');
+    }, { success: true, disabled: savesList.length === 0 }));
+    act.appendChild(up);
+
+    const dn = mkSection();
+    dn.appendChild(mkBtn('📥 클라우드에서 불러오기 (서버 → 로컬, 덮어씀)', async () => {
+      const r = await api('/api/cloud/load');
+      if (!r.ok) { print(r.error, 'warn'); return; }
+      if (!r.data || !Array.isArray(r.data.saves)) { print('클라우드에 저장된 캐릭터 없음.', 'warn'); return; }
+      if (!confirm(`로컬 전체 삭제 후 클라우드의 ${r.data.saves.length}개 캐릭터로 교체. 진행?`)) return;
+      // 로컬 전체 삭제
+      for (const s of savesList) { await ipcRenderer.invoke('delete-char', s.id); }
+      // 클라우드에서 가져온 것 저장
+      for (const s of r.data.saves) { await ipcRenderer.invoke('save-char', { id: s.id, data: s }); }
+      await refreshSaves();
+      print(`✦ 클라우드에서 ${r.data.saves.length}개 캐릭터 불러옴.`, 'good');
+      uiMode = 'select'; render();
+    }, { primary: true }));
+    act.appendChild(dn);
+
+    const back = mkSection();
+    back.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }, { danger: true }));
+    act.appendChild(back);
+  }
+
+  // ═══════ 리더보드 ═══════
+  let lbCache = { type: 'level', data: null };
+  async function fetchLeaderboard(type) {
+    lbCache.type = type;
+    const r = await api('/api/leaderboard/top?type=' + type + '&limit=50');
+    lbCache.data = r.ok ? (r.data || []) : [];
+    render();
+  }
+  function renderLeaderboard() {
+    const intro = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#ccc;width:100%;';
+    h.innerHTML = `<b>🏆 리더보드</b> <span style="color:#858585;font-size:11.5px;">· 저장 시 자동 갱신</span>`;
+    intro.appendChild(h);
+    act.appendChild(intro);
+
+    const tabRow = mkSection('정렬:');
+    const types = [
+      { k: 'level', label: '레벨' },
+      { k: 'gold', label: '골드' },
+      { k: 'bosses_killed', label: '보스' },
+      { k: 'total_trade_profit', label: '거래이익' },
+      { k: 'mastered_lines', label: '마스터' },
+    ];
+    types.forEach(t => {
+      tabRow.appendChild(mkBtn(t.label, () => fetchLeaderboard(t.k),
+        { mini: true, primary: lbCache.type === t.k }));
+    });
+    act.appendChild(tabRow);
+
+    if (lbCache.data === null) {
+      const load = mkSection();
+      load.appendChild(mkBtn('데이터 불러오기', () => fetchLeaderboard(lbCache.type), { primary: true }));
+      act.appendChild(load);
+    } else if (lbCache.data.length === 0) {
+      const empty = mkSection();
+      empty.innerHTML = '<span style="color:#858585">아직 등록된 기록 없음.</span>';
+      act.appendChild(empty);
+    } else {
+      const keyLabel = {
+        level: '레벨', gold: '골드', bosses_killed: '보스', total_trade_profit: '거래이익', mastered_lines: '마스터'
+      }[lbCache.type] || lbCache.type;
+      const valGetter = {
+        level: s => `Lv.${s.level}`,
+        gold: s => (s.gold||0).toLocaleString() + 'G',
+        bosses_killed: s => (s.bosses_killed||0) + ' 보스',
+        total_trade_profit: s => (s.total_trade_profit||0).toLocaleString() + 'G',
+        mastered_lines: s => (s.mastered_lines||0) + '개 마스터',
+      }[lbCache.type];
+      lbCache.data.slice(0, 50).forEach((s, i) => {
+        const row = mkSection();
+        const d = document.createElement('div');
+        d.style.cssText = 'width:100%;color:#b4b4b4;font-size:12px;display:flex;gap:12px;align-items:baseline;';
+        const rank = i + 1;
+        const rankColor = rank === 1 ? '#e5c24c' : rank === 2 ? '#c0c0c0' : rank === 3 ? '#cd7f32' : '#858585';
+        d.innerHTML = `
+          <span style="min-width:36px;color:${rankColor};font-weight:bold;">${rank}위</span>
+          <span style="min-width:100px;color:#e0e6ed;">${s.username}</span>
+          <span style="min-width:70px;color:#858585;font-size:11px;">${s.job || ''}</span>
+          <span style="color:#f4c96b;">${valGetter(s)}</span>
+        `;
+        row.appendChild(d);
+        act.appendChild(row);
+      });
+    }
+
+    const back = mkSection();
+    back.appendChild(mkBtn('🔄 새로고침', () => fetchLeaderboard(lbCache.type), { mini: true }));
+    back.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; lbCache.data = null; render(); }, { danger: true }));
+    act.appendChild(back);
+  }
+
+  // ═══════ 우편함 ═══════
+  let mailCache = null;
+  async function fetchMail() {
+    const r = await api('/api/mail/inbox');
+    mailCache = r.ok ? (r.data || []) : [];
+    render();
+  }
+  function renderMail() {
+    const intro = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#ccc;width:100%;';
+    h.innerHTML = `<b>📮 우편함</b> <span style="color:#858585;font-size:11.5px;">· 골드/아이템은 현재 플레이 중인 캐릭터에 지급</span>`;
+    intro.appendChild(h);
+    act.appendChild(intro);
+
+    const actRow = mkSection();
+    actRow.appendChild(mkBtn('✉ 편지 쓰기', () => { uiMode = 'mail_send'; render(); }, { primary: true }));
+    actRow.appendChild(mkBtn('🔄 새로고침', fetchMail, { mini: true }));
+    act.appendChild(actRow);
+
+    if (mailCache === null) {
+      const load = mkSection();
+      load.appendChild(mkBtn('받은 편지 불러오기', fetchMail));
+      act.appendChild(load);
+    } else if (mailCache.length === 0) {
+      const empty = mkSection();
+      empty.innerHTML = '<span style="color:#858585">새 편지 없음.</span>';
+      act.appendChild(empty);
+    } else {
+      mailCache.forEach(m => {
+        const row = mkSection();
+        const d = document.createElement('div');
+        d.style.cssText = 'flex:1;color:#b4b4b4;font-size:12px;line-height:1.6;';
+        const date = new Date(m.created_at * 1000).toLocaleDateString('ko-KR');
+        d.innerHTML = `
+          <div><b style="color:#e0e6ed;">${m.from_user}</b> <span style="color:#858585;font-size:11px;">${date}</span></div>
+          <div style="color:#f4c96b;font-size:11.5px;">${m.subject || '(제목 없음)'}</div>
+          ${m.message ? `<div style="color:#858585;font-size:11px;">${m.message}</div>` : ''}
+          <div style="color:#a0a0a0;font-size:11px;">
+            ${m.gold > 0 ? `💰 ${m.gold.toLocaleString()}G ` : ''}
+            ${m.item_key ? `📦 ${ITEMS[m.item_key]?.name || m.item_key} x${m.item_qty}` : ''}
+          </div>
+        `;
+        row.appendChild(d);
+        row.appendChild(mkBtn('수령', async () => {
+          if (!game.state || !currentCharId) { print('수령할 캐릭터가 선택되지 않았습니다. 먼저 캐릭터를 플레이하세요.', 'warn'); return; }
+          const r = await api('/api/mail/claim', 'POST', { mail_id: m.id });
+          if (!r.ok) { print(r.error, 'warn'); return; }
+          // 보상 적용
+          const mail = r.mail;
+          if (mail.gold) game.state.gold += mail.gold;
+          if (mail.item_key && mail.item_qty) {
+            if (!game.state.inv) game.state.inv = {};
+            game.state.inv[mail.item_key] = (game.state.inv[mail.item_key] || 0) + mail.item_qty;
+          }
+          await ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
+          print(`✦ ${mail.from_user}의 우편 수령: ${mail.gold?mail.gold+'G ':''}${mail.item_key?ITEMS[mail.item_key]?.name+' x'+mail.item_qty:''}`, 'good');
+          await fetchMail();
+        }, { success: true, mini: true }));
+        act.appendChild(row);
+      });
+    }
+
+    const back = mkSection();
+    back.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; mailCache = null; render(); }, { danger: true }));
+    act.appendChild(back);
+  }
+
+  function renderMailSend() {
+    const intro = mkSection();
+    const h = document.createElement('div');
+    h.style.cssText = 'color:#ccc;width:100%;line-height:1.7;';
+    h.innerHTML = `<b>✉ 편지 쓰기</b>
+      <div style="color:#858585;font-size:11.5px;">
+        골드·아이템 선물 가능. 받는 사람은 로그인 시 "수령" 버튼으로 받음.<br>
+        ⚠ <b>보낸 골드·아이템은 당신 계정의 현재 캐릭터에서 차감되지 않음</b> (서버는 편지만 배달, 지급은 수신자가 수령 시).
+      </div>`;
+    intro.appendChild(h);
+    act.appendChild(intro);
+
+    const toRow = mkSection('받는 사람:');
+    const toInp = document.createElement('input');
+    toInp.type = 'text'; toInp.placeholder = '친구 닉네임'; toInp.style.flex = '1';
+    toRow.appendChild(toInp);
+    act.appendChild(toRow);
+
+    const subRow = mkSection('제목:');
+    const subInp = document.createElement('input');
+    subInp.type = 'text'; subInp.placeholder = '제목 (선택)'; subInp.style.flex = '1';
+    subInp.maxLength = 40;
+    subRow.appendChild(subInp);
+    act.appendChild(subRow);
+
+    const msgRow = mkSection('메시지:');
+    const msgInp = document.createElement('input');
+    msgInp.type = 'text'; msgInp.placeholder = '메시지 (선택, 500자 이내)'; msgInp.style.flex = '1';
+    msgInp.maxLength = 500;
+    msgRow.appendChild(msgInp);
+    act.appendChild(msgRow);
+
+    const goldRow = mkSection('골드:');
+    const goldInp = document.createElement('input');
+    goldInp.type = 'number'; goldInp.placeholder = '0'; goldInp.min = 0; goldInp.max = 10000000;
+    goldInp.style.width = '140px';
+    goldRow.appendChild(goldInp);
+    act.appendChild(goldRow);
+
+    const itemRow = mkSection('아이템:');
+    const itemSel = document.createElement('select');
+    itemSel.style.cssText = 'background:#0c0c15;color:#cccccc;border:1px solid #333;padding:5px;border-radius:3px;flex:1;min-width:180px;';
+    itemSel.innerHTML = '<option value="">(없음)</option>';
+    Object.entries(ITEMS).filter(([, it]) => it.type === 'use' || ['weapon','armor','acc'].includes(it.type)).forEach(([k, it]) => {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = it.name;
+      itemSel.appendChild(o);
+    });
+    itemRow.appendChild(itemSel);
+    const qtyInp = document.createElement('input');
+    qtyInp.type = 'number'; qtyInp.placeholder = '수량'; qtyInp.min = 1; qtyInp.max = 9999;
+    qtyInp.style.width = '80px';
+    itemRow.appendChild(qtyInp);
+    act.appendChild(itemRow);
+
+    const btnRow = mkSection();
+    btnRow.appendChild(mkBtn('📤 보내기', async () => {
+      if (!toInp.value.trim()) { print('받는 사람 입력.', 'warn'); return; }
+      const r = await api('/api/mail/send', 'POST', {
+        to_user: toInp.value.trim(),
+        subject: subInp.value.trim(),
+        message: msgInp.value.trim(),
+        gold: parseInt(goldInp.value) || 0,
+        item_key: itemSel.value || null,
+        item_qty: parseInt(qtyInp.value) || 0,
+      });
+      if (r.ok) {
+        print('✦ 편지 발송 완료.', 'good');
+        uiMode = 'mail'; mailCache = null; render();
+      } else {
+        print(r.error, 'warn');
+      }
+    }, { primary: true }));
+    btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'mail'; render(); }, { danger: true }));
     act.appendChild(btnRow);
   }
 
@@ -1556,6 +1990,8 @@
     if (!currentCharId) currentCharId = 'char_' + Date.now();
     const r = await ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
     print(r.ok ? '저장 완료.' : '저장 실패: ' + r.error, r.ok ? 'good' : 'warn');
+    // 로그인 상태면 리더보드 자동 갱신
+    if (r.ok && currentToken && game.state) updateLeaderboard(game.state);
   }
 
   // ═══════ 위장 ═══════
