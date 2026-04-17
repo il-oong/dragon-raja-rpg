@@ -10,6 +10,11 @@
       font-family: 'Malgun Gothic', 'Consolas', 'Courier New', monospace;
       background: #0c0c0c; color: #cccccc; font-size: 13px;
     }
+    :root {
+      --region-accent: #858585;
+      --region-tint: rgba(0,0,0,0);
+      --region-strip: #858585;
+    }
 
     /* ═══════ 위장 모드 ═══════ */
     #disguise { display: none; height: 100vh; padding: 10px 14px; background: #0c0c0c; color: #ccc; overflow: auto; }
@@ -38,10 +43,18 @@
     #topbar {
       grid-area: top;
       display: flex; justify-content: space-between; align-items: center;
-      padding: 5px 14px; background: #252526; border-bottom: 1px solid #3a3a3a;
+      padding: 5px 14px; background: #252526;
+      border-bottom: 1px solid #3a3a3a;
+      border-top: 2px solid var(--region-strip);
+      transition: border-color 0.5s ease;
       color: #858585; font-size: 11px;
     }
     #topbar .t1 { color: #bbb; font-weight: normal; font-size: 12px; }
+    #regionTag {
+      color: var(--region-accent);
+      font-size: 11px; opacity: 0.85;
+      transition: color 0.5s ease;
+    }
 
     #output {
       grid-area: output;
@@ -49,8 +62,11 @@
       white-space: pre-wrap; word-break: keep-all; overflow-wrap: normal;
       color: #b4b4b4; line-height: 1.5;
       font-family: 'Consolas', 'Courier New', monospace; font-size: 12.5px;
-      background: #1e1e1e;
+      background:
+        linear-gradient(to bottom, var(--region-tint), transparent 120px),
+        #1e1e1e;
       border-bottom: 1px solid #3a3a3a;
+      transition: background 0.5s ease;
     }
     #output::-webkit-scrollbar { width: 8px; }
     #output::-webkit-scrollbar-thumb { background: #3a3a3a; }
@@ -69,8 +85,9 @@
     .s-block { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #333; }
     .s-block:last-child { border-bottom: none; }
     .s-title {
-      color: #858585; font-size: 10.5px; letter-spacing: 0.5px;
+      color: var(--region-accent); font-size: 10.5px; letter-spacing: 0.5px;
       margin-bottom: 4px; font-weight: normal; text-transform: uppercase;
+      transition: color 0.5s ease;
     }
     .s-row {
       display: flex; justify-content: space-between; padding: 2px 0;
@@ -93,9 +110,10 @@
     #actions::-webkit-scrollbar { width: 8px; }
     #actions::-webkit-scrollbar-thumb { background: #3a3a3a; }
     .act-label {
-      color: #858585; font-size: 11px; font-weight: normal;
+      color: var(--region-accent); font-size: 11px; font-weight: normal;
       margin-right: 8px; display: inline-block; min-width: 50px;
       letter-spacing: 0.3px; text-transform: uppercase;
+      transition: color 0.5s ease;
     }
     .act-row {
       display: flex; flex-wrap: wrap; gap: 5px;
@@ -160,7 +178,7 @@
 <!-- 게임 -->
 <div id="game">
   <div id="topbar">
-    <span class="t1">드래곤 라자 — 바이서스 연대기</span>
+    <span class="t1">드래곤 라자 — 바이서스 연대기 <span id="regionTag"></span></span>
     <span>Ctrl+Shift+D: 위장 / Ctrl+Shift+B: 숨김 / Ctrl+Shift+Q: 종료</span>
   </div>
   <div id="output"></div>
@@ -174,7 +192,21 @@
   const D = require('./game/data.js');
   const { LOCATIONS, JOBS, ITEMS, MONSTERS, RACES, SHOP_ITEMS, TRADE_PRICES, TRADE_GOODS, TRADE_SELL_TAX, TRADE_SKILLS,
           QUESTS, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
-          GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS } = D;
+          GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, THEMES } = D;
+
+  // ═══════ 지역 테마 적용 (소소하게) ═══════
+  let _lastThemeKey = null;
+  function applyTheme(locKey) {
+    if (!locKey || locKey === _lastThemeKey) return;
+    _lastThemeKey = locKey;
+    const t = (THEMES && THEMES[locKey]) || { accent: '#858585', tint: 'rgba(0,0,0,0)', mood: '' };
+    const root = document.documentElement;
+    root.style.setProperty('--region-accent', t.accent);
+    root.style.setProperty('--region-tint', t.tint);
+    root.style.setProperty('--region-strip', t.accent);
+    const tag = document.getElementById('regionTag');
+    if (tag) tag.textContent = t.mood ? `· ${t.mood}` : '';
+  }
 
   // ═══════ 출력 ═══════
   const out = document.getElementById('output');
@@ -528,8 +560,8 @@
       ${(s.masteredLines && s.masteredLines.length > 0) ? `<div class="s-block">
         <div class="s-title">✦ 마스터 (${s.masteredLines.length})</div>
         <div class="s-row"><span class="v" style="font-size:11px;">${s.masteredLines.join(', ')}</span></div>
-        ${s.masteredLines.length >= 5 ? `<div class="s-row"><span class="v" style="color:#e5c24c;">★★ 대통합자 해금</span></div>` :
-          s.masteredLines.length >= 3 ? `<div class="s-row"><span class="v" style="color:#e5c24c;">★ 만능의 달인 해금</span></div>` : ''}
+        ${s.masteredLines.length >= 5 ? `<div class="s-row"><span class="v" style="color:#e5c24c;">★★ 만물지왕 해금</span></div>` :
+          s.masteredLines.length >= 3 ? `<div class="s-row"><span class="v" style="color:#e5c24c;">★ 대현인 해금</span></div>` : ''}
       </div>` : ''}
       ${focusActive && focusState ? `<div class="s-block" style="border-left: 2px solid #6a6a6a; padding-left: 8px;">
         <div class="s-title">● 수련 중</div>
@@ -606,6 +638,8 @@
   }
 
   function render() {
+    // 지역 테마 갱신 (있을 때만)
+    if (game.state && game.state.location) applyTheme(game.state.location);
     renderSide();
     act.innerHTML = '';
 

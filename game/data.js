@@ -1026,8 +1026,8 @@ const JOBS = {
   // ═════════════ 히든 직업 (마스터리 시스템) ═════════════
   // 3개 계열 마스터(4차+Lv.90+전스킬) 시 해금
   polymath: {
-    tier: 4, name: '만능의 달인', line: 'hidden_polymath', hidden: true,
-    desc: '3개 직업 계열을 마스터한 자만이 도달한다. 모든 스킬의 정수를 통합.',
+    tier: 4, name: '대현인(大賢人)', line: 'hidden_polymath', hidden: true,
+    desc: '3개 직업 계열을 통달한 현인. 모든 길을 걸어본 자.',
     masteryReq: 3,
     base: { hp: 1500, mp: 1500, atk: 200, def: 180, mag: 250 },
     grow: { hp: 70, mp: 50, atk: 12, def: 10, mag: 13 },
@@ -1042,8 +1042,8 @@ const JOBS = {
   },
   // 5개 계열 마스터 시 폴리매스 → 업그레이드
   grand_unifier: {
-    tier: 5, name: '대통합자', line: 'hidden_unifier', hidden: true,
-    desc: '5개 계열을 지배한 자. 드래곤 라자마저 뛰어넘는 존재.',
+    tier: 5, name: '만물지왕(萬物之王)', line: 'hidden_unifier', hidden: true,
+    desc: '5개 계열을 모두 지배한 자. 드래곤 라자를 넘어선 존재.',
     masteryReq: 5,
     base: { hp: 3500, mp: 3000, atk: 500, def: 400, mag: 500 },
     grow: { hp: 150, mp: 90, atk: 28, def: 20, mag: 28 },
@@ -2783,4 +2783,78 @@ const COMBO_SKILLS = [
       desc: '인간 영웅 + 사제: 전 능력 +50%.' } },
 ];
 
-module.exports = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS };
+// ═══════════ 지역 테마 (UI 포인트 컬러) ═══════════
+// 은은하게 — 위장 목적 유지 위해 채도 낮춤
+// accent: 라벨/테두리 포인트 컬러
+// tint: 출력 배경 상단에 살짝 오버레이
+// mood: 사이드바에 짧은 한줄 (선택)
+const THEMES = {
+  // ── 시골/초반 ──
+  heltant:            { accent: '#7a9d4a', tint: 'rgba(90,110,60,0.05)',   mood: '풍차가 돈다' },
+  old_road:           { accent: '#8a9d5a', tint: 'rgba(100,110,70,0.04)',  mood: '한적한 오솔길' },
+  abandoned_farm:     { accent: '#7a7a4a', tint: 'rgba(100,90,60,0.05)',   mood: '버려진 들판' },
+  periwinkle:         { accent: '#a89d5a', tint: 'rgba(150,140,80,0.04)',  mood: '끝없는 평원' },
+
+  // ── 숲/자연 ──
+  forest:             { accent: '#5a9a5a', tint: 'rgba(60,120,70,0.05)',   mood: '전나무 향' },
+  deep_forest:        { accent: '#3a7a3a', tint: 'rgba(40,90,50,0.07)',    mood: '빛이 희미하다' },
+  elf_village:        { accent: '#6abfaf', tint: 'rgba(80,150,140,0.06)',  mood: '나무가 노래한다' },
+  spirit_forest:      { accent: '#7ab89a', tint: 'rgba(90,150,130,0.06)',  mood: '정령의 흔적' },
+  moonlit_grove:      { accent: '#9aaacc', tint: 'rgba(120,140,180,0.06)', mood: '달빛이 스며든다' },
+  river_delta:        { accent: '#6a9ab4', tint: 'rgba(90,140,170,0.05)',  mood: '맑은 물소리' },
+
+  // ── 도시 ──
+  capital:            { accent: '#7a8abc', tint: 'rgba(100,120,170,0.05)', mood: '왕성의 그림자' },
+  palace:             { accent: '#c8a85a', tint: 'rgba(180,150,70,0.06)',  mood: '황금빛 기둥' },
+  carmilkar:          { accent: '#d8a858', tint: 'rgba(200,150,80,0.06)',  mood: '향신료 냄새' },
+
+  // ── 가도/도적 ──
+  road_south:         { accent: '#8a7a5a', tint: 'rgba(110,90,70,0.04)',   mood: '흙먼지 날린다' },
+  trade_road:         { accent: '#bfa876', tint: 'rgba(160,140,100,0.05)', mood: '상인들의 수레' },
+  thief_woods:        { accent: '#6a5a3a', tint: 'rgba(80,70,50,0.07)',    mood: '수상한 발자국' },
+  golden_chain:       { accent: '#c8a030', tint: 'rgba(170,130,50,0.07)',  mood: '금사슬 소리' },
+  pirate_cove:        { accent: '#5a8a9a', tint: 'rgba(80,130,150,0.06)',  mood: '파도와 럼주' },
+
+  // ── 던전/어두운 ──
+  ruined_cathedral:   { accent: '#8a6a8a', tint: 'rgba(110,80,110,0.06)',  mood: '성가가 들린다' },
+  ancient_battlefield:{ accent: '#6a5a5a', tint: 'rgba(90,70,70,0.06)',    mood: '혼백이 맴돈다' },
+  dwarf_mine:         { accent: '#a07a5a', tint: 'rgba(140,100,70,0.06)',  mood: '광맥의 반짝임' },
+  unknown_ruins:      { accent: '#7a7a6a', tint: 'rgba(100,100,90,0.05)',  mood: '알 수 없는 문자' },
+  forgotten_ruins:    { accent: '#8a7a5a', tint: 'rgba(110,90,70,0.06)',   mood: '옛 왕국의 숨결' },
+  handrake_tower:     { accent: '#8a8acc', tint: 'rgba(120,130,190,0.06)', mood: '비전의 광채' },
+  zaipun_dungeon:     { accent: '#a04040', tint: 'rgba(150,70,70,0.07)',   mood: '악마의 울부짖음' },
+  demon_keep:         { accent: '#c04040', tint: 'rgba(180,70,70,0.08)',   mood: '지옥의 숨결' },
+  god_tomb:           { accent: '#8a8acc', tint: 'rgba(120,130,190,0.07)', mood: '신의 잔해' },
+  naga_swamp:         { accent: '#6aa050', tint: 'rgba(90,150,80,0.07)',   mood: '독기가 서린다' },
+
+  // ── 사막/화산 ──
+  bisrul_desert:      { accent: '#d8a868', tint: 'rgba(200,160,100,0.06)', mood: '모래바람' },
+  crimson_canyon:     { accent: '#c83c3c', tint: 'rgba(180,60,60,0.07)',   mood: '피로 물든 암벽' },
+  volcano_kaleil:     { accent: '#d8501c', tint: 'rgba(210,80,30,0.07)',   mood: '용암이 끓는다' },
+  blyer_sanctum:      { accent: '#a84a8a', tint: 'rgba(160,80,140,0.08)',  mood: '어둠의 찬가' },
+
+  // ── 북부/얼음 ──
+  ice_wastes:         { accent: '#9accd8', tint: 'rgba(150,200,220,0.06)', mood: '얼음결정' },
+  dragon_mt:          { accent: '#8a8a9a', tint: 'rgba(130,130,150,0.05)', mood: '바위산의 바람' },
+  dragon_lair:        { accent: '#b84a30', tint: 'rgba(180,80,60,0.08)',   mood: '용의 숨결' },
+  pendragon_peak:     { accent: '#c8dcec', tint: 'rgba(190,215,235,0.06)', mood: '얼어붙은 정상' },
+  sky_island:         { accent: '#9ac8e8', tint: 'rgba(150,190,230,0.06)', mood: '구름 위 섬' },
+  star_hill:          { accent: '#a0a0d8', tint: 'rgba(150,150,200,0.06)', mood: '별이 가깝다' },
+  deep_city:          { accent: '#4a8aaa', tint: 'rgba(70,130,170,0.07)',  mood: '바다 깊은 곳' },
+
+  // ── 용/엔드게임 ──
+  kashirk_canyon:     { accent: '#a87850', tint: 'rgba(160,110,80,0.07)',  mood: '대지의 포효' },
+  dragon_graveyard:   { accent: '#6a7a9a', tint: 'rgba(100,120,150,0.06)', mood: '죽은 용의 뼈' },
+  polaris_shrine:     { accent: '#d8c868', tint: 'rgba(210,190,110,0.08)', mood: '신룡의 시선' },
+  dark_abyss:         { accent: '#6a3a7a', tint: 'rgba(100,60,120,0.08)',  mood: '어둠이 움직인다' },
+  rift_world:         { accent: '#8a3ab8', tint: 'rgba(130,60,180,0.08)',  mood: '시공이 뒤틀린다' },
+  time_corridor:      { accent: '#bc7adc', tint: 'rgba(180,120,220,0.08)', mood: '시간이 흐른다' },
+  genesis_land:       { accent: '#e8d890', tint: 'rgba(230,210,150,0.07)', mood: '원초의 빛' },
+
+  // ── 초엔드 ──
+  palaleon_market:    { accent: '#4a4a5a', tint: 'rgba(50,50,70,0.09)',    mood: '그림자 거래' },
+  tsiraithos_tower:   { accent: '#b8a8d8', tint: 'rgba(170,150,210,0.08)', mood: '허공의 숨결' },
+  cosmos_edge:        { accent: '#2a2a4a', tint: 'rgba(30,30,60,0.12)',    mood: '현실의 끝' },
+};
+
+module.exports = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES };
