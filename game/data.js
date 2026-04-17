@@ -1026,8 +1026,8 @@ const JOBS = {
   // ═════════════ 히든 직업 (마스터리 시스템) ═════════════
   // 3개 계열 마스터(4차+Lv.90+전스킬) 시 해금
   polymath: {
-    tier: 4, name: '대현인(大賢人)', line: 'hidden_polymath', hidden: true,
-    desc: '3개 직업 계열을 통달한 현인. 모든 길을 걸어본 자.',
+    tier: 4, name: '파라곤(Paragon)', line: 'hidden_polymath', hidden: true,
+    desc: '3개 직업 계열을 통달한 전설의 영웅. 수많은 길을 걸어본 자.',
     masteryReq: 3,
     base: { hp: 1500, mp: 1500, atk: 200, def: 180, mag: 250 },
     grow: { hp: 70, mp: 50, atk: 12, def: 10, mag: 13 },
@@ -1042,8 +1042,8 @@ const JOBS = {
   },
   // 5개 계열 마스터 시 폴리매스 → 업그레이드
   grand_unifier: {
-    tier: 5, name: '만물지왕(萬物之王)', line: 'hidden_unifier', hidden: true,
-    desc: '5개 계열을 모두 지배한 자. 드래곤 라자를 넘어선 존재.',
+    tier: 5, name: '반신(半神)', line: 'hidden_unifier', hidden: true,
+    desc: '5개 계열을 모두 통달하여 신에 이른 자. 드래곤 라자조차 뛰어넘는다.',
     masteryReq: 5,
     base: { hp: 3500, mp: 3000, atk: 500, def: 400, mag: 500 },
     grow: { hp: 150, mp: 90, atk: 28, def: 20, mag: 28 },

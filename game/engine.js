@@ -920,8 +920,8 @@ class Game {
     (curJob.mainStats || []).forEach(s => { this.state.stats[s] += 5; });
     this.state.hpMaxBase += 100;
     // 히든 직업 해금 알림
-    if (count === 3) this.out(`\n★★ 히든 직업 [대현인(大賢人)] 해금! respec 명령 시 선택 가능`, 'good');
-    if (count === 5) this.out(`\n★★★ 초히든 [만물지왕(萬物之王)] 해금! respec 명령 시 업그레이드 가능`, 'good');
+    if (count === 3) this.out(`\n★★ 히든 직업 [파라곤(Paragon)] 해금! respec 명령 시 선택 가능`, 'good');
+    if (count === 5) this.out(`\n★★★ 초히든 [반신(半神)] 해금! respec 명령 시 업그레이드 가능`, 'good');
     this.out(`\n재전직하여 다른 계열 도전 가능: respec <1차직업키>`, 'sys');
   }
 
@@ -1452,10 +1452,10 @@ class Game {
     this.out(`\n조건: 4차 직업 + Lv.90 이상 + 해당 4차 직업의 모든 스킬 습득`);
     this.out(`보상: 주스탯 +5, HP +100 영구`);
     this.out(`\n마일스톤:`);
-    this.out(`  3개 마스터 — ★ 대현인(大賢人) 해금 (respec polymath)`);
-    this.out(`  5개 마스터 — ★★ 만물지왕(萬物之王) 해금 (respec grand_unifier)`);
-    if (m.length >= 3) this.out(`\n  ✓ 대현인 사용 가능`, 'good');
-    if (m.length >= 5) this.out(`  ✓ 만물지왕 사용 가능`, 'good');
+    this.out(`  3개 마스터 — ★ 파라곤(Paragon) 해금 (respec polymath)`);
+    this.out(`  5개 마스터 — ★★ 반신(半神) 해금 (respec grand_unifier)`);
+    if (m.length >= 3) this.out(`\n  ✓ 파라곤 사용 가능`, 'good');
+    if (m.length >= 5) this.out(`  ✓ 반신 사용 가능`, 'good');
     // 조합 스킬
     const combos = this.availableCombos();
     if (combos.length) {
