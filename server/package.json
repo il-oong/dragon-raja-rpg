@@ -1,0 +1,19 @@
+{
+  "name": "dragon-raja-server",
+  "version": "1.0.0",
+  "description": "Dragon Raja RPG server (Railway + SQLite)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "better-sqlite3": "^11.3.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

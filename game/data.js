@@ -1023,6 +1023,41 @@ const JOBS = {
     ],
   },
 
+  // ═════════════ 히든 직업 (마스터리 시스템) ═════════════
+  // 3개 계열 마스터(4차+Lv.90+전스킬) 시 해금
+  polymath: {
+    tier: 4, name: '만능의 달인', line: 'hidden_polymath', hidden: true,
+    desc: '3개 직업 계열을 마스터한 자만이 도달한다. 모든 스킬의 정수를 통합.',
+    masteryReq: 3,
+    base: { hp: 1500, mp: 1500, atk: 200, def: 180, mag: 250 },
+    grow: { hp: 70, mp: 50, atk: 12, def: 10, mag: 13 },
+    mainStats: ['str', 'dex', 'int', 'vit', 'wis', 'luk', 'cha'],
+    skills: [
+      { id: 'polymath_unity',   name: '통합', lv: 1, mp: 50, type: 'buff', effect: 'all_up_big', turns: 6, desc: '전 능력 +50%.' },
+      { id: 'polymath_burst',   name: '만능 폭격', lv: 5, mp: 80, power: 5.0, type: 'mag_aoe', desc: '광역 강타.' },
+      { id: 'polymath_heal',    name: '재생의 길', lv: 10, mp: 60, power: 4.0, type: 'heal', desc: '대량 회복.' },
+      { id: 'polymath_extra',   name: '시공 흐름', lv: 20, mp: 90, type: 'utility', effect: 'extra_turn', desc: '추가 턴.' },
+      { id: 'polymath_ultimate', name: '만능 극의', lv: 40, mp: 150, power: 8.0, type: 'phys', effect: 'crit_100', desc: '확정 치명 극딜.' },
+    ],
+  },
+  // 5개 계열 마스터 시 폴리매스 → 업그레이드
+  grand_unifier: {
+    tier: 5, name: '대통합자', line: 'hidden_unifier', hidden: true,
+    desc: '5개 계열을 지배한 자. 드래곤 라자마저 뛰어넘는 존재.',
+    masteryReq: 5,
+    base: { hp: 3500, mp: 3000, atk: 500, def: 400, mag: 500 },
+    grow: { hp: 150, mp: 90, atk: 28, def: 20, mag: 28 },
+    mainStats: ['str', 'dex', 'int', 'vit', 'wis', 'luk', 'cha'],
+    skills: [
+      { id: 'unifier_dominance', name: '지배',     lv: 1, mp: 100, type: 'buff', effect: 'all_up_big', turns: 10, desc: '전 능력 +50% (10턴).' },
+      { id: 'unifier_meteor',    name: '대통합 메테오', lv: 10, mp: 150, power: 10.0, type: 'mag_aoe', effect: 'burn', turns: 5, desc: '광역 화염 메테오.' },
+      { id: 'unifier_heal',      name: '만유재생',  lv: 20, mp: 120, power: 6.0, type: 'heal', desc: '완전 회복.' },
+      { id: 'unifier_time',      name: '시간 정지', lv: 30, mp: 200, type: 'utility', effect: 'extra_turn', desc: '추가 턴.' },
+      { id: 'unifier_transcend', name: '초월 일격', lv: 50, mp: 300, power: 25.0, type: 'phys', effect: 'crit_100', desc: '확정 치명. 세계를 베는 일격.' },
+      { id: 'unifier_god',       name: '신의 영역', lv: 80, mp: 500, type: 'buff', effect: 'undying', turns: 10, desc: '10턴 불멸.' },
+    ],
+  },
+
   // ═════════════ 5차 신화 — 드래곤 라자 ═════════════
   dragon_raja: {
     tier: 5, name: '드래곤 라자', from: 'dragon_emperor',
@@ -1127,7 +1162,7 @@ const LOCATIONS = {
   dragon_lair: {
     name: '아무르타트의 둥지', desc: '폐허가 된 고대 요새. 용의 숨결이 느껴진다.',
     exits: { '산맥으로': { to: 'dragon_mt', hours: 3 } },
-    boss: 'amurtat', requireLv: 15,
+    boss: 'amurtat', requireLv: 50,
   },
 
   // ═══════════ 신규 사냥터 ═══════════
@@ -1223,7 +1258,201 @@ const LOCATIONS = {
     exits: { '활화산으로': { to: 'volcano_kaleil', hours: 24 } },
     boss: 'polaris', requireLv: 150,
   },
-  // 기존 dragon_lair에서 펜드래곤 봉우리 입구 추가
+  dark_abyss: {
+    name: '어둠의 심연', desc: '펜드래곤이 지키는 땅 너머. 어둠이 살아 움직이는 곳.',
+    exits: { '백룡 봉우리로': { to: 'pendragon_peak', hours: 14 } },
+    encounters: ['shadow_imp', 'void_wraith', 'abyssal_knight'], encounterRate: 0.7,
+    boss: 'shadow_dragon', requireLv: 95,
+  },
+  rift_world: {
+    name: '차원 균열', desc: '시공이 찢어진 틈. 이 너머엔 우리 세계가 아니다.',
+    exits: { '대지룡 협곡으로': { to: 'kashirk_canyon', hours: 18 } },
+    encounters: ['rift_spawn', 'chaos_elemental', 'void_stalker'], encounterRate: 0.75,
+    boss: 'void_dragon', requireLv: 130,
+  },
+};
+// 기존 지역에서 신규 지역으로 연결
+LOCATIONS.pendragon_peak.exits['어둠의 심연'] = { to: 'dark_abyss', hours: 14 };
+LOCATIONS.kashirk_canyon.exits['차원 균열'] = { to: 'rift_world', hours: 18 };
+
+// ═══════════ Lv 50~80 공백 구간 (일반 사냥터) ═══════════
+LOCATIONS.forgotten_ruins = {
+  name: '망각의 유적',
+  desc: '고대 왕국의 폐허. 잠자던 수호자들이 깨어난다.',
+  exits: { '용의 산맥으로': { to: 'dragon_mt', hours: 6 } },
+  encounters: ['ancient_warrior', 'cursed_wizard', 'stone_sentinel'], encounterRate: 0.75,
+  boss: 'tomb_king', requireLv: 55,
+};
+LOCATIONS.crimson_canyon = {
+  name: '진홍 협곡',
+  desc: '피로 물든 붉은 협곡. 강자들이 수련하러 오는 험지.',
+  exits: { '활화산으로': { to: 'volcano_kaleil', hours: 8 } },
+  encounters: ['blood_wolf', 'crimson_berserker', 'lava_elemental_big'], encounterRate: 0.8,
+  boss: 'crimson_lord', requireLv: 65,
+};
+LOCATIONS.moonlit_grove = {
+  name: '달빛 숲',
+  desc: '엘프의 비밀 성역. 달빛에만 드러나는 고대의 숲.',
+  exits: { '이루릴의 마을로': { to: 'elf_village', hours: 7 } },
+  encounters: ['moon_sprite', 'silver_wolf', 'treant'], encounterRate: 0.7,
+  boss: 'moon_priestess', requireLv: 75,
+};
+LOCATIONS.dragon_mt.exits['망각의 유적'] = { to: 'forgotten_ruins', hours: 6 };
+LOCATIONS.volcano_kaleil.exits['진홍 협곡'] = { to: 'crimson_canyon', hours: 8 };
+LOCATIONS.elf_village.exits['달빛 숲'] = { to: 'moonlit_grove', hours: 7 };
+
+// ═══════════ 진엔드게임: 드래곤 라자 세계관 최강자 ═══════════
+// 폴라리스 이후, 마스터리 필요. 3명 모두 처치해야 진 엔드
+LOCATIONS.blyer_sanctum = {
+  name: '블라이어 고대 성역',
+  desc: '폴라리스를 넘어선 자만 도달하는 곳. 어둠의 사제가 영원의 저주를 건다.',
+  exits: { '폴라리스 신전으로': { to: 'polaris_shrine', hours: 20 } },
+  encounters: ['dark_priest', 'fanatic', 'fallen_knight'], encounterRate: 0.85,
+  boss: 'blyer', requireLv: 160, requireMastery: 1,
+};
+LOCATIONS.palaleon_market = {
+  name: '팔라레온 그림자 궁전',
+  desc: '진정한 정보왕의 영역. 2개 이상의 직업을 마스터한 자만 들어올 수 있다.',
+  exits: { '블라이어 성역으로': { to: 'blyer_sanctum', hours: 15 } },
+  encounters: ['shadow_rogue', 'poison_viper', 'info_sniper'], encounterRate: 0.9,
+  boss: 'palaleon', requireLv: 180, requireMastery: 2,
+};
+LOCATIONS.tsiraithos_tower = {
+  name: '치프라이쏘스 허공의 탑',
+  desc: '시공 너머의 탑. 3개 직업을 마스터하고 히든 직업을 얻은 자만 비전의 왕과 마주할 수 있다.',
+  exits: { '팔라레온 궁전으로': { to: 'palaleon_market', hours: 20 } },
+  encounters: ['arcane_sphere', 'magi_golem', 'mage_guardian'], encounterRate: 0.85,
+  boss: 'tsiraithos', requireLv: 200, requireMastery: 3, requireHidden: true,
+};
+LOCATIONS.polaris_shrine.exits['블라이어 성역'] = { to: 'blyer_sanctum', hours: 20 };
+
+// ═══════════ 지역 대폭 확장 — 15개 신규 ═══════════
+
+// Lv 1~10 (초반 사이드)
+LOCATIONS.old_road = {
+  name: '낡은 시골길', desc: '헬턴트 서쪽 오솔길. 순한 짐승과 유랑객.',
+  exits: { '헬턴트로': { to: 'heltant', hours: 2 }, '강가': { to: 'river_delta', hours: 2 } },
+  encounters: ['hare', 'deer', 'poor_thief', 'forest_bee'], encounterRate: 0.4,
+};
+LOCATIONS.river_delta = {
+  name: '강 하류', desc: '맑은 강물이 흐르는 모래톱. 가끔 나가가 나타난다.',
+  exits: { '낡은 시골길': { to: 'old_road', hours: 2 }, '늪지대': { to: 'naga_swamp', hours: 5 } },
+  encounters: ['giant_beetle', 'forest_sprite', 'bandit_archer'], encounterRate: 0.5,
+  requireLv: 6,
+};
+LOCATIONS.abandoned_farm = {
+  name: '버려진 농장', desc: '역병으로 버려진 농장. 좀비가 기어다닌다.',
+  exits: { '페리윙클 평원으로': { to: 'periwinkle', hours: 3 } },
+  encounters: ['zombie', 'poor_thief', 'hare', 'wild_orc'], encounterRate: 0.55,
+  requireLv: 5,
+};
+
+// Lv 10~25 (중반)
+LOCATIONS.thief_woods = {
+  name: '도적의 숲', desc: '산적 은신처. 가파른 절벽과 함정.',
+  exits: { '남쪽 가도로': { to: 'road_south', hours: 3 } },
+  encounters: ['bandit', 'bandit_archer', 'thug', 'poor_thief', 'rogue_mage'], encounterRate: 0.7,
+  requireLv: 10,
+};
+LOCATIONS.trade_road = {
+  name: '상인 대상로', desc: '수도-카밀카르 교역로. 호위와 매복이 교차한다.',
+  exits: { '수도로': { to: 'capital', hours: 6 }, '카밀카르로': { to: 'carmilkar', hours: 8 } },
+  encounters: ['bandit', 'bandit_archer', 'plain_wolf', 'hyena'], encounterRate: 0.5,
+  requireLv: 12,
+};
+LOCATIONS.unknown_ruins = {
+  name: '미지의 유적', desc: '엘프조차 잊은 고대 폐허. 수수께끼의 석조.',
+  exits: { '깊은 숲으로': { to: 'deep_forest', hours: 4 } },
+  encounters: ['forest_troll', 'dark_monk', 'skeleton', 'cursed_nun', 'wraith'], encounterRate: 0.7,
+  requireLv: 18,
+};
+
+// Lv 25~50 (중후반)
+LOCATIONS.pirate_cove = {
+  name: '해적 소굴', desc: '카밀카르 외곽. 바다를 누비는 해적단 본거지.',
+  exits: { '카밀카르로': { to: 'carmilkar', hours: 5 } },
+  encounters: ['bandit', 'thug', 'bandit_archer', 'scorpion', 'desert_wolf'], encounterRate: 0.75,
+  requireLv: 28,
+};
+LOCATIONS.ancient_battlefield = {
+  name: '고대 전장', desc: '수천의 영혼이 잠든 땅. 밤마다 전투가 재현된다.',
+  exits: { '폐허된 성당으로': { to: 'ruined_cathedral', hours: 6 } },
+  encounters: ['skeleton', 'bone_knight', 'zombie', 'wraith', 'hell_knight', 'fallen_knight'], encounterRate: 0.8,
+  requireLv: 32,
+};
+LOCATIONS.naga_swamp = {
+  name: '나가의 늪', desc: '독기 서린 늪지대. 반수인 나가가 지배한다.',
+  exits: { '강 하류로': { to: 'river_delta', hours: 5 }, '비스럴 사막으로': { to: 'bisrul_desert', hours: 8 } },
+  encounters: ['cave_spider', 'scorpion', 'poison_viper', 'sand_lizard', 'bigSpider'], encounterRate: 0.75,
+  requireLv: 28,
+};
+LOCATIONS.sky_island = {
+  name: '하늘 섬', desc: '구름 위에 떠있는 섬. 비룡이 둥지를 튼다.',
+  exits: { '용의 산맥으로': { to: 'dragon_mt', hours: 10 } },
+  encounters: ['wyvern', 'griffin', 'stone_drake', 'mountain_orc'], encounterRate: 0.7,
+  requireLv: 40,
+};
+
+// Lv 50~80
+LOCATIONS.deep_city = {
+  name: '심해 도시 아틀리아', desc: '물에 잠긴 고대 도시. 해저의 광경이 펼쳐진다.',
+  exits: { '강 하류로': { to: 'river_delta', hours: 12 } },
+  encounters: ['frost_serpent', 'ice_turtle', 'crystal_golem', 'poison_viper'], encounterRate: 0.75,
+  requireLv: 55, boss: 'abyss_kraken',
+};
+LOCATIONS.star_hill = {
+  name: '별의 언덕', desc: '밤하늘이 가장 가까이 느껴지는 곳. 천체의 힘이 내린다.',
+  exits: { '달빛 숲으로': { to: 'moonlit_grove', hours: 6 } },
+  encounters: ['moon_sprite', 'silver_wolf', 'arcane_sphere', 'book_spirit'], encounterRate: 0.6,
+  requireLv: 70,
+};
+LOCATIONS.spirit_forest = {
+  name: '영혼의 숲', desc: '자연령이 맴도는 신비한 숲. 드루이드의 성지.',
+  exits: { '엘프 마을로': { to: 'elf_village', hours: 8 } },
+  encounters: ['treant', 'moon_sprite', 'silver_wolf', 'forest_sprite'], encounterRate: 0.6,
+  requireLv: 65,
+};
+
+// Lv 80~120
+LOCATIONS.demon_keep = {
+  name: '악마군주의 성', desc: '봉인된 악마 영주가 부활하려는 성. 진짜 지옥.',
+  exits: { '자이펀 감옥으로': { to: 'zaipun_dungeon', hours: 12 } },
+  encounters: ['hell_knight', 'demon', 'succubus', 'hellbat', 'hellhound', 'abyssal_knight'], encounterRate: 0.85,
+  requireLv: 85, boss: 'demon_overlord',
+};
+LOCATIONS.dragon_graveyard = {
+  name: '용의 무덤', desc: '고대 용들이 잠든 성지. 유골에서 힘이 새어나온다.',
+  exits: { '용의 산맥으로': { to: 'dragon_mt', hours: 14 } },
+  encounters: ['wyvern', 'stone_drake', 'elder_drake', 'void_wraith'], encounterRate: 0.75,
+  requireLv: 90, boss: 'bone_dragon',
+};
+LOCATIONS.god_tomb = {
+  name: '옛 신의 무덤', desc: '잊혀진 신이 잠든 지하 성역. 신성과 사악함이 공존.',
+  exits: { '어둠의 심연으로': { to: 'dark_abyss', hours: 10 } },
+  encounters: ['shadow_imp', 'void_wraith', 'abyssal_knight', 'wraith'], encounterRate: 0.8,
+  requireLv: 100, boss: 'dead_god',
+};
+
+// Lv 120~150
+LOCATIONS.time_corridor = {
+  name: '시공의 회랑', desc: '시간이 뒤틀린 복도. 과거/미래의 적이 동시에 나타난다.',
+  exits: { '차원 균열로': { to: 'rift_world', hours: 10 } },
+  encounters: ['rift_spawn', 'chaos_elemental', 'void_stalker', 'voidling', 'ancient_guard'], encounterRate: 0.85,
+  requireLv: 120, boss: 'time_warden',
+};
+LOCATIONS.genesis_land = {
+  name: '창조의 대지', desc: '세계가 처음 만들어진 곳. 원초적 힘이 넘친다.',
+  exits: { '폴라리스 신전으로': { to: 'polaris_shrine', hours: 15 } },
+  encounters: ['ancient_guard', 'voidling', 'chaos_elemental', 'rift_spawn', 'void_stalker'], encounterRate: 0.8,
+  requireLv: 140, boss: 'primal_serpent',
+};
+
+// Lv 180+ 진최종 (치프라이쏘스 이후, 숨겨진 초절 컨텐츠)
+LOCATIONS.cosmos_edge = {
+  name: '우주의 끝', desc: '현실이 의미를 잃는 곳. 대통합자만이 도달한다.',
+  exits: { '치프라이쏘스 탑으로': { to: 'tsiraithos_tower', hours: 24 } },
+  encounters: ['void_stalker', 'chaos_elemental', 'voidling', 'ancient_guard'], encounterRate: 0.9,
+  requireLv: 220, requireMastery: 5, boss: 'cosmic_entity',
 };
 // 추가 출구: dragon_lair → ice_wastes 외 다른 경로 필요
 LOCATIONS.ice_wastes.exits['백룡의 봉우리'] = { to: 'pendragon_peak', hours: 16 };
@@ -1352,12 +1581,79 @@ const MONSTERS = {
   pendragon: { name: '백룡 펜드래곤', hp: 25000, atk: 450, def: 200, exp: 100000, gold: 50000,
     tags: ['dragon', 'boss', 'mag'], boss: true,
     drops: [['fang_of_pendragon', 1.0], ['heart_of_polaris', 0.05]] },
+  // ═══ Lv 55 망각의 유적 ═══
+  ancient_warrior: { name: '고대 전사',    hp: 850,  atk: 130, def: 70,  exp: 1400, gold: 600, tags: [] },
+  cursed_wizard:   { name: '저주받은 마법사', hp: 720,  atk: 160, def: 55,  exp: 1500, gold: 700, tags: ['mag'] },
+  stone_sentinel:  { name: '돌 보초병',    hp: 1500, atk: 150, def: 130, exp: 2200, gold: 900, tags: [] },
+  tomb_king:       { name: '무덤의 왕',    hp: 12000, atk: 280, def: 130, exp: 25000, gold: 12000,
+    tags: ['undead','boss'], boss: true, drops: [['longsword', 0.30], ['amulet_void', 0.30], ['elixir', 0.5]] },
+  // ═══ Lv 65 진홍 협곡 ═══
+  blood_wolf:        { name: '혈랑',        hp: 1100, atk: 210, def: 75,  exp: 2300, gold: 1100, tags: ['beast'] },
+  crimson_berserker: { name: '진홍 광전사', hp: 1600, atk: 260, def: 100, exp: 3200, gold: 1600, tags: [], drops: [['mace', 0.10]] },
+  lava_elemental_big:{ name: '용암 정령',   hp: 1900, atk: 290, def: 120, exp: 3800, gold: 1800, tags: ['mag'] },
+  crimson_lord:      { name: '진홍 군주',   hp: 18000, atk: 360, def: 160, exp: 50000, gold: 25000,
+    tags: ['boss'], boss: true, drops: [['flameblade_legendary', 0.30], ['phoenix_feather', 0.40], ['elixir', 0.5]] },
+  // ═══ Lv 75 달빛 숲 ═══
+  moon_sprite:     { name: '달빛 요정',    hp: 1400, atk: 220, def: 90,  exp: 3200, gold: 1300, tags: ['mag'] },
+  silver_wolf:     { name: '은빛 늑대',    hp: 1700, atk: 250, def: 110, exp: 3500, gold: 1500, tags: ['beast'] },
+  treant:          { name: '고목 수호자',  hp: 2800, atk: 280, def: 180, exp: 4500, gold: 2000, tags: ['beast'], drops: [['elfbow', 0.12]] },
+  moon_priestess:  { name: '달의 여사제',  hp: 24000, atk: 400, def: 180, exp: 80000, gold: 40000,
+    tags: ['mag','boss'], boss: true, drops: [['staff_of_moon', 1.0], ['sage_bracelet', 0.5], ['elixir', 0.5]] },
+
+  // ═══ Lv 55 블라이어 성역 ═══
+  dark_priest:     { name: '흑사제',       hp: 900,  atk: 140, def: 60,  exp: 1600, gold: 700, tags: ['mag'] },
+  fanatic:         { name: '광신도',       hp: 1100, atk: 160, def: 70,  exp: 2000, gold: 800, tags: [] },
+  fallen_knight:   { name: '타락한 기사',  hp: 1800, atk: 210, def: 120, exp: 3200, gold: 1500, tags: [], drops: [['longsword', 0.15]] },
+  blyer:           { name: '대사제 블라이어', hp: 250000, atk: 1800, def: 900, exp: 2000000, gold: 800000,
+    tags: ['mag','boss'], boss: true, drops: [['staff_of_blyer', 1.0], ['dragonring', 1.0], ['elixir', 2.0]] },
+  // ═══ Lv 65 팔라레온 암시장 ═══
+  shadow_rogue:    { name: '그림자 도적',  hp: 1400, atk: 230, def: 80,  exp: 2800, gold: 1800, tags: [] },
+  poison_viper:    { name: '독뱀',         hp: 1200, atk: 250, def: 90,  exp: 3000, gold: 1400, tags: ['beast'] },
+  info_sniper:     { name: '정보 저격수',  hp: 2000, atk: 290, def: 100, exp: 4200, gold: 2500, tags: [], drops: [['bow', 0.12]] },
+  palaleon:        { name: '정보왕 팔라레온', hp: 500000, atk: 2700, def: 1200, exp: 5000000, gold: 2000000,
+    tags: ['boss'], boss: true, drops: [['dagger_of_palaleon', 1.0], ['eye_of_fate', 1.0], ['raja_sigil', 0.5]] },
+  // ═══ Lv 75 치프라이쏘스 탑 ═══
+  arcane_sphere:   { name: '비전 구체',    hp: 1800, atk: 320, def: 130, exp: 4500, gold: 2200, tags: ['mag'] },
+  magi_golem:      { name: '마력 골렘',    hp: 2800, atk: 360, def: 200, exp: 5500, gold: 3000, tags: ['mag'] },
+  mage_guardian:   { name: '마법사 수호대', hp: 2200, atk: 380, def: 150, exp: 5000, gold: 2800, tags: ['mag'], drops: [['archstaff', 0.10]] },
+  tsiraithos:      { name: '대마법사 치프라이쏘스', hp: 1200000, atk: 4500, def: 1800, exp: 15000000, gold: 5000000,
+    tags: ['mag','boss'], boss: true, drops: [['staff_of_tsiraithos', 1.0], ['raja_sigil', 1.0], ['elixir', 3.0]] },
+
+  // 어둠의 심연 (Lv.85~100)
+  shadow_imp:     { name: '그림자 임프',   hp: 1500, atk: 180, def: 80,  exp: 2800,  gold: 1200, tags: ['mag'], drops: [['ether_l', 0.30]] },
+  void_wraith:    { name: '공허의 망령',   hp: 2200, atk: 230, def: 100, exp: 4200,  gold: 1800, tags: ['undead','mag'] },
+  abyssal_knight: { name: '심연의 기사',   hp: 3500, atk: 320, def: 180, exp: 7000,  gold: 3500, tags: [], drops: [['demonsword', 0.10]] },
+  shadow_dragon:  { name: '그림자 용',     hp: 45000, atk: 620, def: 280, exp: 250000, gold: 120000, tags: ['dragon','boss'], boss: true,
+    drops: [['fang_of_shadow', 1.0], ['dragonring', 1.0], ['elixir', 1.0]] },
+  // 기존
   kashirk:   { name: '대지룡 카쉬르크', hp: 50000, atk: 700, def: 350, exp: 300000, gold: 150000,
     tags: ['dragon', 'boss'], boss: true,
     drops: [['claw_of_kashirk', 1.0], ['dragonring', 1.0], ['mithril', 1.0]] },
+  // 차원 균열 (Lv.115~140)
+  rift_spawn:      { name: '균열의 자손',  hp: 6000, atk: 450, def: 220, exp: 15000, gold: 6000, tags: ['mag'] },
+  chaos_elemental: { name: '혼돈 정령',    hp: 8500, atk: 520, def: 280, exp: 22000, gold: 9000, tags: ['mag'], drops: [['god_staff', 0.08]] },
+  void_stalker:    { name: '공허 추적자',  hp: 10000, atk: 650, def: 320, exp: 30000, gold: 12000, tags: [], drops: [['oblivion_blade', 0.10]] },
+  void_dragon:     { name: '공허의 용',   hp: 95000, atk: 1050, def: 500, exp: 600000, gold: 280000, tags: ['dragon','boss'], boss: true,
+    drops: [['claw_of_void', 1.0], ['dragonring', 1.0], ['elixir', 1.0]] },
+  // 기존 최종 보스
   polaris:   { name: '신룡 폴라리스', hp: 150000, atk: 1500, def: 700, exp: 1000000, gold: 500000,
     tags: ['dragon', 'boss', 'god'], boss: true,
     drops: [['heart_of_polaris', 1.0], ['dragonring', 1.0]] },
+  // ═══ 신규 지역 보스 ═══
+  abyss_kraken:    { name: '심해 크라켄',    hp: 14000,   atk: 310,  def: 140, exp: 30000,   gold: 15000, tags: ['beast','boss'], boss: true,
+    drops: [['ice_lance', 0.30], ['amulet_void', 0.25], ['elixir', 0.5]] },
+  demon_overlord:  { name: '악마 영주',       hp: 38000,   atk: 540,  def: 260, exp: 180000,  gold: 90000, tags: ['boss'], boss: true,
+    drops: [['demonblade_lord', 0.40], ['emperor_plate', 0.30]] },
+  bone_dragon:     { name: '백골 드래곤',     hp: 42000,   atk: 580,  def: 280, exp: 220000,  gold: 110000, tags: ['dragon','undead','boss'], boss: true,
+    drops: [['scale_of_amurtat', 0.25], ['phoenix_feather', 0.30]] },
+  dead_god:        { name: '잊혀진 신',       hp: 60000,   atk: 720,  def: 340, exp: 320000,  gold: 150000, tags: ['mag','boss','god'], boss: true,
+    drops: [['heart_of_polaris', 0.15], ['royal_scepter', 0.40]] },
+  time_warden:     { name: '시공의 감시자',   hp: 110000,  atk: 1100, def: 500, exp: 800000,  gold: 400000, tags: ['mag','boss'], boss: true,
+    drops: [['time_greatsword', 0.50], ['hourglass', 0.40]] },
+  primal_serpent:  { name: '원초의 뱀',       hp: 180000,  atk: 1400, def: 650, exp: 1500000, gold: 700000, tags: ['beast','boss'], boss: true,
+    drops: [['claw_of_kashirk', 0.30], ['raja_sigil', 0.20]] },
+  cosmic_entity:   { name: '우주의 존재',     hp: 3000000, atk: 8000, def: 3000,exp: 50000000, gold: 20000000, tags: ['boss','god'], boss: true,
+    drops: [['raja_sigil', 1.0], ['oblivion_blade', 1.0], ['elixir', 5.0]] },
 };
 
 // ───── 아이템 ─────
@@ -1417,6 +1713,24 @@ const ITEMS = {
   flameblade_legendary:  { name: '진(眞) 화염검',       type: 'weapon', atk: 70, mag: 20, str: 12, int: 10, price: 0, desc: '드레이크의 정수 (STR+12 INT+10).' },
   ice_lance_legendary:   { name: '진(眞) 얼음창',       type: 'weapon', atk: 65, mag: 25, dex: 14, int: 10, price: 0, desc: '백룡의 송곳니 (DEX+14 INT+10).' },
   demonblade_lord:       { name: '데몬 군주의 검',     type: 'weapon', atk: 80, str: 18, vit: -5, price: 0, desc: '악마 군주 (STR+18 VIT-5).' },
+
+  // ═══ Lv 55~75 보스 드랍 무기 ═══
+  staff_of_moon:       { name: '달빛 지팡이', type: 'weapon', atk: 50, mag: 150, int: 20, wis: 20, cha: 10, price: 0,
+    proc: { hp_regen: 0.05, mp_regen: 10 }, desc: '은은한 달빛. 매턴 HP 5%, MP 10 회복.' },
+
+  // ═══ 드래곤 라자 최강자 무기 (중간 보스) ═══
+  staff_of_blyer:       { name: '블라이어의 흑마법 지팡이', type: 'weapon', atk: 40, mag: 140, int: 25, wis: 15, price: 0,
+    proc: { mp_cost_down: 0.30, burn_on_hit: 0.15 }, desc: '어둠의 사제 지팡이. MP -30%, 15% 화상.' },
+  dagger_of_palaleon:   { name: '팔라레온의 독단검', type: 'weapon', atk: 120, dex: 40, luk: 25, price: 0,
+    proc: { poison_on_hit: 0.30, crit_bonus: 0.20 }, desc: '정보왕의 단검. 30% 중독 + 치명 +20%.' },
+  staff_of_tsiraithos:  { name: '치프라이쏘스의 지팡이', type: 'weapon', atk: 60, mag: 180, int: 35, wis: 25, price: 0,
+    proc: { mp_cost_down: 0.35, extra_turn_chance: 0.10 }, desc: '비전의 지팡이. MP -35%, 10% 추가턴.' },
+
+  // ═══ 중간 드래곤 무기 (신규 보스 드랍) ═══
+  fang_of_shadow:  { name: '그림자 용의 송곳니', type: 'weapon', atk: 165, mag: 60, dex: 22, int: 15, price: 0,
+    proc: { double_dmg: 0.12, dodge_chance: 0.08 }, desc: '그림자 용의 송곳니. 12% 2배 + 8% 회피.' },
+  claw_of_void:    { name: '공허의 용 발톱',    type: 'weapon', atk: 210, mag: 90, str: 30, int: 20, price: 0,
+    proc: { double_dmg: 0.18, extra_turn_chance: 0.08 }, desc: '공허의 용 발톱. 18% 2배 + 8% 추가턴.' },
 
   // ═══ 4대 드래곤 무기 (최종 컨텐츠 — 드래곤 드랍) ═══
   // proc 효과 포함 — 전투 시 확률 발동
@@ -1528,42 +1842,56 @@ const TRADE_GOODS = {
 };
 
 // 도시별 단일 시세. 판매 시 이 가격의 92% 수령.
+// 거의 모든 도시가 대부분 상품을 거래하도록 확장 (취급 안 함 최소화)
 const TRADE_PRICES = {
-  heltant: {
-    salt:        60,   // 내륙이라 소금 비쌈
-    wine:        140,  // 수요 많음
-    spice:       200,  // 먼 곳에서 와서 매우 비쌈
+  heltant: {           // 내륙 농촌 — 수입품(비단/향신료/엘프제) 매우 비쌈
+    salt:        60,
+    wine:        140,
+    spice:       200,
+    silk:        420,  // 내륙 사치품 — 최고가
     herb:        35,
+    elf_string:  280,
+    mithril_ore: 340,
   },
-  elf_village: {
-    elf_string:  70,   // 특산 — 저렴
-    herb:        18,   // 엘프 숲에 흔함
-    silk:        380,  // 먼 곳 수입 — 비쌈
+  elf_village: {       // 엘프 마을 — 엘프제 저렴, 수입품 비쌈
+    salt:        50,
     wine:        110,
+    spice:       180,
+    silk:        380,
+    herb:        18,   // 엘프 숲 흔함
+    elf_string:  70,   // 산지 — 가장 쌈
+    mithril_ore: 300,
   },
-  capital: {
+  capital: {           // 수도 바이서스 — 유통 중심
     salt:        45,
-    wine:        55,   // 명품 생산지 — 저렴
+    wine:        55,   // 명품 생산지
     spice:       110,
     silk:        240,
+    herb:        40,
     elf_string:  180,
     mithril_ore: 260,
     dragon_scale:1500,
   },
-  carmilkar: {
-    salt:        25,   // 해안 도시 — 가장 쌈
+  carmilkar: {         // 남부 해안 — 수입품 저렴
+    salt:        25,   // 해안 — 가장 쌈
     wine:        95,
-    spice:       55,   // 특산
-    silk:        150,  // 실크로드 종점
+    spice:       55,   // 남부 특산 — 가장 쌈
+    silk:        150,  // 실크로드 종점 — 가장 쌈
     herb:        55,
+    elf_string:  220,
+    mithril_ore: 340,
   },
-  dwarf_mine: {
-    mithril_ore: 85,   // 산지 — 가장 쌈
+  dwarf_mine: {        // 드워프 광산 — 미스릴 저렴, 술 비쌈
     salt:        52,
+    wine:        130,  // 드워프는 술을 좋아한다
     herb:        28,
+    elf_string:  260,
+    mithril_ore: 85,   // 산지 — 가장 쌈
+    silk:        200,
   },
-  dragon_lair: {
+  dragon_lair: {       // 드래곤 영역 — 특수
     dragon_scale: 550, // 채집지 — 가장 쌈
+    mithril_ore: 400,  // 광물 수요
   },
 };
 
@@ -2373,4 +2701,86 @@ const AWAKENINGS = {
   },
 };
 
-module.exports = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS };
+// ═══════════ 조합 스킬 (직업 계열 시너지) ═══════════
+// 두 계열을 모두 거친 적 있으면(state.jobs에 1차라도 포함) 사용 가능
+const COMBO_SKILLS = [
+  // 상인 × 음유시인 — 사용자 요청
+  { lines: ['bard', 'merchant'],
+    skill: { id: 'cb_merchant_song', name: '상인의 노래', lv: 1, mp: 35,
+      type: 'buff', effect: 'gold_up', turns: 99,
+      desc: '음유시인 + 상인: 거래·골드 +100% (영구).' } },
+  // 전사 × 마법사 — 마검사
+  { lines: ['warrior', 'mage'],
+    skill: { id: 'cb_magic_blade', name: '마검격', lv: 1, mp: 30,
+      type: 'phys', power: 2.5, effect: 'crit_plus',
+      desc: '전사 + 마법사: 물리+마법 혼합 대검 강타.' } },
+  // 사제 × 도적 — 심판자
+  { lines: ['priest', 'thief'],
+    skill: { id: 'cb_judgment', name: '그림자 심판', lv: 1, mp: 28,
+      type: 'phys', power: 2.2, effect: 'holy',
+      desc: '사제 + 도적: 신성 + 치명 일격.' } },
+  // 궁사 × 마법사 — 마탄
+  { lines: ['ranger', 'mage'],
+    skill: { id: 'cb_magic_arrow', name: '마탄', lv: 1, mp: 32,
+      type: 'mag', power: 2.8, effect: 'pierce_def',
+      desc: '궁사 + 마법사: 마력 화살로 방어 관통.' } },
+  // 전사 × 사제 — 성전사
+  { lines: ['warrior', 'priest'],
+    skill: { id: 'cb_holy_knight', name: '성전 돌격', lv: 1, mp: 35,
+      type: 'phys', power: 2.6, effect: 'holy',
+      desc: '전사 + 사제: 성스러운 돌격. 언데드 2배.' } },
+  // 도적 × 음유시인 — 환상 공격
+  { lines: ['thief', 'bard'],
+    skill: { id: 'cb_illusion', name: '환상곡', lv: 1, mp: 38,
+      type: 'mag_aoe', power: 1.8, effect: 'fear',
+      desc: '도적 + 음유시인: 광역 공포.' } },
+  // 상인 × 도적 — 밀수꾼
+  { lines: ['merchant', 'thief'],
+    skill: { id: 'cb_smuggler', name: '밀수꾼의 수작', lv: 1, mp: 25,
+      type: 'phys', power: 2.0, effect: 'gold_drain',
+      desc: '상인 + 도적: 적에게 골드를 빼앗는 일격.' } },
+  // 마법사 × 음유시인 — 주문의 시
+  { lines: ['mage', 'bard'],
+    skill: { id: 'cb_spellsong', name: '주문의 시', lv: 1, mp: 40,
+      type: 'mag_aoe', power: 2.4, effect: 'burn', turns: 3,
+      desc: '마법사 + 음유시인: 증폭된 원소 송가.' } },
+  // 사제 × 음유시인 — 축복의 찬가
+  { lines: ['priest', 'bard'],
+    skill: { id: 'cb_blessed_hymn', name: '축복의 찬가', lv: 1, mp: 30,
+      type: 'heal', power: 3.2,
+      desc: '사제 + 음유시인: 대량 치유 + 전투 내내 회복 +50%.' } },
+  // 궁사 × 도적 — 암살자의 화살
+  { lines: ['ranger', 'thief'],
+    skill: { id: 'cb_assassin_shot', name: '암살 사격', lv: 1, mp: 35,
+      type: 'phys', power: 3.0, effect: 'crit_100',
+      desc: '궁사 + 도적: 확정 치명 저격.' } },
+  // 전사 × 도적 — 광풍
+  { lines: ['warrior', 'thief'],
+    skill: { id: 'cb_blade_storm', name: '검풍', lv: 1, mp: 32,
+      type: 'phys_aoe', power: 1.8, hits: 2,
+      desc: '전사 + 도적: 2회 광역 베기.' } },
+  // 마법사 × 사제 — 연금술사
+  { lines: ['mage', 'priest'],
+    skill: { id: 'cb_alchemy', name: '치유의 연금', lv: 1, mp: 28,
+      type: 'heal', power: 2.5, effect: 'dispel',
+      desc: '마법사 + 사제: 대량 치유 + 모든 디버프 제거.' } },
+  // 종족 전용 조합 (종족 직업이 있을 때)
+  { lines: ['spiritcaller', 'bard'],
+    skill: { id: 'cb_spirit_song', name: '정령의 노래', lv: 1, mp: 45,
+      type: 'mag_aoe', power: 3.2, effect: 'all_up', turns: 3,
+      desc: '엘프 전용: 정령과 하모니.' } },
+  { lines: ['runemaster', 'warrior'],
+    skill: { id: 'cb_rune_slash', name: '룬 베기', lv: 1, mp: 30,
+      type: 'phys', power: 2.8, effect: 'pierce_def',
+      desc: '드워프 룬마스터 + 전사: 관통 룬 일격.' } },
+  { lines: ['titan', 'warrior'],
+    skill: { id: 'cb_titan_strike', name: '거신의 주먹', lv: 1, mp: 35,
+      type: 'phys_aoe', power: 2.5, effect: 'stun', turns: 1,
+      desc: '오우거 거신투사 + 전사: 광역 기절.' } },
+  { lines: ['hero', 'priest'],
+    skill: { id: 'cb_hero_aura', name: '영웅의 가호', lv: 1, mp: 40,
+      type: 'buff', effect: 'all_up_big', turns: 4,
+      desc: '인간 영웅 + 사제: 전 능력 +50%.' } },
+];
+
+module.exports = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS };

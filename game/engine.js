@@ -1,4 +1,4 @@
-const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS } = require('./data.js');
+const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS } = require('./data.js');
 
 const rnd = (n) => Math.floor(Math.random() * n);
 const chance = (p) => Math.random() < p;
@@ -109,6 +109,7 @@ class Game {
       tradeBook: {},
       totalTradeProfit: 0,
       tradeSkills: [],
+      masteredLines: [],
     };
     this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
     this.awaiting = null;   // 🐛 fix: 생성 후 입력 대기 해제
@@ -297,6 +298,8 @@ class Game {
       'pet': () => this.petCmd(arg),
       'carriage': () => this.carriage(),
       'income': () => this.collectIncome(),
+      'respec': () => this.respec(arg),
+      'mastery': () => this.showMastery(),
       'clear': () => this.out('', 'cls'),
     };
     if (m[c]) m[c]();
@@ -634,13 +637,25 @@ class Game {
     let toKey = info, hours = 1;
     if (typeof info === 'object') { toKey = info.to; hours = info.hours; }
     const next = LOCATIONS[toKey];
-    // 상인 계열은 여행 레벨 제한 완화 (-40%)
+    // 상인 계열은 여행 레벨 제한 -4 (고레벨 구간에서는 상대적으로 작은 이점)
     const isMerchant = JOBS[this.state.job].line === 'merchant';
-    const effectiveReq = next.requireLv ? (isMerchant ? Math.ceil(next.requireLv * 0.6) : next.requireLv) : 0;
+    const effectiveReq = next.requireLv ? (isMerchant ? Math.max(1, next.requireLv - 4) : next.requireLv) : 0;
     if (effectiveReq && this.state.lv < effectiveReq) {
-      const note = isMerchant ? ` (상인 완화: 원래 Lv.${next.requireLv})` : '';
+      const note = isMerchant ? ` (상인 완화: 원래 Lv.${next.requireLv}, -4)` : '';
       this.out(`${next.name}: Lv.${effectiveReq} 필요${note}.`);
       return;
+    }
+    // 엔드게임 조건: 마스터리 요구 / 히든 직업 요구
+    if (next.requireMastery && (this.state.masteredLines || []).length < next.requireMastery) {
+      this.out(`${next.name}: ${next.requireMastery}개 직업 마스터 필요 (현재 ${(this.state.masteredLines||[]).length}).`);
+      return;
+    }
+    if (next.requireHidden) {
+      const curJob = JOBS[this.state.job];
+      if (!curJob || !curJob.hidden) {
+        this.out(`${next.name}: 히든 직업 (만능의 달인/대통합자) 필요.`);
+        return;
+      }
     }
     if (this.state.flags.carriage) {
       hours = Math.max(1, Math.round(hours * 0.5));
@@ -869,7 +884,102 @@ class Game {
       const sk = JOBS[jk].skills.find(s => s.id === id);
       if (sk) return sk;
     }
+    // 조합 스킬 체크
+    const combo = COMBO_SKILLS.find(c => c.skill.id === id);
+    if (combo && this.hasComboLines(combo.lines)) return combo.skill;
     return null;
+  }
+
+  hasLine(line) {
+    return (this.state.jobs || []).some(jk => JOBS[jk] && JOBS[jk].line === line);
+  }
+  hasComboLines(lines) { return lines.every(l => this.hasLine(l)); }
+
+  availableCombos() {
+    return COMBO_SKILLS.filter(c => this.hasComboLines(c.lines));
+  }
+
+  // 마스터리 체크 (4차 직업 + Lv.90 + 해당 직업 전 스킬 습득)
+  checkMastery() {
+    if (!this.state.masteredLines) this.state.masteredLines = [];
+    const curJob = JOBS[this.state.job];
+    if (!curJob || curJob.tier < 4) return;
+    if (this.state.lv < 90) return;
+    const line = curJob.line;
+    if (this.state.masteredLines.includes(line)) return;
+    // 현재 4차 직업의 모든 스킬 습득 체크
+    const allLearned = curJob.skills.every(sk => this.state.skills.includes(sk.id));
+    if (!allLearned) return;
+    // 마스터!
+    this.state.masteredLines.push(line);
+    const count = this.state.masteredLines.length;
+    this.out(`\n═══════════ 직업 마스터 ═══════════`, 'title');
+    this.out(`✦ ${curJob.name} 계열을 마스터했다! (총 ${count}개 마스터)`, 'good');
+    this.out(`  주스탯 +5 영구, HP +100 영구 보너스`, 'good');
+    // 영구 보너스 적용
+    (curJob.mainStats || []).forEach(s => { this.state.stats[s] += 5; });
+    this.state.hpMaxBase += 100;
+    // 히든 직업 해금 알림
+    if (count === 3) this.out(`\n★★ 히든 직업 [만능의 달인] 해금! respec 명령 시 선택 가능`, 'good');
+    if (count === 5) this.out(`\n★★★ 초히든 [대통합자] 해금! respec 명령 시 업그레이드 가능`, 'good');
+    this.out(`\n재전직하여 다른 계열 도전 가능: respec <1차직업키>`, 'sys');
+  }
+
+  // 재전직 — 레벨/스탯 유지, 스킬 누적, 새 1차 직업으로 전환
+  respec(jobKey) {
+    if (!jobKey) {
+      this.out('\n[재전직 대상 선택]');
+      this.out('각 계열의 1차 직업만 선택 가능. 레벨/스탯/기존 스킬 모두 유지.');
+      Object.entries(JOBS).filter(([, j]) => j.tier === 1 && !j.hidden).forEach(([k, j]) => {
+        if (j.raceOnly && j.raceOnly !== this.state.race) return;
+        const mastered = this.state.masteredLines && this.state.masteredLines.includes(j.line) ? ' ✓마스터됨' : '';
+        this.out(`  ${k.padEnd(14)} ${j.name}${mastered}`);
+      });
+      // 히든 직업 안내
+      const hidden = Object.entries(JOBS).filter(([, j]) => j.hidden);
+      hidden.forEach(([k, j]) => {
+        const ok = (this.state.masteredLines || []).length >= (j.masteryReq || 99);
+        if (ok) this.out(`  ★ ${k.padEnd(12)} ${j.name} (요구 마스터 ${j.masteryReq})`);
+      });
+      this.out('\nrespec <직업키>');
+      return;
+    }
+    const next = JOBS[jobKey];
+    if (!next) { this.out('없는 직업.'); return; }
+    // 히든 직업은 마스터리 조건 체크
+    if (next.hidden) {
+      const count = (this.state.masteredLines || []).length;
+      if (count < (next.masteryReq || 99)) {
+        this.out(`${next.name}: ${next.masteryReq}개 마스터 필요 (현재 ${count}).`);
+        return;
+      }
+    } else if (next.tier !== 1) {
+      this.out('1차 직업 또는 히든 직업만 재전직 가능.');
+      return;
+    }
+    if (next.raceOnly && next.raceOnly !== this.state.race) {
+      this.out(`${next.name}은 ${RACES[next.raceOnly].name} 전용.`);
+      return;
+    }
+    // 전환 — 레벨/스탯/기존 스킬 유지
+    const prevJob = JOBS[this.state.job];
+    this.state.job = jobKey;
+    if (!this.state.jobs.includes(jobKey)) this.state.jobs.push(jobKey);
+    // base 스탯 차이만큼 보정 (부드럽게)
+    this.state.hpMaxBase += Math.round((next.base.hp - prevJob.base.hp) * 0.3);
+    this.state.mpMaxBase += Math.round((next.base.mp - prevJob.base.mp) * 0.3);
+    this.state.atkBase += Math.round((next.base.atk - prevJob.base.atk) * 0.3);
+    this.state.defBase += Math.round((next.base.def - prevJob.base.def) * 0.3);
+    this.state.magBase += Math.round((next.base.mag - prevJob.base.mag) * 0.3);
+    // 새 직업의 현재 레벨 이하 스킬 즉시 습득
+    (next.skills || []).forEach(sk => {
+      if ((sk.lv || 1) <= this.state.lv && !this.state.skills.includes(sk.id)) {
+        this.state.skills.push(sk.id);
+      }
+    });
+    this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
+    this.out(`\n★★ 재전직 완료! ${prevJob.name} → ${next.name}`, 'good');
+    this.out(`  레벨/스탯/기존 스킬 유지. 새 계열 성장 시작.`, 'good');
   }
 
   executeSkill(sk) {
@@ -1018,6 +1128,14 @@ class Game {
     if (this.combat.trialMode) { this.out('시련에서 도주할 수 없다.'); return; }
     // 기본 40% + DEX/400 + 회피율 절반 반영
     let runChance = 0.40 + this.S('dex') / 400 + this.getEvaRate() * 0.5;
+    // 적 체력 비율 보너스 — 적이 약해졌을수록 도주 쉬움 (최대 +40%)
+    const foesAlive = this.combat.foes.filter(f => f.hp > 0);
+    if (foesAlive.length > 0) {
+      const avgHpPct = foesAlive.reduce((s, f) => s + f.hp / f.hpMax, 0) / foesAlive.length;
+      const hpBonus = (1 - avgHpPct) * 0.40;  // 0%HP → +40%, 100%HP → +0%
+      runChance += hpBonus;
+      if (hpBonus > 0.05) this.out(`  (적이 약해져 도주 +${Math.round(hpBonus*100)}%)`, 'dim');
+    }
     // 보스면 성공률 대폭 감소
     if (this.combat.foes.some(f => f.boss || f.hp > 1500)) runChance *= 0.5;
     // 상인 계열: 캐러밴 스킬이 적용되어 있어도 여기엔 반영 안 함 (별도 패시브)
@@ -1244,6 +1362,8 @@ class Game {
     // 상인 스킬 보너스
     const trb = this.tradeBonus();
     if (trb.goldMul) gold = Math.round(gold * trb.goldMul);
+    // 상인 계열은 전투 특화 직업이 아니므로 전투 XP -20% (거래 XP로 보상 받음)
+    if (JOBS[this.state.job].line === 'merchant') exp = Math.round(exp * 0.8);
     // 드랍 proc 효과는 위에서 체크 필요하나 간단히 로그만
     this.state.exp += exp; this.state.gold += gold;
     this.out(`\n승리! EXP +${exp}, GOLD +${gold}`);
@@ -1316,7 +1436,31 @@ class Game {
       } else if (this.state.lv === 45) {
         const cs = Object.entries(JOBS).filter(([,j]) => j.from === this.state.job && j.tier === 3).map(([k])=>k);
         if (cs.length) this.out(`\n  ⚔ 3차 전직 가능: ${cs.join(', ')} → trial <직업>`);
+      } else if (this.state.lv === 75) {
+        const cs = Object.entries(JOBS).filter(([,j]) => (j.from === this.state.job || (j.altFrom||[]).includes(this.state.job)) && j.tier === 4).map(([k])=>k);
+        if (cs.length) this.out(`\n  ⚔ 4차 전직 가능: ${cs.join(', ')} → trial <직업>`);
       }
+      // 마스터리 체크 (4차 + Lv.90+ + 전 스킬)
+      this.checkMastery();
+    }
+  }
+
+  showMastery() {
+    this.out('\n[직업 마스터리]');
+    const m = this.state.masteredLines || [];
+    this.out(`마스터한 계열: ${m.length}개  ${m.length === 0 ? '(없음)' : `— ${m.join(', ')}`}`);
+    this.out(`\n조건: 4차 직업 + Lv.90 이상 + 해당 4차 직업의 모든 스킬 습득`);
+    this.out(`보상: 주스탯 +5, HP +100 영구`);
+    this.out(`\n마일스톤:`);
+    this.out(`  3개 마스터 — ★ 만능의 달인 해금 (respec polymath)`);
+    this.out(`  5개 마스터 — ★★ 대통합자 해금 (respec grand_unifier)`);
+    if (m.length >= 3) this.out(`\n  ✓ 만능의 달인 사용 가능`, 'good');
+    if (m.length >= 5) this.out(`  ✓ 대통합자 사용 가능`, 'good');
+    // 조합 스킬
+    const combos = this.availableCombos();
+    if (combos.length) {
+      this.out(`\n[사용 가능 조합 스킬 ${combos.length}개]`);
+      combos.forEach(c => this.out(`  ${c.skill.name} — ${c.skill.desc}`));
     }
   }
 
@@ -1620,12 +1764,13 @@ class Game {
     if (!this.state.totalTradeProfit) this.state.totalTradeProfit = 0;
     if (!this.state.tradeSkills) this.state.tradeSkills = [];
     this.state.totalTradeProfit += profit;
-    // 상인 계열 이익 XP 배율 3배
+    // 상인 계열 특화: 거래 XP 대폭 증가
+    // 상인: 이익 × 0.50  /  일반: 이익 × 0.15
     const isMerch = JOBS[this.state.job].line === 'merchant';
-    const xp = Math.round(profit * (isMerch ? 0.12 : 0.04));
+    const xp = Math.round(profit * (isMerch ? 0.50 : 0.15));
     if (xp > 0) {
       this.state.exp += xp;
-      this.out(`  ✦ 거래 EXP +${xp}${isMerch ? ' (상인 3배)' : ''}`);
+      this.out(`  ✦ 거래 EXP +${xp}${isMerch ? ' (상인 특화)' : ''}`);
       this.checkLevel();
     }
     // 스킬 해금 체크

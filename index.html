@@ -464,6 +464,7 @@
     if (typeof s.totalTradeProfit !== 'number') s.totalTradeProfit = 0;
     if (!Array.isArray(s.tradeSkills)) s.tradeSkills = [];
     if (!s.tradeBook) s.tradeBook = {};
+    if (!Array.isArray(s.masteredLines)) s.masteredLines = [];
     return s;
   }
 
@@ -524,6 +525,12 @@
       ${renderInvBlock(s)}
       ${s.pet ? `<div class="s-block"><div class="s-title">🐉 펫</div><div class="s-row"><span class="v">${PETS[s.pet].name}</span></div></div>` : ''}
       ${s.mercs && s.mercs.length ? `<div class="s-block"><div class="s-title">⚔ 용병</div>${s.mercs.map(m => `<div class="s-row"><span class="v">${MERCENARIES[m].name}</span></div>`).join('')}</div>` : ''}
+      ${(s.masteredLines && s.masteredLines.length > 0) ? `<div class="s-block">
+        <div class="s-title">✦ 마스터 (${s.masteredLines.length})</div>
+        <div class="s-row"><span class="v" style="font-size:11px;">${s.masteredLines.join(', ')}</span></div>
+        ${s.masteredLines.length >= 5 ? `<div class="s-row"><span class="v" style="color:#e5c24c;">★★ 대통합자 해금</span></div>` :
+          s.masteredLines.length >= 3 ? `<div class="s-row"><span class="v" style="color:#e5c24c;">★ 만능의 달인 해금</span></div>` : ''}
+      </div>` : ''}
       ${focusActive && focusState ? `<div class="s-block" style="border-left: 2px solid #6a6a6a; padding-left: 8px;">
         <div class="s-title">● 수련 중</div>
         <div class="s-row"><span class="k">장소</span><span class="v">${focusState.hallName}</span></div>
@@ -938,6 +945,9 @@
     if (game.state.pendingPoints > 0) {
       row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; }, { gold: true }));
     }
+    // 마스터리 / 재전직 버튼 (항상 표시)
+    row1.appendChild(mkBtn('마스터리', 'mastery', { mini: true }));
+    row1.appendChild(mkBtn('재전직', 'respec', { mini: true, gold: true, title: '레벨/스탯/스킬 유지하고 1차 직업 변경' }));
     act.appendChild(row1);
 
     // 주 활동
@@ -954,7 +964,7 @@
     }
     act.appendChild(row2);
 
-    // 이동 (상인 계열은 레벨 제한 -40%)
+    // 이동 (상인 계열은 레벨 제한 -4)
     if (loc.exits) {
       const row3 = mkSection('이동:');
       const isMerchant = JOBS[game.state.job].line === 'merchant';
@@ -962,11 +972,11 @@
         const h = (typeof info === 'object') ? info.hours : '?';
         const toKey = (typeof info === 'object') ? info.to : info;
         const rawReq = LOCATIONS[toKey].requireLv || 0;
-        const effReq = rawReq ? (isMerchant ? Math.ceil(rawReq * 0.6) : rawReq) : 0;
+        const effReq = rawReq ? (isMerchant ? Math.max(1, rawReq - 4) : rawReq) : 0;
         const can = game.state.lv >= effReq;
         let label = `${dst} (${h}h)${effReq ? ` Lv${effReq}+` : ''}`;
         if (isMerchant && rawReq && effReq < rawReq) label += ' 🎫';
-        row3.appendChild(mkBtn(label, `go ${dst}`, { disabled: !can, title: isMerchant && rawReq ? `상인 완화 (원래 Lv.${rawReq})` : undefined }));
+        row3.appendChild(mkBtn(label, `go ${dst}`, { disabled: !can, title: isMerchant && rawReq ? `상인 완화 (원래 Lv.${rawReq}, -4)` : undefined }));
       });
       act.appendChild(row3);
     }
