@@ -269,7 +269,30 @@
       bosses_killed: bossesKilled,
       total_trade_profit: s.totalTradeProfit || 0,
       mastered_lines: (s.masteredLines || []).length,
+      play_time: Math.floor((s.playTimeSec || 0) / 60),  // 분 단위
     });
+  }
+
+  // ═══ 플레이타임 추적 ═══
+  // 실시간 1초마다 현재 캐릭터의 playTimeSec 증가 (위장모드/화면 숨김 상태여도 작동)
+  let _lastPlayTick = Date.now();
+  setInterval(() => {
+    const now = Date.now();
+    const delta = Math.floor((now - _lastPlayTick) / 1000);
+    _lastPlayTick = now;
+    if (!game.state || !game.state.name) return;
+    // 게임이 유휴 상태여도 틱은 누적 — 단, 캐릭터 선택 중이면 안 됨
+    if (uiMode === 'select' || uiMode.startsWith('auth_') || uiMode.startsWith('cloud') || uiMode === 'leaderboard' || uiMode === 'mail' || uiMode === 'mail_send') return;
+    if (!game.state.playTimeSec) game.state.playTimeSec = 0;
+    game.state.playTimeSec += delta;
+  }, 1000);
+
+  function formatPlayTime(sec) {
+    sec = parseInt(sec) || 0;
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (h > 0) return `${h}시간 ${m}분`;
+    return `${m}분`;
   }
 
   let uiMode = 'main';
@@ -544,6 +567,7 @@
     if (!Array.isArray(s.tradeSkills)) s.tradeSkills = [];
     if (!s.tradeBook) s.tradeBook = {};
     if (!Array.isArray(s.masteredLines)) s.masteredLines = [];
+    if (typeof s.playTimeSec !== 'number') s.playTimeSec = 0;
     return s;
   }
 
@@ -576,6 +600,7 @@
         <div class="s-row"><span class="k">💰 골드</span><span class="v">${s.gold.toLocaleString()}</span></div>
         <div class="s-row"><span class="k">🕒 시간</span><span class="v">D${s.time.day} ${String(s.time.hour).padStart(2,'0')}:00</span></div>
         <div class="s-row"><span class="k">📍 위치</span><span class="v">${LOCATIONS[s.location].name}</span></div>
+        <div class="s-row"><span class="k">⏱ 플레이</span><span class="v">${formatPlayTime(s.playTimeSec||0)}</span></div>
       </div>
       <div class="s-block">
         <div class="s-title">전투 능력치</div>
@@ -1054,6 +1079,7 @@
       { k: 'bosses_killed', label: '보스' },
       { k: 'total_trade_profit', label: '거래이익' },
       { k: 'mastered_lines', label: '마스터' },
+      { k: 'play_time', label: '플레이시간' },
     ];
     types.forEach(t => {
       tabRow.appendChild(mkBtn(t.label, () => fetchLeaderboard(t.k),
@@ -1070,15 +1096,13 @@
       empty.innerHTML = '<span style="color:#858585">아직 등록된 기록 없음.</span>';
       act.appendChild(empty);
     } else {
-      const keyLabel = {
-        level: '레벨', gold: '골드', bosses_killed: '보스', total_trade_profit: '거래이익', mastered_lines: '마스터'
-      }[lbCache.type] || lbCache.type;
       const valGetter = {
         level: s => `Lv.${s.level}`,
         gold: s => (s.gold||0).toLocaleString() + 'G',
         bosses_killed: s => (s.bosses_killed||0) + ' 보스',
         total_trade_profit: s => (s.total_trade_profit||0).toLocaleString() + 'G',
         mastered_lines: s => (s.mastered_lines||0) + '개 마스터',
+        play_time: s => formatPlayTime((s.play_time||0) * 60),
       }[lbCache.type];
       lbCache.data.slice(0, 50).forEach((s, i) => {
         const row = mkSection();
@@ -1140,28 +1164,14 @@
         d.innerHTML = `
           <div><b style="color:#e0e6ed;">${m.from_user}</b> <span style="color:#858585;font-size:11px;">${date}</span></div>
           <div style="color:#f4c96b;font-size:11.5px;">${m.subject || '(제목 없음)'}</div>
-          ${m.message ? `<div style="color:#858585;font-size:11px;">${m.message}</div>` : ''}
-          <div style="color:#a0a0a0;font-size:11px;">
-            ${m.gold > 0 ? `💰 ${m.gold.toLocaleString()}G ` : ''}
-            ${m.item_key ? `📦 ${ITEMS[m.item_key]?.name || m.item_key} x${m.item_qty}` : ''}
-          </div>
+          ${m.message ? `<div style="color:#b4b4b4;font-size:11.5px;margin-top:4px;white-space:pre-wrap;">${m.message.replace(/</g,'&lt;')}</div>` : ''}
         `;
         row.appendChild(d);
-        row.appendChild(mkBtn('수령', async () => {
-          if (!game.state || !currentCharId) { print('수령할 캐릭터가 선택되지 않았습니다. 먼저 캐릭터를 플레이하세요.', 'warn'); return; }
+        row.appendChild(mkBtn('확인 (삭제)', async () => {
           const r = await api('/api/mail/claim', 'POST', { mail_id: m.id });
           if (!r.ok) { print(r.error, 'warn'); return; }
-          // 보상 적용
-          const mail = r.mail;
-          if (mail.gold) game.state.gold += mail.gold;
-          if (mail.item_key && mail.item_qty) {
-            if (!game.state.inv) game.state.inv = {};
-            game.state.inv[mail.item_key] = (game.state.inv[mail.item_key] || 0) + mail.item_qty;
-          }
-          await ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
-          print(`✦ ${mail.from_user}의 우편 수령: ${mail.gold?mail.gold+'G ':''}${mail.item_key?ITEMS[mail.item_key]?.name+' x'+mail.item_qty:''}`, 'good');
           await fetchMail();
-        }, { success: true, mini: true }));
+        }, { mini: true }));
         act.appendChild(row);
       });
     }
@@ -1177,8 +1187,7 @@
     h.style.cssText = 'color:#ccc;width:100%;line-height:1.7;';
     h.innerHTML = `<b>✉ 편지 쓰기</b>
       <div style="color:#858585;font-size:11.5px;">
-        골드·아이템 선물 가능. 받는 사람은 로그인 시 "수령" 버튼으로 받음.<br>
-        ⚠ <b>보낸 골드·아이템은 당신 계정의 현재 캐릭터에서 차감되지 않음</b> (서버는 편지만 배달, 지급은 수신자가 수령 시).
+        메시지만 주고받을 수 있습니다. 골드·아이템 거래는 게임 밸런스를 위해 불가.
       </div>`;
     intro.appendChild(h);
     act.appendChild(intro);
@@ -1186,6 +1195,7 @@
     const toRow = mkSection('받는 사람:');
     const toInp = document.createElement('input');
     toInp.type = 'text'; toInp.placeholder = '친구 닉네임'; toInp.style.flex = '1';
+    toInp.maxLength = 20;
     toRow.appendChild(toInp);
     act.appendChild(toRow);
 
@@ -1197,45 +1207,21 @@
     act.appendChild(subRow);
 
     const msgRow = mkSection('메시지:');
-    const msgInp = document.createElement('input');
-    msgInp.type = 'text'; msgInp.placeholder = '메시지 (선택, 500자 이내)'; msgInp.style.flex = '1';
+    const msgInp = document.createElement('textarea');
+    msgInp.placeholder = '메시지 (500자 이내)';
     msgInp.maxLength = 500;
+    msgInp.style.cssText = 'flex:1;min-height:120px;background:#0c0c15;color:#cccccc;border:1px solid #333;padding:6px;border-radius:3px;font-family:inherit;font-size:12px;resize:vertical;';
     msgRow.appendChild(msgInp);
     act.appendChild(msgRow);
-
-    const goldRow = mkSection('골드:');
-    const goldInp = document.createElement('input');
-    goldInp.type = 'number'; goldInp.placeholder = '0'; goldInp.min = 0; goldInp.max = 10000000;
-    goldInp.style.width = '140px';
-    goldRow.appendChild(goldInp);
-    act.appendChild(goldRow);
-
-    const itemRow = mkSection('아이템:');
-    const itemSel = document.createElement('select');
-    itemSel.style.cssText = 'background:#0c0c15;color:#cccccc;border:1px solid #333;padding:5px;border-radius:3px;flex:1;min-width:180px;';
-    itemSel.innerHTML = '<option value="">(없음)</option>';
-    Object.entries(ITEMS).filter(([, it]) => it.type === 'use' || ['weapon','armor','acc'].includes(it.type)).forEach(([k, it]) => {
-      const o = document.createElement('option');
-      o.value = k; o.textContent = it.name;
-      itemSel.appendChild(o);
-    });
-    itemRow.appendChild(itemSel);
-    const qtyInp = document.createElement('input');
-    qtyInp.type = 'number'; qtyInp.placeholder = '수량'; qtyInp.min = 1; qtyInp.max = 9999;
-    qtyInp.style.width = '80px';
-    itemRow.appendChild(qtyInp);
-    act.appendChild(itemRow);
 
     const btnRow = mkSection();
     btnRow.appendChild(mkBtn('📤 보내기', async () => {
       if (!toInp.value.trim()) { print('받는 사람 입력.', 'warn'); return; }
+      if (!msgInp.value.trim()) { print('메시지를 입력하세요.', 'warn'); return; }
       const r = await api('/api/mail/send', 'POST', {
         to_user: toInp.value.trim(),
         subject: subInp.value.trim(),
         message: msgInp.value.trim(),
-        gold: parseInt(goldInp.value) || 0,
-        item_key: itemSel.value || null,
-        item_qty: parseInt(qtyInp.value) || 0,
       });
       if (r.ok) {
         print('✦ 편지 발송 완료.', 'good');

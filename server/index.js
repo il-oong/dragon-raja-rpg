@@ -42,6 +42,7 @@ db.exec(`
     bosses_killed INTEGER DEFAULT 0,
     total_trade_profit INTEGER DEFAULT 0,
     mastered_lines INTEGER DEFAULT 0,
+    play_time INTEGER DEFAULT 0,
     updated_at INTEGER DEFAULT (strftime('%s','now'))
   );
   CREATE INDEX IF NOT EXISTS idx_lb_level ON leaderboard(level DESC);
@@ -49,6 +50,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_lb_boss  ON leaderboard(bosses_killed DESC);
   CREATE INDEX IF NOT EXISTS idx_lb_trade ON leaderboard(total_trade_profit DESC);
   CREATE INDEX IF NOT EXISTS idx_lb_mastery ON leaderboard(mastered_lines DESC);
+  CREATE INDEX IF NOT EXISTS idx_lb_playtime ON leaderboard(play_time DESC);
 
   CREATE TABLE IF NOT EXISTS mails (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +66,9 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_mail_inbox ON mails(to_user, claimed);
 `);
+
+// 기존 DB 마이그레이션 (컬럼 없을 경우만 추가)
+try { db.exec("ALTER TABLE leaderboard ADD COLUMN play_time INTEGER DEFAULT 0"); } catch (e) { /* 이미 있음 */ }
 
 // ─── Express ───────────────────────────────────
 const app = express();
@@ -148,10 +153,10 @@ app.get('/api/cloud/load', requireAuth, (req, res) => {
 // ─── 리더보드 ──────────────────────────────────
 app.post('/api/leaderboard/update', requireAuth, (req, res) => {
   try {
-    const { level, gold, job, bosses_killed, total_trade_profit, mastered_lines } = req.body || {};
+    const { level, gold, job, bosses_killed, total_trade_profit, mastered_lines, play_time } = req.body || {};
     db.prepare(`
-      INSERT INTO leaderboard (user_id, username, level, gold, job, bosses_killed, total_trade_profit, mastered_lines, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'))
+      INSERT INTO leaderboard (user_id, username, level, gold, job, bosses_killed, total_trade_profit, mastered_lines, play_time, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'))
       ON CONFLICT(user_id) DO UPDATE SET
         username = excluded.username,
         level = excluded.level,
@@ -160,6 +165,7 @@ app.post('/api/leaderboard/update', requireAuth, (req, res) => {
         bosses_killed = excluded.bosses_killed,
         total_trade_profit = excluded.total_trade_profit,
         mastered_lines = excluded.mastered_lines,
+        play_time = excluded.play_time,
         updated_at = excluded.updated_at
     `).run(
       req.user.id, req.user.username,
@@ -168,19 +174,20 @@ app.post('/api/leaderboard/update', requireAuth, (req, res) => {
       String(job || ''),
       Math.max(0, parseInt(bosses_killed) || 0),
       Math.max(0, parseInt(total_trade_profit) || 0),
-      Math.max(0, parseInt(mastered_lines) || 0)
+      Math.max(0, parseInt(mastered_lines) || 0),
+      Math.max(0, parseInt(play_time) || 0)
     );
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
-const LB_COLS = ['level', 'gold', 'bosses_killed', 'total_trade_profit', 'mastered_lines'];
+const LB_COLS = ['level', 'gold', 'bosses_killed', 'total_trade_profit', 'mastered_lines', 'play_time'];
 app.get('/api/leaderboard/top', (req, res) => {
   try {
     const type = (req.query.type || 'level').toString();
     if (!LB_COLS.includes(type)) return res.status(400).json({ ok: false, error: `type: ${LB_COLS.join('/')}` });
     const limit = Math.min(100, parseInt(req.query.limit) || 50);
-    const rows = db.prepare(`SELECT username, level, gold, job, bosses_killed, total_trade_profit, mastered_lines FROM leaderboard ORDER BY ${type} DESC, updated_at ASC LIMIT ?`).all(limit);
+    const rows = db.prepare(`SELECT username, level, gold, job, bosses_killed, total_trade_profit, mastered_lines, play_time FROM leaderboard ORDER BY ${type} DESC, updated_at ASC LIMIT ?`).all(limit);
     res.json({ ok: true, type, data: rows });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
@@ -188,18 +195,14 @@ app.get('/api/leaderboard/top', (req, res) => {
 // ─── 우편함 ────────────────────────────────────
 app.post('/api/mail/send', requireAuth, (req, res) => {
   try {
-    const { to_user, subject, message, gold, item_key, item_qty } = req.body || {};
+    const { to_user, subject, message } = req.body || {};
     if (!to_user) return res.status(400).json({ ok: false, error: '수신자 필요' });
     if (to_user === req.user.username) return res.status(400).json({ ok: false, error: '자기 자신에게 불가' });
     const tu = db.prepare('SELECT id FROM users WHERE username = ?').get(to_user);
     if (!tu) return res.status(400).json({ ok: false, error: '해당 닉네임 없음' });
-    const g = Math.max(0, parseInt(gold) || 0);
-    const q = Math.max(0, parseInt(item_qty) || 0);
-    if (g > 10000000) return res.status(400).json({ ok: false, error: '1회 최대 1천만 G' });
-    if (q > 9999) return res.status(400).json({ ok: false, error: '1회 최대 9999개' });
-    db.prepare('INSERT INTO mails (from_user, to_user, subject, message, gold, item_key, item_qty) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(req.user.username, to_user, String(subject || '').slice(0, 40), String(message || '').slice(0, 500),
-           g, item_key ? String(item_key).slice(0, 40) : null, q);
+    // 골드·아이템 거래 금지 (게임 밸런스 보호). 항상 0으로 강제.
+    db.prepare('INSERT INTO mails (from_user, to_user, subject, message, gold, item_key, item_qty) VALUES (?, ?, ?, ?, 0, NULL, 0)')
+      .run(req.user.username, to_user, String(subject || '').slice(0, 40), String(message || '').slice(0, 500));
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });

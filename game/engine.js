@@ -110,6 +110,7 @@ class Game {
       totalTradeProfit: 0,
       tradeSkills: [],
       masteredLines: [],
+      playTimeSec: 0,
     };
     this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
     this.awaiting = null;   // 🐛 fix: 생성 후 입력 대기 해제
