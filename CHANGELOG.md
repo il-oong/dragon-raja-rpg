@@ -3,14 +3,21 @@
 ## v1.0.4 (2026-04-18)
 
 ### 수정
+- **앱 실행 시 "깜빡 뜨고 사라지는" 진짜 원인 해결** ★
+  - `main.js`: 스플래시를 먼저 닫고 메인 창을 만드는 순서 때문에 `splash.destroy()` 직후 `window-all-closed` 이벤트가 발생 → `app.quit()` 호출 → 그 뒤의 `createWindow()` 가 무력화되던 버그.
+  - 메인 창을 먼저 생성한 뒤 스플래시 제거하도록 순서 교체 + `mainWindowCreated` 가드 추가.
+  - `window-all-closed` 핸들러는 메인 창 생성 전에는 `app.quit()` 호출하지 않음.
 - **바탕화면 바로가기 누락 해결**
   - `package.json > build.nsis` 에 `createDesktopShortcut: "always"`, `createStartMenuShortcut: true`, `shortcutName: "System Monitor"`, `runAfterFinish: true` 명시.
   - oneClick 설치본에서 바탕화면/시작 메뉴 바로가기가 누락되던 문제 해결.
+- **설치 중 "System Monitor cannot be closed" 다이얼로그 재발 방지**
+  - `build/installer.nsh`: `taskkill` 후 `Sleep 300/500ms` 가 너무 짧아 `tasklist` 갱신 전에 electron-builder 가 재확인하던 race 제거.
+  - `Sleep 2000ms + 두 번째 패스` 로 보강. 자식·업데이터 spawn 프로세스까지 정리.
 - **업데이트 다운로드 후 메인 창 미표시 hang 해결**
   - `main.js runStartupUpdateCheck`: `update-downloaded` 핸들러가 `done()`을 호출하지 않아 `quitAndInstall` 실패/지연 시 Promise가 영영 resolve되지 않던 버그 제거.
   - 5초 fallback 타이머 + `try/catch`로 반드시 메인 창이 뜨도록 방어.
 - **조용한 크래시 추적**
-  - `main.js`: `uncaughtException` / `unhandledRejection` 을 `%APPDATA%\System Monitor\crash.log` 에 타임스탬프와 함께 기록.
+  - `main.js`: `uncaughtException` / `unhandledRejection` / startup·createWindow 예외를 `%APPDATA%\System Monitor\crash.log` 에 타임스탬프와 함께 기록.
 
 ### CI
 - `Release` 워크플로에 `workflow_dispatch` 버전 인풋 추가 → Actions 탭에서 수동 릴리즈 가능.

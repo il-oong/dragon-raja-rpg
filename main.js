@@ -20,6 +20,9 @@ process.on('unhandledRejection', (e) => { writeCrashLog('unhandledRejection', e)
 
 let win;
 let isHidden = false;
+// 메인 창 생성 전에 스플래시가 닫히면 window-all-closed 가 발생해
+// app.quit() 가 호출되는 버그 방지용 가드.
+let mainWindowCreated = false;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -52,15 +55,21 @@ app.whenReady().then(async () => {
     await runStartupUpdateCheck(splash);
   } catch (e) {
     console.error('[startup]', e && (e.stack || e.message || e));
-  } finally {
-    try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
+    writeCrashLog('startup', e);
   }
 
+  // 메인 창을 먼저 만든 뒤 스플래시를 닫는다.
+  // 순서가 반대가 되면 splash.destroy() 직후 window-all-closed 가 발생하고
+  // app.quit() 이 호출돼 그 다음 createWindow() 가 의미 없어진다 (= 깜빡 후 종료).
   try {
     createWindow();
+    mainWindowCreated = true;
   } catch (e) {
     console.error('[createWindow]', e && (e.stack || e.message || e));
+    writeCrashLog('createWindow', e);
   }
+
+  try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
 
   // 보스키: Ctrl+Shift+B → 창 숨김/복원
   globalShortcut.register('Control+Shift+B', () => {
@@ -88,6 +97,8 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  // 메인 창이 만들어지기 전에 스플래시가 닫히는 케이스에서는 quit 하지 않는다.
+  if (!mainWindowCreated) return;
   if (process.platform !== 'darwin') app.quit();
 });
 
