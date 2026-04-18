@@ -5,6 +5,19 @@ const path = require('path');
 let autoUpdater = null;
 try { autoUpdater = require('electron-updater').autoUpdater; } catch {}
 
+// ══════════════ 크래시 로그 ══════════════
+// 앱이 조용히 죽어도 원인을 추적할 수 있도록 userData/crash.log 에 기록.
+function writeCrashLog(tag, err) {
+  try {
+    const fs2 = require('fs');
+    const line = `[${new Date().toISOString()}] ${tag}: ${err && (err.stack || err.message || String(err))}\n`;
+    const logPath = path.join(app.getPath('userData'), 'crash.log');
+    fs2.appendFileSync(logPath, line, 'utf-8');
+  } catch {}
+}
+process.on('uncaughtException',  (e) => { writeCrashLog('uncaughtException',  e); });
+process.on('unhandledRejection', (e) => { writeCrashLog('unhandledRejection', e); });
+
 let win;
 let isHidden = false;
 
@@ -164,8 +177,17 @@ async function runStartupUpdateCheck(splash) {
       autoUpdater.once('update-downloaded', () => {
         clearTimeout(dlTimer);
         splashSay(splash, '업데이트 적용 중, 잠시 후 재시작됩니다', 100);
-        // 약간의 지연 후 재시작 (스플래시 문구 보이게)
-        setTimeout(() => autoUpdater.quitAndInstall(true, true), 600);
+        // quitAndInstall이 실패/지연되더라도 메인 창이 반드시 뜨도록 안전장치.
+        const installFallback = setTimeout(done, 5000);
+        setTimeout(() => {
+          try {
+            autoUpdater.quitAndInstall(true, true);
+          } catch (e) {
+            console.error('[quitAndInstall]', e && e.message);
+            clearTimeout(installFallback);
+            done();
+          }
+        }, 600);
       });
     });
 
