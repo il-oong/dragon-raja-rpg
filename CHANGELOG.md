@@ -1,5 +1,22 @@
 # 릴리즈 보드
 
+## v1.0.4 (2026-04-18)
+
+### 수정
+- **바탕화면 바로가기 누락 해결**
+  - `package.json > build.nsis` 에 `createDesktopShortcut: "always"`, `createStartMenuShortcut: true`, `shortcutName: "System Monitor"`, `runAfterFinish: true` 명시.
+  - oneClick 설치본에서 바탕화면/시작 메뉴 바로가기가 누락되던 문제 해결.
+- **업데이트 다운로드 후 메인 창 미표시 hang 해결**
+  - `main.js runStartupUpdateCheck`: `update-downloaded` 핸들러가 `done()`을 호출하지 않아 `quitAndInstall` 실패/지연 시 Promise가 영영 resolve되지 않던 버그 제거.
+  - 5초 fallback 타이머 + `try/catch`로 반드시 메인 창이 뜨도록 방어.
+- **조용한 크래시 추적**
+  - `main.js`: `uncaughtException` / `unhandledRejection` 을 `%APPDATA%\System Monitor\crash.log` 에 타임스탬프와 함께 기록.
+
+### CI
+- `Release` 워크플로에 `workflow_dispatch` 버전 인풋 추가 → Actions 탭에서 수동 릴리즈 가능.
+
+---
+
 ## v1.0.3 (2026-04-18)
 
 ### 수정
