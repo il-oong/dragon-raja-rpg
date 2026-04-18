@@ -1,5 +1,16 @@
 # 릴리즈 보드
 
+## v1.0.3 (2026-04-18)
+
+### 수정
+- **설치 중 "System Monitor cannot be closed" 오류 해결** (#2)
+  - `build/installer.nsh` NSIS include 스크립트 추가.
+  - `customInit` / `customInstall` / `customCloseApplication` 매크로에서 `taskkill /F /T /IM "System Monitor.exe"` 실행 → 실행 중인 인스턴스를 강제 종료한 뒤 설치 진행.
+  - 위장 모드 때문에 사용자가 수동으로 프로세스를 찾아 닫을 필요가 없어짐.
+  - `package.json > build.nsis.include` 에 스크립트 연결.
+
+---
+
 ## v1.0.2 (2026-04-18)
 
 ### 수정
@@ -8,11 +19,7 @@
   - `package.json` `build.asarUnpack`에 `electron-updater`, `builder-util-runtime`, `js-yaml` 추가해 native 모듈 로드 실패 차단.
 
 ### 알려진 이슈
-- **설치 중 "System Monitor cannot be closed" 오류**
-  - 이전 버전이 실행 중이면 NSIS 설치기가 프로세스를 종료하지 못하고 수동 종료 + 재시도를 요구.
-  - 현재 앱은 위장 모드로 작업표시줄에서 `System Monitor`로 보이므로 사용자가 종료 대상을 찾기 어려움.
-  - **임시 회피**: `Ctrl+Shift+Q`로 먼저 앱 종료 → 설치 재시도.
-  - 장기 해결은 NSIS include 스크립트에 `taskkill /IM SystemMonitor.exe /F` 추가 예정 (이슈로 등록).
+- **설치 중 "System Monitor cannot be closed" 오류** → v1.0.3에서 해결.
 
 ---
 

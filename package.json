@@ -1,6 +1,6 @@
 {
   "name": "system-monitor",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "System Resource Monitor",
   "main": "main.js",
   "scripts": {
@@ -85,7 +85,8 @@
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
-      "artifactName": "SystemMonitor-Setup-${version}.exe"
+      "artifactName": "SystemMonitor-Setup-${version}.exe",
+      "include": "build/installer.nsh"
     },
     "portable": {
       "artifactName": "SystemMonitor-Portable-${version}.exe"
