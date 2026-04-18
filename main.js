@@ -32,11 +32,22 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  const splash = createSplash();
-  await runStartupUpdateCheck(splash);
-  if (splash && !splash.isDestroyed()) splash.destroy();
+  // 스플래시/업데이트 체크는 실패해도 메인 창은 반드시 띄운다.
+  let splash = null;
+  try {
+    splash = createSplash();
+    await runStartupUpdateCheck(splash);
+  } catch (e) {
+    console.error('[startup]', e && (e.stack || e.message || e));
+  } finally {
+    try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
+  }
 
-  createWindow();
+  try {
+    createWindow();
+  } catch (e) {
+    console.error('[createWindow]', e && (e.stack || e.message || e));
+  }
 
   // 보스키: Ctrl+Shift+B → 창 숨김/복원
   globalShortcut.register('Control+Shift+B', () => {
@@ -75,29 +86,33 @@ app.on('will-quit', () => {
 // 위장 유지를 위해 스플래시 문구는 "System Monitor" 톤으로만 노출.
 
 function createSplash() {
-  const splash = new BrowserWindow({
-    width: 340, height: 160,
-    frame: false, resizable: false, skipTaskbar: true,
-    alwaysOnTop: false, show: true,
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
-  });
-  splash.setMenu(null);
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    body{margin:0;background:#1e1e1e;color:#ddd;font-family:Segoe UI,sans-serif;
-      display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;}
-    .title{font-size:15px;font-weight:600;margin-bottom:8px;}
-    .sub{color:#888;font-size:11px;}
-    .bar{width:260px;height:4px;background:#333;margin-top:14px;border-radius:2px;overflow:hidden;}
-    .fill{height:100%;width:0;background:#4a9eff;transition:width .2s;}
-    .dots::after{content:'';animation:d 1.2s steps(4,end) infinite;}
-    @keyframes d{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
-  </style></head><body>
-    <div class="title">System Monitor</div>
-    <div class="sub" id="s"><span class="dots">초기화 중</span></div>
-    <div class="bar"><div class="fill" id="f"></div></div>
-  </body></html>`;
-  splash.loadURL('data:text/html;charset=UTF-8,' + encodeURIComponent(html));
-  return splash;
+  try {
+    const splash = new BrowserWindow({
+      width: 340, height: 160,
+      frame: false, resizable: false, skipTaskbar: true,
+      alwaysOnTop: false, show: true,
+      webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+    });
+    splash.setMenu(null);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      body{margin:0;background:#1e1e1e;color:#ddd;font-family:Segoe UI,sans-serif;
+        display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;}
+      .title{font-size:15px;font-weight:600;margin-bottom:8px;}
+      .sub{color:#888;font-size:11px;}
+      .bar{width:260px;height:4px;background:#333;margin-top:14px;border-radius:2px;overflow:hidden;}
+      .fill{height:100%;width:0;background:#4a9eff;transition:width .2s;}
+    </style></head><body>
+      <div class="title">System Monitor</div>
+      <div class="sub" id="s">초기화 중...</div>
+      <div class="bar"><div class="fill" id="f"></div></div>
+    </body></html>`;
+    splash.loadURL('data:text/html;charset=UTF-8,' + encodeURIComponent(html))
+      .catch(e => console.error('[splash.loadURL]', e && e.message));
+    return splash;
+  } catch (e) {
+    console.error('[createSplash]', e && (e.stack || e.message));
+    return null;
+  }
 }
 
 function splashSay(splash, msg, percent) {
@@ -116,8 +131,10 @@ function splashSay(splash, msg, percent) {
 // 시작 시 블로킹 업데이트 체크. 결과와 무관하게 일정 시간 후엔 진행.
 async function runStartupUpdateCheck(splash) {
   if (!autoUpdater || !app.isPackaged) return;
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = false;
+  try {
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = false;
+  } catch (e) { console.error('[updater config]', e && e.message); return; }
 
   const CHECK_TIMEOUT_MS = 8000;
   const DOWNLOAD_TIMEOUT_MS = 120000;

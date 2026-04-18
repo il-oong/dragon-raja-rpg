@@ -25,6 +25,11 @@
     "appId": "com.sys.monitor",
     "productName": "System Monitor",
     "asar": true,
+    "asarUnpack": [
+      "**/node_modules/electron-updater/**/*",
+      "**/node_modules/builder-util-runtime/**/*",
+      "**/node_modules/js-yaml/**/*"
+    ],
     "compression": "maximum",
     "removePackageScripts": true,
     "electronLanguages": [
