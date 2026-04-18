@@ -1472,9 +1472,11 @@
     if (game.state.pendingPoints > 0) {
       row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; }, { gold: true }));
     }
-    // 마스터리 / 재전직 버튼 (항상 표시)
+    // 마스터리는 항상 / 재전직은 4차 직업 마스터 1개 이상일 때만 노출.
     row1.appendChild(mkBtn('마스터리', 'mastery', { mini: true }));
-    row1.appendChild(mkBtn('재전직', 'respec', { mini: true, gold: true, title: '레벨/스탯/스킬 유지하고 1차 직업 변경' }));
+    if ((game.state.masteredLines || []).length > 0) {
+      row1.appendChild(mkBtn('재전직', 'respec', { mini: true, gold: true, title: '레벨/스탯/스킬 유지하고 1차 직업 변경' }));
+    }
     act.appendChild(row1);
 
     // 주 활동
