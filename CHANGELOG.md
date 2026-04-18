@@ -1,5 +1,17 @@
 # 릴리즈 보드
 
+## v1.0.4 (2026-04-18)
+
+### 수정
+- **시작 시 스플래시만 깜빡이고 메인 창이 뜨지 않던 문제** (재발) 해결
+  - `runStartupUpdateCheck`의 `update-downloaded` 핸들러가 Promise를 영영 resolve 하지 않아, `quitAndInstall`이 silently 실패하면 스플래시가 사라진 뒤 `createWindow()`에 도달하지 못하는 경로가 있었음. `done()`을 먼저 호출하고 `quitAndInstall`은 그 후 실행하도록 변경.
+  - `app.whenReady` 전체 흐름에 30초 **하드 타임아웃** 추가 — 어떤 비정상 경로로도 메인 창은 강제로 표시.
+  - 메인 `BrowserWindow`를 `show:false` + `ready-to-show`로 전환, `backgroundColor` 사전 지정, 4초 표시 안전망 추가 → 첫 페인트 깜빡임 제거 + 표시 보장.
+  - `autoUpdater.autoDownload = false`로 변경하고 `update-available`에서 **같은/낮은 버전이면 다운로드 스킵** → 무한 업데이트 루프 차단.
+  - `win` 참조를 `closed`에서 정리하고 재진입 시 `if (!win) createWindow()`로 가드.
+
+---
+
 ## v1.0.3 (2026-04-18)
 
 ### 수정

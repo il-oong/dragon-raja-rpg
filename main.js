@@ -15,6 +15,8 @@ function createWindow() {
     title: 'System Monitor',
     icon: path.join(__dirname, 'icon.ico'),
     autoHideMenuBar: true,
+    show: false, // ready-to-show 시점에 띄워 첫 페인트 깜빡임 제거
+    backgroundColor: '#1e1e1e',
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -22,7 +24,19 @@ function createWindow() {
   });
 
   Menu.setApplicationMenu(null);
-  win.loadFile('index.html');
+  win.loadFile('index.html').catch(e => console.error('[loadFile]', e && e.message));
+
+  // ready-to-show가 어떤 이유로든 안 오면 안전망으로 강제 표시.
+  const showFallback = setTimeout(() => {
+    try { if (win && !win.isDestroyed() && !win.isVisible()) { win.show(); win.focus(); } } catch {}
+  }, 4000);
+
+  win.once('ready-to-show', () => {
+    clearTimeout(showFallback);
+    try { win.show(); win.focus(); } catch (e) { console.error('[win.show]', e && e.message); }
+  });
+
+  win.on('closed', () => { win = null; });
 
   // 작업표시줄 타이틀 위장
   win.on('page-title-updated', (e) => {
@@ -33,18 +47,29 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   // 스플래시/업데이트 체크는 실패해도 메인 창은 반드시 띄운다.
+  // 어떤 경로로도 STARTUP_HARD_TIMEOUT_MS 안에는 createWindow()까지 도달.
   let splash = null;
+  const STARTUP_HARD_TIMEOUT_MS = 30000;
+  const hardTimer = setTimeout(() => {
+    console.error('[startup] hard timeout — forcing main window');
+    try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
+    try { if (!win) createWindow(); } catch (e) {
+      console.error('[createWindow:hard]', e && (e.stack || e.message || e));
+    }
+  }, STARTUP_HARD_TIMEOUT_MS);
+
   try {
     splash = createSplash();
     await runStartupUpdateCheck(splash);
   } catch (e) {
     console.error('[startup]', e && (e.stack || e.message || e));
   } finally {
+    clearTimeout(hardTimer);
     try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
   }
 
   try {
-    createWindow();
+    if (!win) createWindow();
   } catch (e) {
     console.error('[createWindow]', e && (e.stack || e.message || e));
   }
@@ -128,11 +153,25 @@ function splashSay(splash, msg, percent) {
   splash.webContents.executeJavaScript(js).catch(() => {});
 }
 
-// 시작 시 블로킹 업데이트 체크. 결과와 무관하게 일정 시간 후엔 진행.
+// semver-ish 비교: a > b 이면 1, a < b -1, 같으면 0. 파싱 실패 시 0.
+function compareVer(a, b) {
+  try {
+    const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
+    const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const x = pa[i] || 0, y = pb[i] || 0;
+      if (x > y) return 1;
+      if (x < y) return -1;
+    }
+    return 0;
+  } catch { return 0; }
+}
+
+// 시작 시 블로킹 업데이트 체크. 결과와 무관하게 일정 시간 후엔 반드시 resolve.
 async function runStartupUpdateCheck(splash) {
   if (!autoUpdater || !app.isPackaged) return;
   try {
-    autoUpdater.autoDownload = true;
+    autoUpdater.autoDownload = false; // update-available에서 직접 판단 후 다운로드
     autoUpdater.autoInstallOnAppQuit = false;
   } catch (e) { console.error('[updater config]', e && e.message); return; }
 
@@ -155,7 +194,17 @@ async function runStartupUpdateCheck(splash) {
     });
     autoUpdater.once('update-available', (info) => {
       clearTimeout(checkTimer);
-      splashSay(splash, `업데이트 내려받는 중 ${info.version}`, 0);
+
+      // 같은/낮은 버전이 잡히면 다운로드/재시작 루프 방지를 위해 즉시 통과.
+      const cur = app.getVersion();
+      const remote = info && info.version;
+      if (!remote || compareVer(remote, cur) <= 0) {
+        console.log('[auto-update] skip — remote', remote, '<= current', cur);
+        done();
+        return;
+      }
+
+      splashSay(splash, `업데이트 내려받는 중 ${remote}`, 0);
 
       const dlTimer = setTimeout(done, DOWNLOAD_TIMEOUT_MS);
       autoUpdater.on('download-progress', (p) => {
@@ -164,8 +213,17 @@ async function runStartupUpdateCheck(splash) {
       autoUpdater.once('update-downloaded', () => {
         clearTimeout(dlTimer);
         splashSay(splash, '업데이트 적용 중, 잠시 후 재시작됩니다', 100);
-        // 약간의 지연 후 재시작 (스플래시 문구 보이게)
-        setTimeout(() => autoUpdater.quitAndInstall(true, true), 600);
+        // quitAndInstall이 silently 실패해도 메인창이 뜨도록 done()을 먼저 호출.
+        done();
+        setTimeout(() => {
+          try { autoUpdater.quitAndInstall(true, true); }
+          catch (e) { console.error('[quitAndInstall]', e && e.message); }
+        }, 600);
+      });
+
+      autoUpdater.downloadUpdate().catch((e) => {
+        console.log('[auto-update download]', e && e.message);
+        clearTimeout(dlTimer); done();
       });
     });
 
