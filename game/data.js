@@ -1225,6 +1225,7 @@ const LOCATIONS = {
     exits: { '용의 산맥으로': { to: 'dragon_mt', hours: 8 } },
     encounters: ['ice_wolf', 'frost_giant', 'white_wyrmling', 'snow_leopard', 'ice_turtle', 'frost_serpent'], encounterRate: 0.8,
     boss: 'frost_dragon', requireLv: 40,
+    treasure: 'dragon_wisdom_2',
   },
   volcano_kaleil: {
     name: '활화산 칼라일', desc: '용암이 끓는 화산. 화염 정령의 본거지.',
@@ -1234,6 +1235,7 @@ const LOCATIONS = {
     },
     encounters: ['lava_slime', 'fire_elemental', 'salamander', 'magma_giant', 'fire_bat', 'magma_elem'], encounterRate: 0.85,
     boss: 'volcanic_drake', requireLv: 45,
+    treasure: 'dragon_wisdom_3',
   },
   pendragon_peak: {
     name: '백룡의 봉우리', desc: '눈으로 뒤덮인 절대고독의 봉우리. 백룡 펜드래곤이 둥지를 튼다.',
@@ -1535,13 +1537,13 @@ const MONSTERS = {
   frost_giant:   { name: '서리 거인',   hp: 900, atk: 110, def: 55, exp: 1500, gold: 700, tags: [], drops: [['frost_hammer', 0.20], ['mithril', 0.15]] },
   white_wyrmling:{ name: '백룡 새끼',   hp: 700, atk: 100, def: 50, exp: 1300, gold: 800, tags: ['dragon'], drops: [['ice_lance', 0.25]] },
   frost_dragon:  { name: '프로스트 드래곤', hp: 5500, atk: 170, def: 90, exp: 12000, gold: 15000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['elixir', 1.0]] },
+    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_2', 1.0], ['elixir', 1.0]] },
   // ─── 활화산 칼라일 (Lv 45~55) ───
   lava_slime:     { name: '용암 슬라임', hp: 600, atk: 90, def: 50, exp: 900, gold: 400, tags: [], drops: [['potion_l', 0.30]] },
   fire_elemental: { name: '화염 정령',   hp: 800, atk: 120, def: 55, exp: 1500, gold: 800, tags: ['mag'], drops: [['flameblade', 0.20], ['ether_l', 0.30]] },
   salamander:     { name: '샐러맨더',     hp: 1000, atk: 130, def: 60, exp: 1800, gold: 900, tags: ['beast'], drops: [['flame_robe', 0.15]] },
   volcanic_drake: { name: '화산 드레이크', hp: 6500, atk: 180, def: 95, exp: 15000, gold: 18000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['flameblade_legendary', 0.40], ['dragonring', 0.30], ['elixir', 1.0]] },
+    drops: [['flameblade_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_3', 1.0], ['elixir', 1.0]] },
   // ─── 신규 다수 (레벨별 다양화) ───
   // 초반 (Lv 1~8)
   hare:           { name: '산토끼',    hp: 15, atk: 3, def: 0, exp: 5, gold: 3, tags: ['beast'], drops: [['potion_s', 0.15]] },
