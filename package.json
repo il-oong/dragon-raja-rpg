@@ -8,9 +8,13 @@
     "dist": "electron-builder",
     "dist:portable": "electron-builder --win portable",
     "dist:installer": "electron-builder --win nsis",
+    "release": "electron-builder --win --publish always",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.1",
@@ -26,6 +30,13 @@
     "electronLanguages": [
       "ko",
       "en-US"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "il-oong",
+        "repo": "dragon-raja-rpg"
+      }
     ],
     "files": [
       "main.js",
@@ -51,18 +62,28 @@
     "win": {
       "target": [
         {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "portable",
           "arch": [
             "x64"
           ]
         }
       ],
-      "artifactName": "SystemMonitor.exe"
+      "artifactName": "SystemMonitor-${version}-${ext}.${ext}"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
       "artifactName": "SystemMonitor-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "SystemMonitor-Portable-${version}.exe"
     },
     "directories": {
       "output": "dist"
