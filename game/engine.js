@@ -70,10 +70,14 @@ class Game {
       return;
     }
 
-    // 깨달음 시련 입력 처리
-    if (this.trial) { this.trialInput(text); return; }
-
+    // 전투 중이면 전투 입력 우선 (시련 전투여서 this.trial 도 true 일 수 있으므로
+    // combat 체크를 trial 앞에 둔다. 이 순서가 바뀌면 시련 2단계 전투 중 입력이
+    // trialInput 으로 가서 meditation 스테이지가 아니라는 이유로 조용히 버려지며
+    // 게임이 "멈춘 것처럼" 보인다.)
     if (this.combat) { this.combatInput(text); return; }
+
+    // 깨달음 시련 입력 처리 (meditation 단계)
+    if (this.trial) { this.trialInput(text); return; }
 
     this.awaiting = null;
     this.runCommand(text);
