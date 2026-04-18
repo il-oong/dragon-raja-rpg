@@ -1,5 +1,24 @@
 # 릴리즈 보드
 
+## v1.0.5 (2026-04-18)
+
+### 수정
+- **바탕화면 바로가기가 생성되지 않던 문제 해결**
+  - `package.json > build.nsis`에 `createDesktopShortcut: "always"` 추가 → 신규 설치뿐 아니라 업데이트/재설치 시에도 **매번 바탕화면 바로가기를 강제 생성**.
+  - `createStartMenuShortcut: true`, `shortcutName: "System Monitor"` 명시 → 시작 메뉴에도 동일 이름으로 등록.
+  - `runAfterFinish: true` → 설치 완료 후 자동 실행.
+
+### 설치 위치 안내
+- `oneClick: true` + `perMachine: false` 구성이므로 **사용자 계정 기준**으로 조용히 설치됨.
+- **설치 경로**: `%LOCALAPPDATA%\Programs\system-monitor\System Monitor.exe`
+  - 예) `C:\Users\<사용자>\AppData\Local\Programs\system-monitor\System Monitor.exe`
+- **바로가기**
+  - 바탕화면: `%USERPROFILE%\Desktop\System Monitor.lnk`
+  - 시작 메뉴: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\System Monitor.lnk`
+- **설치 파일(`SystemMonitor-Setup-*.exe`) 다운로드 위치**: 브라우저 기본 다운로드 폴더 (`%USERPROFILE%\Downloads`).
+
+---
+
 ## v1.0.4 (2026-04-18)
 
 ### 수정

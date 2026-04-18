@@ -1,6 +1,6 @@
 {
   "name": "system-monitor",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "System Resource Monitor",
   "main": "main.js",
   "scripts": {
@@ -85,6 +85,12 @@
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "System Monitor",
+      "menuCategory": false,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
       "artifactName": "SystemMonitor-Setup-${version}.exe",
       "include": "build/installer.nsh"
     },
