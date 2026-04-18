@@ -20,10 +20,50 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      # Electron / electron-builder 가 GitHub 에서 받아야 하는 바이너리를 캐싱.
+      # 이전 빌드가 한 번 성공하면 이후 빌드에서 504 Gateway 재발 시에도
+      # 네트워크 의존 없이 진행 가능. 키에 electron 버전 박아 버전 바뀌면 자동 갱신.
+      - name: Cache Electron & electron-builder binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-ebbin-electron28-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-ebbin-electron28-
+            ${{ runner.os }}-ebbin-
 
-      - name: Build & publish to GitHub Releases
+      - name: Install dependencies (with retry)
+        shell: pwsh
+        run: |
+          $max = 4
+          for ($i = 1; $i -le $max; $i++) {
+            Write-Host "npm install attempt $i / $max"
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -eq 0) { Write-Host "OK on attempt $i"; exit 0 }
+            if ($i -lt $max) {
+              $wait = [math]::Pow(2, $i)
+              Write-Host "Failed (exit $LASTEXITCODE). Waiting $wait seconds..."
+              Start-Sleep -Seconds $wait
+            }
+          }
+          exit 1
+
+      - name: Build & publish to GitHub Releases (with retry)
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run release
+        run: |
+          $max = 4
+          for ($i = 1; $i -le $max; $i++) {
+            Write-Host "electron-builder attempt $i / $max"
+            npm run release
+            if ($LASTEXITCODE -eq 0) { Write-Host "OK on attempt $i"; exit 0 }
+            if ($i -lt $max) {
+              $wait = [math]::Pow(2, $i)
+              Write-Host "Failed (exit $LASTEXITCODE). Waiting $wait seconds..."
+              Start-Sleep -Seconds $wait
+            }
+          }
+          exit 1
