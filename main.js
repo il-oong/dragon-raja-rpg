@@ -8,7 +8,14 @@ try { autoUpdater = require('electron-updater').autoUpdater; } catch {}
 let win;
 let isHidden = false;
 
+// 시작 시퀀스 상태 — 스플래시 destroy 직후 "창이 하나도 없음" 순간에
+// window-all-closed 가 튀어서 앱이 조용히 꺼지는 문제 방어용.
+let mainWindowEverCreated = false;
+let updateRestartScheduled = false;
+let isQuitting = false;
+
 function createWindow() {
+  mainWindowEverCreated = true;
   win = new BrowserWindow({
     width: 1100,
     height: 720,
@@ -52,10 +59,10 @@ app.whenReady().then(async () => {
   const STARTUP_HARD_TIMEOUT_MS = 30000;
   const hardTimer = setTimeout(() => {
     console.error('[startup] hard timeout — forcing main window');
-    try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
     try { if (!win) createWindow(); } catch (e) {
       console.error('[createWindow:hard]', e && (e.stack || e.message || e));
     }
+    try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
   }, STARTUP_HARD_TIMEOUT_MS);
 
   try {
@@ -65,14 +72,34 @@ app.whenReady().then(async () => {
     console.error('[startup]', e && (e.stack || e.message || e));
   } finally {
     clearTimeout(hardTimer);
-    try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
   }
 
+  // 업데이트가 다운로드되어 quitAndInstall 이 예약된 상태라면 메인 창을 띄우지 않는다.
+  // (스플래시만 유지한 채 600ms 뒤 재시작.)  설치가 어떤 이유로 실패해 앱이 계속 살아있으면
+  // 10초 뒤 안전망으로 메인 창을 강제로 올린다.
+  if (updateRestartScheduled) {
+    setTimeout(() => {
+      if (!isQuitting && !win) {
+        console.error('[update] quitAndInstall 미동작 — 메인 창 강제 생성');
+        try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
+        try { createWindow(); } catch (e) {
+          console.error('[createWindow:update-fallback]', e && e.message);
+        }
+      }
+    }, 10000);
+    return;
+  }
+
+  // ★ 핵심 수정: 스플래시를 destroy 하기 전에 메인 창을 먼저 만든다.
+  // 그래야 "창이 하나도 없는 순간"이 없어 window-all-closed 가 튀어
+  // app.quit() 이 호출되는 경로가 원천 차단된다.
   try {
     if (!win) createWindow();
   } catch (e) {
     console.error('[createWindow]', e && (e.stack || e.message || e));
   }
+
+  try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
 
   // 보스키: Ctrl+Shift+B → 창 숨김/복원
   globalShortcut.register('Control+Shift+B', () => {
@@ -100,8 +127,17 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform === 'darwin') return;
+  // 시작 시퀀스 도중 스플래시가 destroy 되면서 이벤트가 튀는 경우가 있다.
+  // 아직 메인 창이 한번도 만들어지지 않았다면 조용히 무시 — 뒤이어 createWindow 가 실행된다.
+  if (!mainWindowEverCreated) {
+    console.log('[window-all-closed] 시작 중 — 무시 (메인 창 아직 미생성)');
+    return;
+  }
+  app.quit();
 });
+
+app.on('before-quit', () => { isQuitting = true; });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
@@ -213,7 +249,8 @@ async function runStartupUpdateCheck(splash) {
       autoUpdater.once('update-downloaded', () => {
         clearTimeout(dlTimer);
         splashSay(splash, '업데이트 적용 중, 잠시 후 재시작됩니다', 100);
-        // quitAndInstall이 silently 실패해도 메인창이 뜨도록 done()을 먼저 호출.
+        updateRestartScheduled = true;
+        // quitAndInstall이 silently 실패해도 whenReady 의 안전망에서 메인 창을 띄운다.
         done();
         setTimeout(() => {
           try { autoUpdater.quitAndInstall(true, true); }

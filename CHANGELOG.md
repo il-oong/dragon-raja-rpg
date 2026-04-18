@@ -1,5 +1,25 @@
 # 릴리즈 보드
 
+## v1.0.6 (2026-04-18)
+
+### 수정 — "초기화 중..." 스플래시 후 앱이 혼자 꺼지는 문제
+- **원인**: `finally { splash.destroy() }` → `createWindow()` 순서로 실행되는 동안
+  Electron이 스플래시 `close` 이벤트를 동기적으로 처리하면서 `window-all-closed` 를
+  즉시 emit → 기본 핸들러가 `app.quit()` 을 호출 → 뒤따르는 `createWindow()` 가
+  실행되지 못하고 앱이 그대로 종료되는 경로가 있었음. (메인 창은 한번도 표시되지 않음)
+- **수정**:
+  1. `createWindow()` 를 먼저 호출해 메인 창을 띄운 **뒤에** 스플래시를 `destroy()`.
+     창 개수가 0으로 떨어지는 순간을 원천 제거.
+  2. `window-all-closed` 핸들러에 `mainWindowEverCreated` 가드 추가 — 메인 창이
+     한 번도 만들어지지 않았다면 무시(스플래시 destroy 로 인한 가짜 이벤트).
+  3. 업데이트 다운로드 완료 후 `quitAndInstall` 이 예약되면 (`updateRestartScheduled`),
+     메인 창을 만들지 않고 10초간 대기. 설치가 실패해 앱이 그대로 살아있으면
+     안전망으로 메인 창을 강제 생성해 "그냥 꺼진 상태"를 방지.
+  4. `before-quit` 에서 `isQuitting` 추적 → 안전망 타이머가 정상 종료 중에는
+     메인 창을 띄우지 않도록 방어.
+
+---
+
 ## v1.0.5 (2026-04-18)
 
 ### 수정
