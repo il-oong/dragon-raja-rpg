@@ -1,5 +1,6 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
+const fsSync = require('fs');
 
 // electron-updater는 packaged 앱에서만 의미가 있음. dev 실행 시 로드 실패해도 무시.
 let autoUpdater = null;
@@ -14,8 +15,36 @@ let mainWindowEverCreated = false;
 let updateRestartScheduled = false;
 let isQuitting = false;
 
+// ─────────────────────── 시작 진단 로그 ───────────────────────
+// 혼자 꺼지는 증상이 재발할 때 원인을 남기기 위한 파일 기반 로그.
+// 경로: %APPDATA%\system-monitor\startup.log  (Windows 기준)
+// 사용자가 "또 꺼졌어" 라고 하면 이 파일을 열어 마지막 기록을 확인.
+let _logPath = null;
+function _initLogPath() {
+  try {
+    if (_logPath) return _logPath;
+    const dir = app.getPath('userData');
+    try { fsSync.mkdirSync(dir, { recursive: true }); } catch {}
+    _logPath = path.join(dir, 'startup.log');
+    return _logPath;
+  } catch { return null; }
+}
+function startupLog(tag, extra) {
+  const line = `[${new Date().toISOString()}] ${tag}${extra ? ' ' + (typeof extra === 'string' ? extra : JSON.stringify(extra)) : ''}\n`;
+  try { console.log(line.trim()); } catch {}
+  try {
+    const p = _initLogPath();
+    if (p) fsSync.appendFileSync(p, line, 'utf-8');
+  } catch {}
+}
+
+// 환경변수로 업데이트 체크 건너뛰기 — 빠른 테스트용.
+//   Windows:  set SYSMON_SKIP_UPDATE=1 && "System Monitor.exe"
+const SKIP_UPDATE = !!process.env.SYSMON_SKIP_UPDATE;
+
 function createWindow() {
   mainWindowEverCreated = true;
+  startupLog('createWindow:begin');
   win = new BrowserWindow({
     width: 1100,
     height: 720,
@@ -31,19 +60,35 @@ function createWindow() {
   });
 
   Menu.setApplicationMenu(null);
-  win.loadFile('index.html').catch(e => console.error('[loadFile]', e && e.message));
+  win.loadFile('index.html').catch(e => {
+    console.error('[loadFile]', e && e.message);
+    startupLog('loadFile:error', e && e.message);
+  });
 
   // ready-to-show가 어떤 이유로든 안 오면 안전망으로 강제 표시.
   const showFallback = setTimeout(() => {
-    try { if (win && !win.isDestroyed() && !win.isVisible()) { win.show(); win.focus(); } } catch {}
+    try {
+      if (win && !win.isDestroyed() && !win.isVisible()) {
+        startupLog('ready-to-show:fallback-show');
+        win.show(); win.focus();
+      }
+    } catch {}
   }, 4000);
 
   win.once('ready-to-show', () => {
     clearTimeout(showFallback);
+    startupLog('ready-to-show');
     try { win.show(); win.focus(); } catch (e) { console.error('[win.show]', e && e.message); }
   });
 
-  win.on('closed', () => { win = null; });
+  win.webContents.on('render-process-gone', (_e, details) => {
+    startupLog('render-process-gone', details);
+  });
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    startupLog('did-fail-load', { code, desc, url });
+  });
+
+  win.on('closed', () => { startupLog('main-window:closed'); win = null; });
 
   // 작업표시줄 타이틀 위장
   win.on('page-title-updated', (e) => {
@@ -53,23 +98,30 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  startupLog('whenReady', { version: app.getVersion(), packaged: app.isPackaged, skipUpdate: SKIP_UPDATE });
+
   // 스플래시/업데이트 체크는 실패해도 메인 창은 반드시 띄운다.
   // 어떤 경로로도 STARTUP_HARD_TIMEOUT_MS 안에는 createWindow()까지 도달.
   let splash = null;
   const STARTUP_HARD_TIMEOUT_MS = 30000;
   const hardTimer = setTimeout(() => {
-    console.error('[startup] hard timeout — forcing main window');
+    startupLog('hard-timeout');
     try { if (!win) createWindow(); } catch (e) {
-      console.error('[createWindow:hard]', e && (e.stack || e.message || e));
+      startupLog('createWindow:hard:error', e && (e.stack || e.message || e));
     }
     try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
   }, STARTUP_HARD_TIMEOUT_MS);
 
   try {
     splash = createSplash();
-    await runStartupUpdateCheck(splash);
+    startupLog('splash:created');
+    if (SKIP_UPDATE) {
+      startupLog('update-check:skipped-by-env');
+    } else {
+      await runStartupUpdateCheck(splash);
+    }
   } catch (e) {
-    console.error('[startup]', e && (e.stack || e.message || e));
+    startupLog('startup:error', e && (e.stack || e.message || e));
   } finally {
     clearTimeout(hardTimer);
   }
@@ -96,10 +148,15 @@ app.whenReady().then(async () => {
   try {
     if (!win) createWindow();
   } catch (e) {
-    console.error('[createWindow]', e && (e.stack || e.message || e));
+    startupLog('createWindow:error', e && (e.stack || e.message || e));
   }
 
-  try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
+  try {
+    if (splash && !splash.isDestroyed()) {
+      splash.destroy();
+      startupLog('splash:destroyed');
+    }
+  } catch {}
 
   // 보스키: Ctrl+Shift+B → 창 숨김/복원
   globalShortcut.register('Control+Shift+B', () => {
@@ -131,13 +188,14 @@ app.on('window-all-closed', () => {
   // 시작 시퀀스 도중 스플래시가 destroy 되면서 이벤트가 튀는 경우가 있다.
   // 아직 메인 창이 한번도 만들어지지 않았다면 조용히 무시 — 뒤이어 createWindow 가 실행된다.
   if (!mainWindowEverCreated) {
-    console.log('[window-all-closed] 시작 중 — 무시 (메인 창 아직 미생성)');
+    startupLog('window-all-closed:ignored (startup)');
     return;
   }
+  startupLog('window-all-closed:quitting');
   app.quit();
 });
 
-app.on('before-quit', () => { isQuitting = true; });
+app.on('before-quit', () => { isQuitting = true; startupLog('before-quit'); });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
@@ -222,10 +280,11 @@ async function runStartupUpdateCheck(splash) {
     const checkTimer = setTimeout(done, CHECK_TIMEOUT_MS);
 
     autoUpdater.once('update-not-available', () => {
+      startupLog('update:not-available');
       clearTimeout(checkTimer); done();
     });
     autoUpdater.once('error', (err) => {
-      console.log('[auto-update]', err && err.message);
+      startupLog('update:error', err && err.message);
       clearTimeout(checkTimer); done();
     });
     autoUpdater.once('update-available', (info) => {
@@ -234,8 +293,9 @@ async function runStartupUpdateCheck(splash) {
       // 같은/낮은 버전이 잡히면 다운로드/재시작 루프 방지를 위해 즉시 통과.
       const cur = app.getVersion();
       const remote = info && info.version;
+      startupLog('update:available', { remote, current: cur });
       if (!remote || compareVer(remote, cur) <= 0) {
-        console.log('[auto-update] skip — remote', remote, '<= current', cur);
+        startupLog('update:skip-same-or-older');
         done();
         return;
       }
@@ -248,13 +308,14 @@ async function runStartupUpdateCheck(splash) {
       });
       autoUpdater.once('update-downloaded', () => {
         clearTimeout(dlTimer);
+        startupLog('update:downloaded');
         splashSay(splash, '업데이트 적용 중, 잠시 후 재시작됩니다', 100);
         updateRestartScheduled = true;
         // quitAndInstall이 silently 실패해도 whenReady 의 안전망에서 메인 창을 띄운다.
         done();
         setTimeout(() => {
-          try { autoUpdater.quitAndInstall(true, true); }
-          catch (e) { console.error('[quitAndInstall]', e && e.message); }
+          try { startupLog('quitAndInstall:call'); autoUpdater.quitAndInstall(true, true); }
+          catch (e) { startupLog('quitAndInstall:error', e && e.message); }
         }, 600);
       });
 

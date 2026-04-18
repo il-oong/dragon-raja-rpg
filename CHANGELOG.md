@@ -18,6 +18,26 @@
   4. `before-quit` 에서 `isQuitting` 추적 → 안전망 타이머가 정상 종료 중에는
      메인 창을 띄우지 않도록 방어.
 
+### 진단 — 재발 시 원인 바로 확인
+- **파일 기반 시작 로그 추가**: `%APPDATA%\system-monitor\startup.log` 에
+  `whenReady / splash:created / update:available / update:downloaded /
+  createWindow:begin / ready-to-show / window-all-closed / before-quit` 등이
+  ISO 타임스탬프와 함께 한줄씩 append 됨. 혼자 꺼지면 이 파일의 마지막 줄이 원인.
+- 렌더러 크래시(`render-process-gone`)와 `did-fail-load` 도 함께 기록.
+
+### 테스트 — 설치 없이 빠르게 검증
+1. **`npm start`** (dev 모드, ~2초)
+   - packaged 가 아니므로 autoUpdater 는 건너뜀. 스플래시→메인 창 전환만 빠르게 확인.
+2. **`npm run dist`** 후 `dist\win-unpacked\System Monitor.exe` 직접 실행 (~30초)
+   - NSIS 설치 없이 packaged 바이너리로 실행. 실제 릴리즈와 동일한 코드 경로.
+   - 여기서 메인 창이 뜨면 설치본도 확실히 뜬다.
+3. **업데이트 체크 스킵** — 빠른 기동 확인용.
+   ```
+   set SYSMON_SKIP_UPDATE=1
+   "System Monitor.exe"
+   ```
+   네트워크 체크 건너뛰고 바로 메인 창으로 진입.
+
 ---
 
 ## v1.0.5 (2026-04-18)
