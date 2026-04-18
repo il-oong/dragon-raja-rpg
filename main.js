@@ -41,25 +41,79 @@ function startupLog(tag, extra) {
 // 환경변수로 업데이트 체크 건너뛰기 — 빠른 테스트용.
 //   Windows:  set SYSMON_SKIP_UPDATE=1 && "System Monitor.exe"
 const SKIP_UPDATE = !!process.env.SYSMON_SKIP_UPDATE;
+// 업데이터 캐시 리셋 — 유령 다운로드 상태 제거용.
+const RESET_UPDATER = !!process.env.SYSMON_RESET_UPDATER;
+// GPU 비활성화 — 오래된 드라이버/원격 데스크탑에서 BrowserWindow 가 조용히 실패하는 경우.
+if (process.env.SYSMON_DISABLE_GPU) {
+  try { app.disableHardwareAcceleration(); startupLog('gpu:disabled-by-env'); } catch {}
+}
+
+// 업데이터 캐시 디렉토리 정리 (있으면).
+if (RESET_UPDATER) {
+  try {
+    const cacheDir = path.join(app.getPath('userData'), '..', 'system-monitor-updater');
+    fsSync.rmSync(cacheDir, { recursive: true, force: true });
+    startupLog('updater-cache:reset', cacheDir);
+  } catch (e) { startupLog('updater-cache:reset-error', e && e.message); }
+}
+
+// ─────────────────────── 전역 에러 핸들러 ───────────────────────
+// 메인 프로세스의 throw 를 조용히 죽이지 않고 로그 + 사용자 에러 다이얼로그로 가시화.
+process.on('uncaughtException', (err) => {
+  startupLog('uncaughtException', err && (err.stack || err.message || String(err)));
+  try { dialog.showErrorBox('System Monitor', '예기치 못한 오류로 종료됩니다.\n\n' + (err && err.message || err)); } catch {}
+});
+process.on('unhandledRejection', (reason) => {
+  startupLog('unhandledRejection', reason && (reason.stack || reason.message || String(reason)));
+});
 
 function createWindow() {
-  mainWindowEverCreated = true;
   startupLog('createWindow:begin');
-  win = new BrowserWindow({
-    width: 1100,
-    height: 720,
-    title: 'System Monitor',
-    icon: path.join(__dirname, 'icon.ico'),
-    autoHideMenuBar: true,
-    show: false, // ready-to-show 시점에 띄워 첫 페인트 깜빡임 제거
-    backgroundColor: '#1e1e1e',
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    },
-  });
+  try {
+    win = new BrowserWindow({
+      width: 1100,
+      height: 720,
+      title: 'System Monitor',
+      icon: path.join(__dirname, 'icon.ico'),
+      autoHideMenuBar: true,
+      show: false, // ready-to-show 시점에 띄워 첫 페인트 깜빡임 제거
+      backgroundColor: '#1e1e1e',
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false,
+      },
+    });
+  } catch (e) {
+    // BrowserWindow 생성 실패 — GPU/sandbox/드라이버 이슈 가능.
+    // 하드웨어 가속 끄고 한번만 재시도.
+    startupLog('createWindow:constructor-error', e && (e.stack || e.message));
+    try {
+      app.disableHardwareAcceleration();
+      startupLog('createWindow:retry-without-gpu');
+      win = new BrowserWindow({
+        width: 1100, height: 720, title: 'System Monitor',
+        autoHideMenuBar: true, show: false, backgroundColor: '#1e1e1e',
+        webPreferences: { nodeIntegration: true, contextIsolation: false },
+      });
+    } catch (e2) {
+      startupLog('createWindow:retry-failed', e2 && (e2.stack || e2.message));
+      try {
+        dialog.showErrorBox('System Monitor',
+          '창을 생성하지 못했습니다.\n\n' + (e2 && e2.message || e2) +
+          '\n\n로그: ' + (_logPath || '(none)'));
+      } catch {}
+      app.exit(1);
+      return;
+    }
+  }
+
+  // ★ flag 는 BrowserWindow 생성 성공 이후에만 세팅.
+  // 실패 시 window-all-closed 가드가 빠지지 않게.
+  mainWindowEverCreated = true;
 
   Menu.setApplicationMenu(null);
+  const indexPath = path.join(__dirname, 'index.html');
+  startupLog('loadFile:start', indexPath);
   win.loadFile('index.html').catch(e => {
     console.error('[loadFile]', e && e.message);
     startupLog('loadFile:error', e && e.message);
@@ -126,25 +180,12 @@ app.whenReady().then(async () => {
     clearTimeout(hardTimer);
   }
 
-  // 업데이트가 다운로드되어 quitAndInstall 이 예약된 상태라면 메인 창을 띄우지 않는다.
-  // (스플래시만 유지한 채 600ms 뒤 재시작.)  설치가 어떤 이유로 실패해 앱이 계속 살아있으면
-  // 10초 뒤 안전망으로 메인 창을 강제로 올린다.
-  if (updateRestartScheduled) {
-    setTimeout(() => {
-      if (!isQuitting && !win) {
-        console.error('[update] quitAndInstall 미동작 — 메인 창 강제 생성');
-        try { if (splash && !splash.isDestroyed()) splash.destroy(); } catch {}
-        try { createWindow(); } catch (e) {
-          console.error('[createWindow:update-fallback]', e && e.message);
-        }
-      }
-    }, 10000);
-    return;
-  }
-
-  // ★ 핵심 수정: 스플래시를 destroy 하기 전에 메인 창을 먼저 만든다.
-  // 그래야 "창이 하나도 없는 순간"이 없어 window-all-closed 가 튀어
-  // app.quit() 이 호출되는 경로가 원천 차단된다.
+  // v1.0.7: 시작 시 자동 설치(quitAndInstall) 폐기.
+  // 업데이트가 다운로드되었더라도 앱은 항상 메인 창으로 진입한다.
+  // 설치는 사용자가 앱을 정상 종료할 때 autoInstallOnAppQuit 로 진행 (runStartupUpdateCheck 참조).
+  //
+  // 스플래시를 destroy 하기 전에 메인 창을 먼저 만든다.
+  // "창이 하나도 없는 순간" 이 없어야 window-all-closed → app.quit() 경로가 차단됨.
   try {
     if (!win) createWindow();
   } catch (e) {
@@ -157,6 +198,14 @@ app.whenReady().then(async () => {
       startupLog('splash:destroyed');
     }
   } catch {}
+
+  if (updateRestartScheduled) {
+    startupLog('update:will-install-on-quit');
+    // 사용자에게 알림 — 메인 창 로드 후 IPC 로 표시 (선택적).
+    try { win && win.webContents.once('did-finish-load', () => {
+      try { win.webContents.send('update-pending-restart'); } catch {}
+    }); } catch {}
+  }
 
   // 보스키: Ctrl+Shift+B → 창 숨김/복원
   globalShortcut.register('Control+Shift+B', () => {
@@ -262,11 +311,12 @@ function compareVer(a, b) {
 }
 
 // 시작 시 블로킹 업데이트 체크. 결과와 무관하게 일정 시간 후엔 반드시 resolve.
+// v1.0.7: quitAndInstall 폐기 — 다운로드만 하고 설치는 사용자가 정상 종료할 때 자동.
 async function runStartupUpdateCheck(splash) {
   if (!autoUpdater || !app.isPackaged) return;
   try {
-    autoUpdater.autoDownload = false; // update-available에서 직접 판단 후 다운로드
-    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.autoDownload = false;           // update-available 에서 버전 판단 후 수동 다운로드
+    autoUpdater.autoInstallOnAppQuit = true;    // 정상 종료 시 자동 설치 (시작 시엔 설치 안 함)
   } catch (e) { console.error('[updater config]', e && e.message); return; }
 
   const CHECK_TIMEOUT_MS = 8000;
@@ -309,14 +359,12 @@ async function runStartupUpdateCheck(splash) {
       autoUpdater.once('update-downloaded', () => {
         clearTimeout(dlTimer);
         startupLog('update:downloaded');
-        splashSay(splash, '업데이트 적용 중, 잠시 후 재시작됩니다', 100);
+        // v1.0.7: quitAndInstall 을 시작 시에 호출하지 않는다.
+        // 설치는 autoInstallOnAppQuit=true 로 사용자가 앱을 정상 종료할 때 자동 진행.
+        // 그 동안 메인 창은 정상적으로 표시되어 앱이 "혼자 꺼지는" 경로가 차단된다.
+        splashSay(splash, '업데이트 준비됨 — 다음 종료 시 적용', 100);
         updateRestartScheduled = true;
-        // quitAndInstall이 silently 실패해도 whenReady 의 안전망에서 메인 창을 띄운다.
         done();
-        setTimeout(() => {
-          try { startupLog('quitAndInstall:call'); autoUpdater.quitAndInstall(true, true); }
-          catch (e) { startupLog('quitAndInstall:error', e && e.message); }
-        }, 600);
       });
 
       autoUpdater.downloadUpdate().catch((e) => {

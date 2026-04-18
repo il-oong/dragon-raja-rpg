@@ -1,5 +1,35 @@
 # 릴리즈 보드
 
+## v1.0.7 (2026-04-18)
+
+### 수정 — "또 혼자 꺼짐" 재발 방어 (보완 1+2+3+6)
+"브레인스토밍 5가지 경로" 중 네 가지를 한 번에 차단.
+
+- **[보완1] `createWindow()` 의 동기 throw 방어** — `mainWindowEverCreated=true`
+  플래그를 `new BrowserWindow(...)` **성공 이후** 로 이동. 생성 실패 시
+  `app.disableHardwareAcceleration()` 후 한 번 더 시도 (GPU 드라이버 이슈 대응),
+  그래도 실패하면 `dialog.showErrorBox` 로 사용자에게 알리고 `app.exit(1)`.
+  조용한 죽음 금지.
+- **[보완2] 시작 시 `quitAndInstall` 완전 폐기** — `autoInstallOnAppQuit=true`
+  로 전환. 업데이트는 다운로드만 하고, 설치는 사용자가 앱을 정상 종료할 때
+  `electron-updater` 가 알아서 실행. 시작 흐름에서 `app.quit()` 계열 호출을
+  모두 제거 → 창이 항상 뜸. (현재 스플래시 문구도 "업데이트 준비됨 — 다음
+  종료 시 적용" 으로 변경.)
+- **[보완3] 전역 에러 핸들러** — `uncaughtException` / `unhandledRejection`
+  에서 `startup.log` 기록 + `dialog.showErrorBox` 표시.
+  업데이트 핸들러 내부의 비동기 throw 가 메인 프로세스를 조용히 죽이던 경로 차단.
+- **[보완5] 환경변수 추가**
+  - `SYSMON_DISABLE_GPU=1` — 시작 시 `app.disableHardwareAcceleration()` 호출.
+  - `SYSMON_RESET_UPDATER=1` — `%LOCALAPPDATA%\system-monitor-updater` 삭제 후 시작.
+- **`loadFile:start`** 로그에 `index.html` 의 절대 경로 기록 — asar 경로 이슈 판별용.
+
+### 남은 리스크
+- **GPU/하드웨어 가속 hang** (경로 #2) — 최초 `BrowserWindow` 생성 자체가
+  **throw 없이 hang** 하는 경우는 `STARTUP_HARD_TIMEOUT_MS=30s` 안전망이
+  아직 주된 대응. 재발 시 `SYSMON_DISABLE_GPU=1` 로 실행해보고 결과 공유.
+
+---
+
 ## v1.0.6 (2026-04-18)
 
 ### 수정 — "초기화 중..." 스플래시 후 앱이 혼자 꺼지는 문제
