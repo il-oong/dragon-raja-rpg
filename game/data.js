@@ -1953,6 +1953,12 @@ const ADVANCE_NPC = {
   outlaw:       { loc: 'heltant',     npc: '술집주인 메이린' },
   sniper:       { loc: 'capital',     npc: '궁사 길드장 이무스' },
   tracker:      { loc: 'elf_village', npc: '수색자 카일란' },
+  // 종족 전용 2차
+  hero_lord:    { loc: 'palace',      npc: '국왕 다케온' },
+  archspirit:   { loc: 'elf_village', npc: '장로 엘리안' },
+  runeblade:    { loc: 'capital',     npc: '대장장이 마스터 흐랄' },
+  titan_king:   { loc: 'heltant',     npc: '촌장' },
+  grand_bard:   { loc: 'elf_village', npc: '장로 엘리안' },
   // 3차
   crusader:    { loc: 'capital',     npc: '기사단장 리프크네' },
   dragoon:     { loc: 'capital',     npc: '기사단장 리프크네' },
@@ -2521,6 +2527,88 @@ const AWAKENINGS = {
     },
     battle: { foes: ['plain_wolf', 'wild_orc'], buff: { hp: 0.8, atk: 1.0 } },
     awakening: '숲의 소리가 들린다. 모든 짐승의 발자국이 그대 앞에 펼쳐진다.',
+  },
+
+  // ═════ 종족 전용 2차 전직 시련 ═════
+  hero_lord: {
+    name: '영웅왕의 시련',
+    intro: '국왕 다케온이 그대를 왕좌 앞에 부른다.\n"인간이 전설이 되는 것은 힘이 아니라 책임으로다."',
+    meditation: {
+      q: '"영웅이란 무엇인가?"',
+      options: [
+        '가장 강한 자',
+        '남을 위해 자신을 바치는 자',
+        '누구도 이기지 못하는 자',
+      ],
+      correct: 1,
+      hints: ['힘만으로 전설이 되지 않는다.', '희생이 영웅을 만든다.', '불패는 영웅의 징표가 아니다.'],
+    },
+    battle: { foes: ['bone_knight', 'bone_knight'], buff: { hp: 1.1, atk: 1.1 } },
+    awakening: '왕관의 빛이 그대 머리 위에 떠오른다. 그대는 인간의 영웅왕이 되었다.',
+  },
+  archspirit: {
+    name: '정령의 왕관',
+    intro: '장로 엘리안이 4대 정령을 불러낸다.\n"정령과 하나가 되어라. 그러나 스스로를 잃지 말아라."',
+    meditation: {
+      q: '"정령과의 교감이란?"',
+      options: [
+        '정령에게 명령한다',
+        '정령의 뜻을 따른다',
+        '서로의 존재를 나눈다',
+      ],
+      correct: 2,
+      hints: ['지배는 교감이 아니다.', '복종도 아니다.', '정령과 대정령술사는 동료다.'],
+    },
+    battle: { foes: ['fire_elemental', 'forest_sprite'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '4대 정령이 그대 앞에 무릎 꿇는다. 그대는 대정령술사가 되었다.',
+  },
+  runeblade: {
+    name: '룬과 검의 결합',
+    intro: '대장장이 마스터 흐랄이 오래된 룬 검을 건넨다.\n"룬은 지식이요, 검은 의지다. 둘은 하나여야 한다."',
+    meditation: {
+      q: '"룬과 검, 무엇이 먼저인가?"',
+      options: [
+        '룬 — 지식 없이 검은 도구일 뿐',
+        '검 — 행함 없이 지식은 무의미',
+        '어느 것도 아니다. 둘이 한 호흡에 울려야 한다',
+      ],
+      correct: 2,
+      hints: ['지식만으론 부족하다.', '행함만으로도 부족하다.', '룬과 검이 동시에 울릴 때 룬블레이드가 된다.'],
+    },
+    battle: { foes: ['rock_golem', 'crystal_golem'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '검에 새긴 룬이 빛난다. 그대는 드워프의 룬블레이드가 되었다.',
+  },
+  titan_king: {
+    name: '거신의 왕좌',
+    intro: '헬턴트 촌장이 그대의 등을 두드린다.\n"거신은 산처럼 서야 한다. 바람에 흔들리지 않는 자만이 왕이 된다."',
+    meditation: {
+      q: '"거신의 힘은 어디서 오는가?"',
+      options: [
+        '거대한 육체',
+        '원시의 분노',
+        '대지에 뿌리내린 중심',
+      ],
+      correct: 2,
+      hints: ['몸은 그릇일 뿐.', '분노는 도구일 뿐.', '흔들리지 않는 중심이 진정한 힘이다.'],
+    },
+    battle: { foes: ['troll', 'mountain_orc'], buff: { hp: 1.2, atk: 1.1 } },
+    awakening: '발 밑 대지가 그대를 인정한다. 그대는 오거의 거신왕이 되었다.',
+  },
+  grand_bard: {
+    name: '전설의 선율',
+    intro: '장로 엘리안이 하프엘프 이루릴의 낡은 류트를 건넨다.\n"노래는 칼보다 깊은 상처를, 약보다 넓은 치유를 만든다."',
+    meditation: {
+      q: '"시인의 가장 큰 무기는?"',
+      options: [
+        '아름다운 선율',
+        '날카로운 풍자',
+        '사람의 마음을 움직이는 이야기',
+      ],
+      correct: 2,
+      hints: ['선율은 겉일 뿐.', '풍자는 한 색깔일 뿐.', '이야기는 영혼을 바꾼다.'],
+    },
+    battle: { foes: ['dark_monk', 'cursed_nun'], buff: { hp: 0.9, atk: 1.0 } },
+    awakening: '이루릴의 선율이 그대 손에서 흘러나온다. 그대는 대음유시인이 되었다.',
   },
 
   // ═════ 3차 전직 시련 (간단 버전) ═════
