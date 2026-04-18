@@ -25,7 +25,8 @@ npm-debug.log*
 # Build output (exe는 용량 커서 release로 따로 배포)
 dist/
 out/
-build/
+build/*
+!build/installer.nsh
 *.exe
 
 # Tauri
