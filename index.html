@@ -526,6 +526,13 @@
 
   async function init() {
     savesList = await ipcRenderer.invoke('list-saves');
+    // 시작 시 로그인 화면을 최상위로. 이미 토큰이 있으면(자동 복구 성공) 캐릭터 선택으로 바로 진입.
+    if (!currentToken) {
+      uiMode = 'auth_login';
+      print('─ 로그인 ─', 'title');
+      render();
+      return;
+    }
     if (savesList && savesList.length > 0) {
       uiMode = 'select';
       print('─ 캐릭터 선택 ─', 'title');
@@ -1016,8 +1023,8 @@
     idInp.onkeydown = (e) => { if (e.key === 'Enter') pwInp.focus(); };
     pwInp.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
     btnRow.appendChild(mkBtn('로그인', submit, { primary: true }));
-    btnRow.appendChild(mkBtn('회원가입으로', () => { uiMode = 'auth_register'; render(); }));
-    btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }, { danger: true }));
+    btnRow.appendChild(mkBtn('회원가입', () => { uiMode = 'auth_register'; render(); }));
+    btnRow.appendChild(mkBtn('로그인 없이 진행', () => { uiMode = 'select'; render(); }, { mini: true }));
     act.appendChild(btnRow);
     setTimeout(() => idInp.focus(), 50);
   }
@@ -1068,7 +1075,7 @@
     pw2Inp.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
     btnRow.appendChild(mkBtn('가입하기', submit, { success: true }));
     btnRow.appendChild(mkBtn('로그인으로', () => { uiMode = 'auth_login'; render(); }));
-    btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }, { danger: true }));
+    btnRow.appendChild(mkBtn('로그인 없이 진행', () => { uiMode = 'select'; render(); }, { mini: true }));
     act.appendChild(btnRow);
     setTimeout(() => idInp.focus(), 50);
   }
@@ -1465,9 +1472,11 @@
     if (game.state.pendingPoints > 0) {
       row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; }, { gold: true }));
     }
-    // 마스터리 / 재전직 버튼 (항상 표시)
+    // 마스터리는 항상 / 재전직은 4차 직업 마스터 1개 이상일 때만 노출.
     row1.appendChild(mkBtn('마스터리', 'mastery', { mini: true }));
-    row1.appendChild(mkBtn('재전직', 'respec', { mini: true, gold: true, title: '레벨/스탯/스킬 유지하고 1차 직업 변경' }));
+    if ((game.state.masteredLines || []).length > 0) {
+      row1.appendChild(mkBtn('재전직', 'respec', { mini: true, gold: true, title: '레벨/스탯/스킬 유지하고 1차 직업 변경' }));
+    }
     act.appendChild(row1);
 
     // 주 활동
