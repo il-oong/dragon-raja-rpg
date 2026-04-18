@@ -2,6 +2,18 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <!-- Content Security Policy: nodeIntegration 이 켜진 상태라 XSS=RCE.
+       외부 스크립트 전면 차단, 인라인은 허용 (현재 구조 유지).
+       img/font/style/connect 는 필요한 곳만 허용. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' 'unsafe-inline';
+                 script-src 'self' 'unsafe-inline';
+                 style-src 'self' 'unsafe-inline';
+                 img-src 'self' data:;
+                 connect-src https://dragon-raja-rpg-production.up.railway.app;
+                 object-src 'none';
+                 base-uri 'none';
+                 frame-ancestors 'none';">
   <title>System Monitor</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -290,6 +302,16 @@
   }
 
   const game = new Game((t, k) => print(t, k));
+
+  // ═══════ 보안 — HTML 이스케이프 ═══════
+  // nodeIntegration=true 환경이라 stored XSS = RCE.
+  // 서버에서 오는 사용자 제공 문자열(from_user, subject, username, job 등)은
+  // innerHTML 에 넣기 전 반드시 이 함수로 처리. 서버에서도 한번 이스케이프하지만 심층 방어.
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
 
   // ═══════ 서버 연동 (Railway) ═══════
   const SERVER_URL = 'https://dragon-raja-rpg-production.up.railway.app';
@@ -669,9 +691,9 @@
 
     side.innerHTML = `
       <div class="s-block">
-        <div class="s-title">${s.name}</div>
-        <div class="s-row"><span class="k">${RACES[s.race].name} · ${JOBS[s.job].name}</span><span class="v">Lv.${s.lv}</span></div>
-        ${s.title ? `<div class="s-row"><span class="k">작위</span><span class="v">👑 ${TITLES.ranks[s.title].name}</span></div>` : ''}
+        <div class="s-title">${escHtml(s.name)}</div>
+        <div class="s-row"><span class="k">${escHtml(RACES[s.race].name)} · ${escHtml(JOBS[s.job].name)}</span><span class="v">Lv.${parseInt(s.lv)||0}</span></div>
+        ${s.title && TITLES.ranks[s.title] ? `<div class="s-row"><span class="k">작위</span><span class="v">👑 ${escHtml(TITLES.ranks[s.title].name)}</span></div>` : ''}
       </div>
       <div class="s-block">
         <div class="s-row"><span class="k">HP</span><span class="v">${s.hp} / ${game.getHpMax()}</span></div>
@@ -876,10 +898,10 @@
         const playedStr = s.lastPlayed ? new Date(s.lastPlayed).toLocaleString('ko-KR') : '-';
         info.innerHTML = `
           <div style="color:#e0e6ed;font-size:13px;">
-            <b>${s.name}</b> · ${titleBadge}${raceName} ${jobName} <span style="color:#f4c96b;">Lv.${s.lv}</span>
+            <b>${escHtml(s.name)}</b> · ${escHtml(titleBadge)}${escHtml(raceName)} ${escHtml(jobName)} <span style="color:#f4c96b;">Lv.${parseInt(s.lv)||0}</span>
           </div>
           <div style="color:#858585;font-size:11px;margin-top:2px;">
-            📍 ${locName} · 💰 ${(s.gold||0).toLocaleString()}G · 🕒 D${s.time?s.time.day:'-'}
+            📍 ${escHtml(locName)} · 💰 ${(parseInt(s.gold)||0).toLocaleString()}G · 🕒 D${s.time?parseInt(s.time.day)||0:'-'}
             · 직업수 ${(s.jobs||[]).length}
           </div>
           <div style="color:#666;font-size:10.5px;">마지막 플레이: ${playedStr}</div>
@@ -910,7 +932,7 @@
     if (currentToken && currentUsername) {
       const info = document.createElement('span');
       info.style.cssText = 'color:#b4b4b4;font-size:12px;margin-right:8px;';
-      info.innerHTML = `접속: <b style="color:#e0e6ed">${currentUsername}</b>`;
+      info.innerHTML = `접속: <b style="color:#e0e6ed">${escHtml(currentUsername)}</b>`;
       netRow.appendChild(info);
       netRow.appendChild(mkBtn('☁ 클라우드 동기화', () => { uiMode = 'cloud_sync'; render(); }, { success: true, mini: true }));
       netRow.appendChild(mkBtn('🏆 리더보드', () => { uiMode = 'leaderboard'; render(); }, { mini: true }));
@@ -1203,9 +1225,9 @@
         const rankColor = rank === 1 ? '#e5c24c' : rank === 2 ? '#c0c0c0' : rank === 3 ? '#cd7f32' : '#858585';
         d.innerHTML = `
           <span style="min-width:36px;color:${rankColor};font-weight:bold;">${rank}위</span>
-          <span style="min-width:100px;color:#e0e6ed;">${s.username}</span>
-          <span style="min-width:70px;color:#858585;font-size:11px;">${s.job || ''}</span>
-          <span style="color:#f4c96b;">${valGetter(s)}</span>
+          <span style="min-width:100px;color:#e0e6ed;">${escHtml(s.username)}</span>
+          <span style="min-width:70px;color:#858585;font-size:11px;">${escHtml(s.job || '')}</span>
+          <span style="color:#f4c96b;">${escHtml(valGetter(s))}</span>
         `;
         row.appendChild(d);
         act.appendChild(row);
@@ -1253,9 +1275,9 @@
         d.style.cssText = 'flex:1;color:#b4b4b4;font-size:12px;line-height:1.6;';
         const date = new Date(m.created_at * 1000).toLocaleDateString('ko-KR');
         d.innerHTML = `
-          <div><b style="color:#e0e6ed;">${m.from_user}</b> <span style="color:#858585;font-size:11px;">${date}</span></div>
-          <div style="color:#f4c96b;font-size:11.5px;">${m.subject || '(제목 없음)'}</div>
-          ${m.message ? `<div style="color:#b4b4b4;font-size:11.5px;margin-top:4px;white-space:pre-wrap;">${m.message.replace(/</g,'&lt;')}</div>` : ''}
+          <div><b style="color:#e0e6ed;">${escHtml(m.from_user)}</b> <span style="color:#858585;font-size:11px;">${escHtml(date)}</span></div>
+          <div style="color:#f4c96b;font-size:11.5px;">${m.subject ? escHtml(m.subject) : '(제목 없음)'}</div>
+          ${m.message ? `<div style="color:#b4b4b4;font-size:11.5px;margin-top:4px;white-space:pre-wrap;">${escHtml(m.message)}</div>` : ''}
         `;
         row.appendChild(d);
         row.appendChild(mkBtn('확인 (삭제)', async () => {
