@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: '릴리즈 버전 (예: 1.0.4). 비우면 package.json의 현재 버전 사용.'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -19,6 +24,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+
+      - name: Bump version (manual dispatch)
+        if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+        shell: bash
+        run: npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
