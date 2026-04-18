@@ -1,6 +1,6 @@
 {
   "name": "system-monitor",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "System Resource Monitor",
   "main": "main.js",
   "scripts": {
