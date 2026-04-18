@@ -297,15 +297,27 @@
   let currentUsername = null;
 
   async function api(path, method = 'GET', body = null) {
+    const url = SERVER_URL + path;
+    let res;
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (currentToken) headers.Authorization = `Bearer ${currentToken}`;
       const opts = { method, headers };
       if (body) opts.body = JSON.stringify(body);
-      const res = await fetch(SERVER_URL + path, opts);
-      return await res.json();
+      res = await fetch(url, opts);
     } catch (err) {
-      return { ok: false, error: '서버 연결 실패: ' + err.message };
+      // 네트워크/DNS/CORS/Railway-down. 실제 원인을 볼 수 있도록 URL+메시지 노출.
+      return { ok: false, error: `서버 연결 실패: ${err.message} (${url})` };
+    }
+    const text = await res.text().catch(() => '');
+    try {
+      const data = JSON.parse(text);
+      // 서버가 error 필드 없이 ok:false 만 보낼 경우 HTTP status 로 대체.
+      if (!data.ok && !data.error) data.error = `서버 거부 [HTTP ${res.status}]`;
+      return data;
+    } catch {
+      // JSON 아님 — Railway 장애 페이지(HTML)/502/503/빈 응답 등.
+      return { ok: false, error: `서버 응답 파싱 실패 [HTTP ${res.status}]: ${text.slice(0, 200) || '(빈 응답)'}` };
     }
   }
 
@@ -1024,6 +1036,12 @@
     pwInp.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
     btnRow.appendChild(mkBtn('로그인', submit, { primary: true }));
     btnRow.appendChild(mkBtn('회원가입', () => { uiMode = 'auth_register'; render(); }));
+    btnRow.appendChild(mkBtn('서버 상태 확인', async () => {
+      print(`서버 확인: ${SERVER_URL}/healthz`, 'dim');
+      const r = await api('/healthz');
+      if (r.ok) print(`✦ 서버 정상`, 'good');
+      else print(`서버 상태: ${r.error}`, 'warn');
+    }, { mini: true, title: '서버에 접속 가능한지 테스트' }));
     btnRow.appendChild(mkBtn('로그인 없이 진행', () => { uiMode = 'select'; render(); }, { mini: true }));
     act.appendChild(btnRow);
     setTimeout(() => idInp.focus(), 50);
