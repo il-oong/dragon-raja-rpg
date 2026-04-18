@@ -1443,6 +1443,9 @@ class Game {
       } else if (this.state.lv === 75) {
         const cs = Object.entries(JOBS).filter(([,j]) => (j.from === this.state.job || (j.altFrom||[]).includes(this.state.job)) && j.tier === 4).map(([k])=>k);
         if (cs.length) this.out(`\n  ⚔ 4차 전직 가능: ${cs.join(', ')} → trial <직업>`);
+      } else if (this.state.lv === 120) {
+        const cs = Object.entries(JOBS).filter(([,j]) => (j.from === this.state.job || (j.altFrom||[]).includes(this.state.job)) && j.tier === 5 && !j.hidden).map(([k])=>k);
+        if (cs.length) this.out(`\n  ⚔ 5차 신화 전직 가능: ${cs.join(', ')} → trial <직업>`);
       }
       // 마스터리 체크 (4차 + Lv.90+ + 전 스킬)
       this.checkMastery();
@@ -1484,7 +1487,9 @@ class Game {
     if (!jobKey) { this.out('trial <직업키> — 시련 후 advance 가능.'); return; }
     const target = JOBS[jobKey];
     if (!target || !target.from) { this.out('전직 직업이 아니다.'); return; }
-    if (target.from !== this.state.job) { this.out(`현재 직업(${JOBS[this.state.job].name})에서 ${target.name}으로 전직 불가.`); return; }
+    const trialValidFrom = [target.from].concat(target.altFrom || []);
+    if (!trialValidFrom.includes(this.state.job)) { this.out(`현재 직업(${JOBS[this.state.job].name})에서 ${target.name}으로 전직 불가.`); return; }
+    if (target.raceOnly && target.raceOnly !== this.state.race) { this.out(`${target.name}은 ${RACES[target.raceOnly].name} 전용.`); return; }
     if (this.state.lv < target.reqLv) { this.out(`Lv.${target.reqLv} 필요.`); return; }
     if (this.state.completedTrials[jobKey]) { this.out('이미 시련을 통과했다. advance 로 전직.'); return; }
     const trial = AWAKENINGS[jobKey];

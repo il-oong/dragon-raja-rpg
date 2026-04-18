@@ -1512,7 +1512,7 @@
 
     // 전직/시련
     const curJob = game.state.job;
-    const nextJobs = Object.entries(JOBS).filter(([, j]) => j.from === curJob && game.state.lv >= (j.reqLv||0));
+    const nextJobs = Object.entries(JOBS).filter(([, j]) => (j.from === curJob || (j.altFrom||[]).includes(curJob)) && !j.hidden && game.state.lv >= (j.reqLv||0));
     if (nextJobs.length) {
       const row5 = mkSection('전직:');
       nextJobs.forEach(([k, j]) => {
@@ -1720,7 +1720,8 @@
     const advances = Object.entries(ADVANCE_NPC).filter(([,v]) => v.loc === game.state.location && v.npc === npc);
     advances.forEach(([jk]) => {
       const j = JOBS[jk];
-      if (j.from !== curJob || game.state.lv < j.reqLv) return;
+      const npcValidFrom = [j.from].concat(j.altFrom||[]);
+      if (!npcValidFrom.includes(curJob) || game.state.lv < j.reqLv) return;
       const row = mkSection(j.name);
       if (!game.state.completedTrials[jk]) {
         row.appendChild(mkBtn(`✦ 시련 도전`, `trial ${jk}`, { gold: true, title: AWAKENINGS[jk]?.name }));
