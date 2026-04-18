@@ -1225,6 +1225,7 @@ const LOCATIONS = {
     exits: { '용의 산맥으로': { to: 'dragon_mt', hours: 8 } },
     encounters: ['ice_wolf', 'frost_giant', 'white_wyrmling', 'snow_leopard', 'ice_turtle', 'frost_serpent'], encounterRate: 0.8,
     boss: 'frost_dragon', requireLv: 40,
+    treasure: 'dragon_wisdom_2',
   },
   volcano_kaleil: {
     name: '활화산 칼라일', desc: '용암이 끓는 화산. 화염 정령의 본거지.',
@@ -1234,6 +1235,7 @@ const LOCATIONS = {
     },
     encounters: ['lava_slime', 'fire_elemental', 'salamander', 'magma_giant', 'fire_bat', 'magma_elem'], encounterRate: 0.85,
     boss: 'volcanic_drake', requireLv: 45,
+    treasure: 'dragon_wisdom_3',
   },
   pendragon_peak: {
     name: '백룡의 봉우리', desc: '눈으로 뒤덮인 절대고독의 봉우리. 백룡 펜드래곤이 둥지를 튼다.',
@@ -1243,11 +1245,6 @@ const LOCATIONS = {
   },
 
   // ═══════════ 4대 드래곤 영지 (최종 컨텐츠) ═══════════
-  pendragon_peak: {
-    name: '백룡의 봉우리', desc: '눈으로 뒤덮인 절대고독의 봉우리. 백룡 펜드래곤이 둥지를 튼다.',
-    exits: { '얼음 황무지로': { to: 'ice_wastes', hours: 16 } },
-    boss: 'pendragon', requireLv: 80,
-  },
   kashirk_canyon: {
     name: '대지룡의 협곡', desc: '대륙을 가르는 거대 협곡. 카쉬르크가 잠들어 있다.',
     exits: { '비스럴 사막으로': { to: 'bisrul_desert', hours: 20 } },
@@ -1458,6 +1455,34 @@ LOCATIONS.cosmos_edge = {
 LOCATIONS.ice_wastes.exits['백룡의 봉우리'] = { to: 'pendragon_peak', hours: 16 };
 LOCATIONS.bisrul_desert.exits['대지룡의 협곡'] = { to: 'kashirk_canyon', hours: 20 };
 
+// ═══════════ 고립 지역 진입로 연결 (편도 출구만 있던 신규 지역들) ═══════════
+// 초반
+LOCATIONS.heltant.exits['낡은 시골길']      = { to: 'old_road',      hours: 2 };
+LOCATIONS.periwinkle.exits['버려진 농장']   = { to: 'abandoned_farm', hours: 3 };
+// 중반
+LOCATIONS.road_south.exits['도적의 숲']     = { to: 'thief_woods',   hours: 3 };
+LOCATIONS.capital.exits['상인 대상로']      = { to: 'trade_road',    hours: 6 };
+LOCATIONS.deep_forest.exits['미지의 유적']  = { to: 'unknown_ruins', hours: 4 };
+// 중후반
+LOCATIONS.carmilkar.exits['해적 소굴']      = { to: 'pirate_cove',   hours: 5 };
+LOCATIONS.ruined_cathedral.exits['고대 전장'] = { to: 'ancient_battlefield', hours: 6 };
+LOCATIONS.dragon_mt.exits['하늘 섬']        = { to: 'sky_island',    hours: 10 };
+// Lv 50~80
+LOCATIONS.elf_village.exits['영혼의 숲']    = { to: 'spirit_forest', hours: 8 };
+LOCATIONS.moonlit_grove.exits['별의 언덕']  = { to: 'star_hill',     hours: 6 };
+LOCATIONS.river_delta.exits['심해 도시 아틀리아'] = { to: 'deep_city',  hours: 12 };
+// Lv 80~120
+LOCATIONS.zaipun_dungeon.exits['악마군주의 성'] = { to: 'demon_keep', hours: 12 };
+LOCATIONS.dragon_mt.exits['용의 무덤']      = { to: 'dragon_graveyard', hours: 14 };
+LOCATIONS.dark_abyss.exits['옛 신의 무덤']  = { to: 'god_tomb',      hours: 10 };
+// Lv 120+
+LOCATIONS.rift_world.exits['시공의 회랑']   = { to: 'time_corridor', hours: 10 };
+LOCATIONS.polaris_shrine.exits['창조의 대지'] = { to: 'genesis_land', hours: 15 };
+// 진엔드 체인
+LOCATIONS.blyer_sanctum.exits['팔라레온 그림자 궁전'] = { to: 'palaleon_market',   hours: 15 };
+LOCATIONS.palaleon_market.exits['치프라이쏘스 허공의 탑'] = { to: 'tsiraithos_tower', hours: 20 };
+LOCATIONS.tsiraithos_tower.exits['우주의 끝'] = { to: 'cosmos_edge',   hours: 24 };
+
 // ───── 몬스터 ─────
 // drops: [[itemKey, 확률(0~1)]]
 const MONSTERS = {
@@ -1512,13 +1537,13 @@ const MONSTERS = {
   frost_giant:   { name: '서리 거인',   hp: 900, atk: 110, def: 55, exp: 1500, gold: 700, tags: [], drops: [['frost_hammer', 0.20], ['mithril', 0.15]] },
   white_wyrmling:{ name: '백룡 새끼',   hp: 700, atk: 100, def: 50, exp: 1300, gold: 800, tags: ['dragon'], drops: [['ice_lance', 0.25]] },
   frost_dragon:  { name: '프로스트 드래곤', hp: 5500, atk: 170, def: 90, exp: 12000, gold: 15000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['elixir', 1.0]] },
+    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_2', 1.0], ['elixir', 1.0]] },
   // ─── 활화산 칼라일 (Lv 45~55) ───
   lava_slime:     { name: '용암 슬라임', hp: 600, atk: 90, def: 50, exp: 900, gold: 400, tags: [], drops: [['potion_l', 0.30]] },
   fire_elemental: { name: '화염 정령',   hp: 800, atk: 120, def: 55, exp: 1500, gold: 800, tags: ['mag'], drops: [['flameblade', 0.20], ['ether_l', 0.30]] },
   salamander:     { name: '샐러맨더',     hp: 1000, atk: 130, def: 60, exp: 1800, gold: 900, tags: ['beast'], drops: [['flame_robe', 0.15]] },
   volcanic_drake: { name: '화산 드레이크', hp: 6500, atk: 180, def: 95, exp: 15000, gold: 18000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['flameblade_legendary', 0.40], ['dragonring', 0.30], ['elixir', 1.0]] },
+    drops: [['flameblade_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_3', 1.0], ['elixir', 1.0]] },
   // ─── 신규 다수 (레벨별 다양화) ───
   // 초반 (Lv 1~8)
   hare:           { name: '산토끼',    hp: 15, atk: 3, def: 0, exp: 5, gold: 3, tags: ['beast'], drops: [['potion_s', 0.15]] },
@@ -1953,6 +1978,12 @@ const ADVANCE_NPC = {
   outlaw:       { loc: 'heltant',     npc: '술집주인 메이린' },
   sniper:       { loc: 'capital',     npc: '궁사 길드장 이무스' },
   tracker:      { loc: 'elf_village', npc: '수색자 카일란' },
+  // 종족 전용 2차
+  hero_lord:    { loc: 'palace',      npc: '국왕 다케온' },
+  archspirit:   { loc: 'elf_village', npc: '장로 엘리안' },
+  runeblade:    { loc: 'capital',     npc: '대장장이 마스터 흐랄' },
+  titan_king:   { loc: 'heltant',     npc: '촌장' },
+  grand_bard:   { loc: 'elf_village', npc: '장로 엘리안' },
   // 3차
   crusader:    { loc: 'capital',     npc: '기사단장 리프크네' },
   dragoon:     { loc: 'capital',     npc: '기사단장 리프크네' },
@@ -1981,6 +2012,33 @@ const ADVANCE_NPC = {
   goldking:      { loc: 'carmilkar', npc: '상인 길드장 자히드' },
   shadowmerchant:{ loc: 'capital',   npc: '암살자 길드장' },
   informerking:  { loc: 'capital',   npc: '왕궁 마법사 핸드레이크' },
+  // 종족 전용 3차
+  hero_god:        { loc: 'palace',      npc: '국왕 다케온' },
+  elemental_sage:  { loc: 'elf_village', npc: '장로 엘리안' },
+  rune_dragon:     { loc: 'capital',     npc: '대장장이 마스터 흐랄' },
+  titan_god:       { loc: 'heltant',     npc: '촌장' },
+  fate_bard:       { loc: 'elf_village', npc: '장로 엘리안' },
+  // 4차
+  dragon_emperor:    { loc: 'capital',     npc: '기사단장 리프크네' },
+  sword_god:         { loc: 'carmilkar',   npc: '검투사 챔피언 라크살' },
+  great_sage:        { loc: 'capital',     npc: '왕궁 마법사 핸드레이크' },
+  death_god:         { loc: 'deep_forest', npc: '암흑 사제 모르간' },
+  holy_king:         { loc: 'capital',     npc: '대주교 유스티스' },
+  saint:             { loc: 'capital',     npc: '대주교 유스티스' },
+  shadow_emperor:    { loc: 'capital',     npc: '암살자 길드장' },
+  freeman_king:      { loc: 'capital',     npc: '암살자 길드장' },
+  dragon_slayer_god: { loc: 'capital',     npc: '궁사 길드장 이무스' },
+  nature_king:       { loc: 'elf_village', npc: '장로 엘리안' },
+  gold_god:          { loc: 'carmilkar',   npc: '상인 길드장 자히드' },
+  info_god:          { loc: 'capital',     npc: '암살자 길드장' },
+  // 종족 전용 4차
+  human_god:         { loc: 'palace',      npc: '국왕 다케온' },
+  primordial_spirit: { loc: 'elf_village', npc: '장로 엘리안' },
+  rune_emperor:      { loc: 'capital',     npc: '대장장이 마스터 흐랄' },
+  primeval_titan:    { loc: 'heltant',     npc: '촌장' },
+  fate_king:         { loc: 'elf_village', npc: '장로 엘리안' },
+  // 5차 신화
+  dragon_raja:       { loc: 'capital',     npc: '왕궁 마법사 핸드레이크' },
 };
 
 // 기본 스탯 (레벨 1)
@@ -2523,6 +2581,88 @@ const AWAKENINGS = {
     awakening: '숲의 소리가 들린다. 모든 짐승의 발자국이 그대 앞에 펼쳐진다.',
   },
 
+  // ═════ 종족 전용 2차 전직 시련 ═════
+  hero_lord: {
+    name: '영웅왕의 시련',
+    intro: '국왕 다케온이 그대를 왕좌 앞에 부른다.\n"인간이 전설이 되는 것은 힘이 아니라 책임으로다."',
+    meditation: {
+      q: '"영웅이란 무엇인가?"',
+      options: [
+        '가장 강한 자',
+        '남을 위해 자신을 바치는 자',
+        '누구도 이기지 못하는 자',
+      ],
+      correct: 1,
+      hints: ['힘만으로 전설이 되지 않는다.', '희생이 영웅을 만든다.', '불패는 영웅의 징표가 아니다.'],
+    },
+    battle: { foes: ['bone_knight', 'bone_knight'], buff: { hp: 1.1, atk: 1.1 } },
+    awakening: '왕관의 빛이 그대 머리 위에 떠오른다. 그대는 인간의 영웅왕이 되었다.',
+  },
+  archspirit: {
+    name: '정령의 왕관',
+    intro: '장로 엘리안이 4대 정령을 불러낸다.\n"정령과 하나가 되어라. 그러나 스스로를 잃지 말아라."',
+    meditation: {
+      q: '"정령과의 교감이란?"',
+      options: [
+        '정령에게 명령한다',
+        '정령의 뜻을 따른다',
+        '서로의 존재를 나눈다',
+      ],
+      correct: 2,
+      hints: ['지배는 교감이 아니다.', '복종도 아니다.', '정령과 대정령술사는 동료다.'],
+    },
+    battle: { foes: ['fire_elemental', 'forest_sprite'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '4대 정령이 그대 앞에 무릎 꿇는다. 그대는 대정령술사가 되었다.',
+  },
+  runeblade: {
+    name: '룬과 검의 결합',
+    intro: '대장장이 마스터 흐랄이 오래된 룬 검을 건넨다.\n"룬은 지식이요, 검은 의지다. 둘은 하나여야 한다."',
+    meditation: {
+      q: '"룬과 검, 무엇이 먼저인가?"',
+      options: [
+        '룬 — 지식 없이 검은 도구일 뿐',
+        '검 — 행함 없이 지식은 무의미',
+        '어느 것도 아니다. 둘이 한 호흡에 울려야 한다',
+      ],
+      correct: 2,
+      hints: ['지식만으론 부족하다.', '행함만으로도 부족하다.', '룬과 검이 동시에 울릴 때 룬블레이드가 된다.'],
+    },
+    battle: { foes: ['rock_golem', 'crystal_golem'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '검에 새긴 룬이 빛난다. 그대는 드워프의 룬블레이드가 되었다.',
+  },
+  titan_king: {
+    name: '거신의 왕좌',
+    intro: '헬턴트 촌장이 그대의 등을 두드린다.\n"거신은 산처럼 서야 한다. 바람에 흔들리지 않는 자만이 왕이 된다."',
+    meditation: {
+      q: '"거신의 힘은 어디서 오는가?"',
+      options: [
+        '거대한 육체',
+        '원시의 분노',
+        '대지에 뿌리내린 중심',
+      ],
+      correct: 2,
+      hints: ['몸은 그릇일 뿐.', '분노는 도구일 뿐.', '흔들리지 않는 중심이 진정한 힘이다.'],
+    },
+    battle: { foes: ['troll', 'mountain_orc'], buff: { hp: 1.2, atk: 1.1 } },
+    awakening: '발 밑 대지가 그대를 인정한다. 그대는 오거의 거신왕이 되었다.',
+  },
+  grand_bard: {
+    name: '전설의 선율',
+    intro: '장로 엘리안이 하프엘프 이루릴의 낡은 류트를 건넨다.\n"노래는 칼보다 깊은 상처를, 약보다 넓은 치유를 만든다."',
+    meditation: {
+      q: '"시인의 가장 큰 무기는?"',
+      options: [
+        '아름다운 선율',
+        '날카로운 풍자',
+        '사람의 마음을 움직이는 이야기',
+      ],
+      correct: 2,
+      hints: ['선율은 겉일 뿐.', '풍자는 한 색깔일 뿐.', '이야기는 영혼을 바꾼다.'],
+    },
+    battle: { foes: ['dark_monk', 'cursed_nun'], buff: { hp: 0.9, atk: 1.0 } },
+    awakening: '이루릴의 선율이 그대 손에서 흘러나온다. 그대는 대음유시인이 되었다.',
+  },
+
   // ═════ 3차 전직 시련 (간단 버전) ═════
   crusader:    { name: '성전의 맹세', intro: '"성전이란 신을 위한 것인가, 백성을 위한 것인가?"',
     meditation: { q: '"성전의 의미?"', options: ['신의 영광', '약자의 보호', '죄의 정화'], correct: 1, hints: ['', '', ''] },
@@ -2698,6 +2838,116 @@ const AWAKENINGS = {
     },
     battle: { foes: ['lich_boss'], buff: { hp: 0.7, atk: 1.0 } },
     awakening: '대륙의 모든 비밀이 그대에게 흘러든다. 정보왕이 되었다.',
+  },
+
+  // ═════ 종족 전용 3차 전직 시련 ═════
+  hero_god: { name: '영웅신의 길', intro: '국왕 다케온: "영웅에서 신이 되는 길. 그것은 자신조차 초월하는 것이다."',
+    meditation: { q: '"신이 된다는 것?"', options: ['초월한 존재', '섬김의 끝', '불멸의 존재'], correct: 1, hints: ['초월은 이름일 뿐.', '섬기는 자만이 신에 닿는다.', '불멸은 결과일 뿐.'] },
+    battle: { foes: ['demon_lord'], buff: { hp: 1.0, atk: 1.2 } },
+    awakening: '그대의 이름이 전설이 되어 빛난다.' },
+  elemental_sage: { name: '정령의 현자', intro: '장로 엘리안이 태고의 정령석을 건넨다.',
+    meditation: { q: '"정령이란 결국?"', options: ['자연의 의식', '세계의 조각', '시간의 흐름'], correct: 1, hints: [] },
+    battle: { foes: ['magi_golem'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '4원소가 그대 몸에서 춤춘다. 정령의 현자가 되었다.' },
+  rune_dragon: { name: '룬드래곤의 각인', intro: '대장장이 마스터 흐랄이 드래곤 비늘의 룬을 꺼낸다.',
+    meditation: { q: '"룬의 궁극?"', options: ['세계의 이름', '자신의 이름', '하나로 된 언어'], correct: 2, hints: [] },
+    battle: { foes: ['elder_drake'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '그대의 룬이 드래곤의 심장과 공명한다.' },
+  titan_god: { name: '거신의 화신', intro: '촌장: "거신왕을 넘어 거신 그 자체가 되어라."',
+    meditation: { q: '"거신의 끝?"', options: ['거대함', '대지 그 자체가 됨', '불멸'], correct: 1, hints: [] },
+    battle: { foes: ['magma_giant', 'frost_giant'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '대지가 그대를 끌어안는다.' },
+  fate_bard: { name: '운명의 노래', intro: '장로 엘리안: "운명을 노래하라. 그러면 운명이 바뀐다."',
+    meditation: { q: '"운명이란?"', options: ['정해진 것', '선택의 연쇄', '노래로 뒤바뀌는 것'], correct: 2, hints: [] },
+    battle: { foes: ['fanatic', 'cursed_wizard'], buff: { hp: 0.9, atk: 1.0 } },
+    awakening: '그대의 선율이 운명의 실을 바꾼다.' },
+
+  // ═════════ 4차 전직 시련 ═════════
+  dragon_emperor: { name: '용제의 시련', intro: '용의 기를 받아들여라.',
+    meditation: { q: '"용제란?"', options: ['용을 부리는 자', '용과 형제된 자', '용이 된 자'], correct: 1, hints: [] },
+    battle: { foes: ['white_wyrmling', 'white_wyrmling'], buff: { hp: 1.5, atk: 1.3 } },
+    awakening: '용의 피가 그대에게 흐른다. 용제가 되었다.' },
+  sword_god: { name: '검신의 길', intro: '천 번의 결투 끝. 검과 혼이 하나가 되라.',
+    meditation: { q: '"검이란?"', options: ['의지의 형상', '죽음의 도구', '예술'], correct: 0, hints: [] },
+    battle: { foes: ['abyssal_knight'], buff: { hp: 1.0, atk: 1.2 } },
+    awakening: '모든 검이 그대를 따른다. 검신이 되었다.' },
+  great_sage: { name: '대현자의 깨달음', intro: '세계의 모든 지식을 탐했다.',
+    meditation: { q: '"지식의 끝?"', options: ['모든 답', '새로운 질문', '침묵'], correct: 1, hints: [] },
+    battle: { foes: ['lich_boss', 'mage_guardian'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '세계가 그대의 책이 된다. 대현자가 되었다.' },
+  death_god: { name: '죽음의 신', intro: '모든 영혼의 지배자가 되라.',
+    meditation: { q: '"죽음을 다스린다는 것?"', options: ['죽음을 거스름', '죽음과 동행', '죽음을 이해'], correct: 1, hints: [] },
+    battle: { foes: ['tomb_king'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '망자들이 그대를 왕으로 섬긴다.' },
+  holy_king: { name: '성왕의 맹세', intro: '신성을 왕관에 새긴다.',
+    meditation: { q: '"성왕이란?"', options: ['신의 대리인', '신과 하나된 자', '신 자체'], correct: 1, hints: [] },
+    battle: { foes: ['demon_overlord'], buff: { hp: 0.6, atk: 0.8 } },
+    awakening: '신성한 왕관이 그대 머리 위에 떠오른다.' },
+  saint: { name: '성인의 기적', intro: '만인을 구원하라.',
+    meditation: { q: '"성인이란?"', options: ['완벽한 자', '사랑한 자', '용서받은 자'], correct: 1, hints: [] },
+    battle: { foes: ['crimson_lord'], buff: { hp: 0.6, atk: 0.7 } },
+    awakening: '빛이 그대에게서 끝없이 샘솟는다.' },
+  shadow_emperor: { name: '어둠의 황제', intro: '모든 그림자를 다스린다.',
+    meditation: { q: '"그림자란?"', options: ['빛의 반대', '빛이 있어 존재', '존재의 숨결'], correct: 1, hints: [] },
+    battle: { foes: ['shadow_dragon'], buff: { hp: 0.6, atk: 0.8 } },
+    awakening: '그림자가 그대의 왕국이 된다.' },
+  freeman_king: { name: '자유의 왕', intro: '어떤 법도 어떤 권력도 너를 묶지 못한다.',
+    meditation: { q: '"진정한 자유?"', options: ['구속 없음', '스스로를 선택', '누구도 아님'], correct: 1, hints: [] },
+    battle: { foes: ['shadow_rogue', 'shadow_rogue'], buff: { hp: 0.9, atk: 1.0 } },
+    awakening: '바람이 그대의 왕관이 된다.' },
+  dragon_slayer_god: { name: '용살신의 길', intro: '용을 죽인 자들의 이름을 이어라.',
+    meditation: { q: '"왜 용을 죽이는가?"', options: ['명성', '균형', '복수'], correct: 1, hints: [] },
+    battle: { foes: ['void_dragon'], buff: { hp: 0.3, atk: 0.5 } },
+    awakening: '용의 심장을 꿰뚫는 화살이 그대의 것.' },
+  nature_king: { name: '자연의 왕', intro: '숲이 너를 왕으로 추대한다.',
+    meditation: { q: '"자연을 다스린다는 것?"', options: ['지배', '수호', '일부가 됨'], correct: 2, hints: [] },
+    battle: { foes: ['treant'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '나무와 짐승이 그대 앞에 길을 낸다.' },
+  gold_god: { name: '금신의 계약', intro: '모든 금이 그대의 것이 될 것이다.',
+    meditation: { q: '"진정한 부?"', options: ['금의 양', '흐름을 만드는 힘', '베푸는 여유'], correct: 1, hints: [] },
+    battle: { foes: ['darim_warrior', 'darim_warrior', 'darim_warrior'], buff: { hp: 1.2, atk: 1.0 } },
+    awakening: '금이 그대 주위를 돈다.' },
+  info_god: { name: '정보의 신', intro: '모든 비밀이 너에게 흐른다.',
+    meditation: { q: '"비밀의 가치?"', options: ['은폐', '타이밍', '연결'], correct: 2, hints: [] },
+    battle: { foes: ['rogue_mage', 'rogue_mage', 'rogue_mage'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '세상의 모든 속삭임이 그대 귀에 닿는다.' },
+  human_god: { name: '인간신의 등극', intro: '인간의 가능성 그 자체가 되어라.',
+    meditation: { q: '"인간이 신이 되는 길?"', options: ['초월', '책임', '공감'], correct: 2, hints: [] },
+    battle: { foes: ['pendragon'], buff: { hp: 0.5, atk: 0.7 } },
+    awakening: '인간의 이름이 전설에 영원히 새겨진다.' },
+  primordial_spirit: { name: '원초 정령의 강림', intro: '태초의 정령이 그대에게 깃든다.',
+    meditation: { q: '"원초란?"', options: ['처음', '순수', '모든 것의 근원'], correct: 2, hints: [] },
+    battle: { foes: ['magi_golem', 'magi_golem'], buff: { hp: 0.8, atk: 1.0 } },
+    awakening: '네 원소 이전의 무엇이 그대 안에서 깨어난다.' },
+  rune_emperor: { name: '룬황제의 각인', intro: '세계 자체에 룬을 새긴다.',
+    meditation: { q: '"룬의 정점?"', options: ['기록', '창조', '지배'], correct: 1, hints: [] },
+    battle: { foes: ['stone_sentinel', 'ancient_guard'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '그대의 룬이 세계를 다시 쓴다.' },
+  primeval_titan: { name: '태고 거신의 부활', intro: '대지의 태초가 되어라.',
+    meditation: { q: '"태고의 거신?"', options: ['가장 강한 거신', '대지 그 자체', '최초의 존재'], correct: 1, hints: [] },
+    battle: { foes: ['magma_giant', 'magma_giant'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '산맥이 그대를 아버지라 부른다.' },
+  fate_king: { name: '운명의 왕', intro: '운명의 실을 직접 짠다.',
+    meditation: { q: '"운명이란?"', options: ['정해진 길', '선택의 총합', '노래하는 자의 이야기'], correct: 2, hints: [] },
+    battle: { foes: ['moon_priestess'], buff: { hp: 0.6, atk: 0.8 } },
+    awakening: '운명의 베틀이 그대 손에 들린다.' },
+
+  // ═════════ 5차 신화 전직 시련 ═════════
+  dragon_raja: {
+    name: '드래곤 라자의 시련',
+    intro: '핸드레이크가 오랜 세월을 담은 눈빛으로 그대를 바라본다.\n"드래곤 라자는 드래곤과 동등한 자.\n모든 길을 걸은 자만이 이 이름을 받는다."',
+    meditation: {
+      q: '"드래곤 라자란 누구인가?"',
+      options: [
+        '드래곤을 굴복시킨 자',
+        '드래곤과 대등한 자',
+        '드래곤의 수호자',
+      ],
+      correct: 1,
+      hints: ['굴복은 교류가 아니다.', '드래곤 라자는 드래곤의 친구이자 평등한 자.', '수호는 한쪽에 서는 것일 뿐.'],
+    },
+    battle: { foes: ['bone_dragon'], buff: { hp: 1.0, atk: 1.0 } },
+    awakening: '드래곤들이 그대에게 고개를 숙인다.\n그대는 드래곤 라자 — 용의 길의 끝에 닿았다.',
   },
 };
 

@@ -1,5 +1,9 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
+
+// electron-updater는 packaged 앱에서만 의미가 있음. dev 실행 시 로드 실패해도 무시.
+let autoUpdater = null;
+try { autoUpdater = require('electron-updater').autoUpdater; } catch {}
 
 let win;
 let isHidden = false;
@@ -27,7 +31,11 @@ function createWindow() {
   win.setTitle('System Monitor - CPU/Memory');
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const splash = createSplash();
+  await runStartupUpdateCheck(splash);
+  if (splash && !splash.isDestroyed()) splash.destroy();
+
   createWindow();
 
   // 보스키: Ctrl+Shift+B → 창 숨김/복원
@@ -61,6 +69,103 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+});
+
+// ══════════════ 스플래시 & Auto Update (GitHub Releases) ══════════════
+// 위장 유지를 위해 스플래시 문구는 "System Monitor" 톤으로만 노출.
+
+function createSplash() {
+  const splash = new BrowserWindow({
+    width: 340, height: 160,
+    frame: false, resizable: false, skipTaskbar: true,
+    alwaysOnTop: false, show: true,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+  splash.setMenu(null);
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    body{margin:0;background:#1e1e1e;color:#ddd;font-family:Segoe UI,sans-serif;
+      display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;}
+    .title{font-size:15px;font-weight:600;margin-bottom:8px;}
+    .sub{color:#888;font-size:11px;}
+    .bar{width:260px;height:4px;background:#333;margin-top:14px;border-radius:2px;overflow:hidden;}
+    .fill{height:100%;width:0;background:#4a9eff;transition:width .2s;}
+    .dots::after{content:'';animation:d 1.2s steps(4,end) infinite;}
+    @keyframes d{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+  </style></head><body>
+    <div class="title">System Monitor</div>
+    <div class="sub" id="s"><span class="dots">초기화 중</span></div>
+    <div class="bar"><div class="fill" id="f"></div></div>
+  </body></html>`;
+  splash.loadURL('data:text/html;charset=UTF-8,' + encodeURIComponent(html));
+  return splash;
+}
+
+function splashSay(splash, msg, percent) {
+  if (!splash || splash.isDestroyed()) return;
+  const js = `
+    (() => {
+      const s = document.getElementById('s');
+      if (s && ${JSON.stringify(msg)} !== null) s.textContent = ${JSON.stringify(msg)};
+      const f = document.getElementById('f');
+      if (f && ${typeof percent === 'number'}) f.style.width = ${percent || 0}+'%';
+    })();
+  `;
+  splash.webContents.executeJavaScript(js).catch(() => {});
+}
+
+// 시작 시 블로킹 업데이트 체크. 결과와 무관하게 일정 시간 후엔 진행.
+async function runStartupUpdateCheck(splash) {
+  if (!autoUpdater || !app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = false;
+
+  const CHECK_TIMEOUT_MS = 8000;
+  const DOWNLOAD_TIMEOUT_MS = 120000;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => { if (!settled) { settled = true; resolve(); } };
+
+    // 체크 단계 타임아웃 (네트워크 불가 시 앱이 멈추지 않도록)
+    const checkTimer = setTimeout(done, CHECK_TIMEOUT_MS);
+
+    autoUpdater.once('update-not-available', () => {
+      clearTimeout(checkTimer); done();
+    });
+    autoUpdater.once('error', (err) => {
+      console.log('[auto-update]', err && err.message);
+      clearTimeout(checkTimer); done();
+    });
+    autoUpdater.once('update-available', (info) => {
+      clearTimeout(checkTimer);
+      splashSay(splash, `업데이트 내려받는 중 ${info.version}`, 0);
+
+      const dlTimer = setTimeout(done, DOWNLOAD_TIMEOUT_MS);
+      autoUpdater.on('download-progress', (p) => {
+        splashSay(splash, `업데이트 내려받는 중 ${Math.round(p.percent)}%`, p.percent);
+      });
+      autoUpdater.once('update-downloaded', () => {
+        clearTimeout(dlTimer);
+        splashSay(splash, '업데이트 적용 중, 잠시 후 재시작됩니다', 100);
+        // 약간의 지연 후 재시작 (스플래시 문구 보이게)
+        setTimeout(() => autoUpdater.quitAndInstall(true, true), 600);
+      });
+    });
+
+    autoUpdater.checkForUpdates().catch((e) => {
+      console.log('[auto-update]', e && e.message);
+      clearTimeout(checkTimer); done();
+    });
+  });
+}
+
+// 수동 체크 (UI에서 버튼으로 호출 가능)
+ipcMain.handle('check-for-updates', async () => {
+  if (!autoUpdater || !app.isPackaged) return { ok: false, error: 'dev mode' };
+  try {
+    const r = await autoUpdater.checkForUpdates();
+    return { ok: true, version: r && r.updateInfo && r.updateInfo.version };
+  } catch (e) { return { ok: false, error: e.message }; }
 });
 
 // 게임 저장/로드 — 다중 캐릭터 지원

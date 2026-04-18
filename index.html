@@ -1512,7 +1512,7 @@
 
     // 전직/시련
     const curJob = game.state.job;
-    const nextJobs = Object.entries(JOBS).filter(([, j]) => j.from === curJob && game.state.lv >= (j.reqLv||0));
+    const nextJobs = Object.entries(JOBS).filter(([, j]) => (j.from === curJob || (j.altFrom||[]).includes(curJob)) && !j.hidden && game.state.lv >= (j.reqLv||0));
     if (nextJobs.length) {
       const row5 = mkSection('전직:');
       nextJobs.forEach(([k, j]) => {
@@ -1521,7 +1521,7 @@
             title: `Lv.${j.reqLv} 필요 · ${j.cost}G\n${AWAKENINGS[k]?.name || ''}` }));
         } else {
           const adv = ADVANCE_NPC[k];
-          const here = adv && adv.loc === game.state.location;
+          const here = !adv || adv.loc === game.state.location;
           row5.appendChild(mkBtn(`⚔ 전직: ${j.name}`, `advance ${k}`,
             { success: true, disabled: !here, title: here ? `${j.cost}G` : `${LOCATIONS[adv.loc].name}에서만` }));
         }
@@ -1720,7 +1720,8 @@
     const advances = Object.entries(ADVANCE_NPC).filter(([,v]) => v.loc === game.state.location && v.npc === npc);
     advances.forEach(([jk]) => {
       const j = JOBS[jk];
-      if (j.from !== curJob || game.state.lv < j.reqLv) return;
+      const npcValidFrom = [j.from].concat(j.altFrom||[]);
+      if (!npcValidFrom.includes(curJob) || game.state.lv < j.reqLv) return;
       const row = mkSection(j.name);
       if (!game.state.completedTrials[jk]) {
         row.appendChild(mkBtn(`✦ 시련 도전`, `trial ${jk}`, { gold: true, title: AWAKENINGS[jk]?.name }));

@@ -64,3 +64,23 @@ npm start
 - 관리자/동료가 지나가면 **ESC 한 번**으로 즉시 가짜 모니터 화면.
 - 완전히 숨기려면 **Ctrl+Shift+B** (작업표시줄에서도 사라짐).
 - `Ctrl+Shift+B`를 다시 누르면 다시 나타납니다.
+
+## 자동 업데이트 (개발자용)
+
+NSIS 설치본은 앱 실행 시 **메인 창을 띄우기 전에** GitHub Releases를 조회해
+새 버전이 있으면 스플래시(System Monitor 톤)를 보이면서 다운받고 자동 재시작합니다.
+네트워크 불가·체크 실패 시 최대 8초 대기 후 그냥 기존 버전으로 진행.
+포터블 .exe는 자동 업데이트 불가.
+
+### 릴리즈 절차
+```bash
+# 1) 버전 올리기 (package.json + git tag 자동 생성)
+npm version patch    # 또는 minor / major
+
+# 2) 태그까지 푸시 → GitHub Actions가 Windows에서 빌드 후 Release 생성
+git push --follow-tags
+```
+
+Actions(`.github/workflows/release.yml`)가 `vX.Y.Z` 태그를 받으면
+`electron-builder --publish always`로 NSIS + 포터블 .exe를 빌드해
+Release에 업로드합니다. 기존 NSIS 설치 사용자는 다음 실행 시 자동 적용.
