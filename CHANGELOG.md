@@ -1,5 +1,94 @@
 # 릴리즈 보드
 
+## v1.0.7 (2026-04-18)
+
+### 수정 — "또 혼자 꺼짐" 재발 방어 (보완 1+2+3+6)
+"브레인스토밍 5가지 경로" 중 네 가지를 한 번에 차단.
+
+- **[보완1] `createWindow()` 의 동기 throw 방어** — `mainWindowEverCreated=true`
+  플래그를 `new BrowserWindow(...)` **성공 이후** 로 이동. 생성 실패 시
+  `app.disableHardwareAcceleration()` 후 한 번 더 시도 (GPU 드라이버 이슈 대응),
+  그래도 실패하면 `dialog.showErrorBox` 로 사용자에게 알리고 `app.exit(1)`.
+  조용한 죽음 금지.
+- **[보완2] 시작 시 `quitAndInstall` 완전 폐기** — `autoInstallOnAppQuit=true`
+  로 전환. 업데이트는 다운로드만 하고, 설치는 사용자가 앱을 정상 종료할 때
+  `electron-updater` 가 알아서 실행. 시작 흐름에서 `app.quit()` 계열 호출을
+  모두 제거 → 창이 항상 뜸. (현재 스플래시 문구도 "업데이트 준비됨 — 다음
+  종료 시 적용" 으로 변경.)
+- **[보완3] 전역 에러 핸들러** — `uncaughtException` / `unhandledRejection`
+  에서 `startup.log` 기록 + `dialog.showErrorBox` 표시.
+  업데이트 핸들러 내부의 비동기 throw 가 메인 프로세스를 조용히 죽이던 경로 차단.
+- **[보완5] 환경변수 추가**
+  - `SYSMON_DISABLE_GPU=1` — 시작 시 `app.disableHardwareAcceleration()` 호출.
+  - `SYSMON_RESET_UPDATER=1` — `%LOCALAPPDATA%\system-monitor-updater` 삭제 후 시작.
+- **`loadFile:start`** 로그에 `index.html` 의 절대 경로 기록 — asar 경로 이슈 판별용.
+
+### 남은 리스크
+- **GPU/하드웨어 가속 hang** (경로 #2) — 최초 `BrowserWindow` 생성 자체가
+  **throw 없이 hang** 하는 경우는 `STARTUP_HARD_TIMEOUT_MS=30s` 안전망이
+  아직 주된 대응. 재발 시 `SYSMON_DISABLE_GPU=1` 로 실행해보고 결과 공유.
+
+---
+
+## v1.0.6 (2026-04-18)
+
+### 수정 — "초기화 중..." 스플래시 후 앱이 혼자 꺼지는 문제
+- **원인**: `finally { splash.destroy() }` → `createWindow()` 순서로 실행되는 동안
+  Electron이 스플래시 `close` 이벤트를 동기적으로 처리하면서 `window-all-closed` 를
+  즉시 emit → 기본 핸들러가 `app.quit()` 을 호출 → 뒤따르는 `createWindow()` 가
+  실행되지 못하고 앱이 그대로 종료되는 경로가 있었음. (메인 창은 한번도 표시되지 않음)
+- **수정**:
+  1. `createWindow()` 를 먼저 호출해 메인 창을 띄운 **뒤에** 스플래시를 `destroy()`.
+     창 개수가 0으로 떨어지는 순간을 원천 제거.
+  2. `window-all-closed` 핸들러에 `mainWindowEverCreated` 가드 추가 — 메인 창이
+     한 번도 만들어지지 않았다면 무시(스플래시 destroy 로 인한 가짜 이벤트).
+  3. 업데이트 다운로드 완료 후 `quitAndInstall` 이 예약되면 (`updateRestartScheduled`),
+     메인 창을 만들지 않고 10초간 대기. 설치가 실패해 앱이 그대로 살아있으면
+     안전망으로 메인 창을 강제 생성해 "그냥 꺼진 상태"를 방지.
+  4. `before-quit` 에서 `isQuitting` 추적 → 안전망 타이머가 정상 종료 중에는
+     메인 창을 띄우지 않도록 방어.
+
+### 진단 — 재발 시 원인 바로 확인
+- **파일 기반 시작 로그 추가**: `%APPDATA%\system-monitor\startup.log` 에
+  `whenReady / splash:created / update:available / update:downloaded /
+  createWindow:begin / ready-to-show / window-all-closed / before-quit` 등이
+  ISO 타임스탬프와 함께 한줄씩 append 됨. 혼자 꺼지면 이 파일의 마지막 줄이 원인.
+- 렌더러 크래시(`render-process-gone`)와 `did-fail-load` 도 함께 기록.
+
+### 테스트 — 설치 없이 빠르게 검증
+1. **`npm start`** (dev 모드, ~2초)
+   - packaged 가 아니므로 autoUpdater 는 건너뜀. 스플래시→메인 창 전환만 빠르게 확인.
+2. **`npm run dist`** 후 `dist\win-unpacked\System Monitor.exe` 직접 실행 (~30초)
+   - NSIS 설치 없이 packaged 바이너리로 실행. 실제 릴리즈와 동일한 코드 경로.
+   - 여기서 메인 창이 뜨면 설치본도 확실히 뜬다.
+3. **업데이트 체크 스킵** — 빠른 기동 확인용.
+   ```
+   set SYSMON_SKIP_UPDATE=1
+   "System Monitor.exe"
+   ```
+   네트워크 체크 건너뛰고 바로 메인 창으로 진입.
+
+---
+
+## v1.0.5 (2026-04-18)
+
+### 수정
+- **바탕화면 바로가기가 생성되지 않던 문제 해결**
+  - `package.json > build.nsis`에 `createDesktopShortcut: "always"` 추가 → 신규 설치뿐 아니라 업데이트/재설치 시에도 **매번 바탕화면 바로가기를 강제 생성**.
+  - `createStartMenuShortcut: true`, `shortcutName: "System Monitor"` 명시 → 시작 메뉴에도 동일 이름으로 등록.
+  - `runAfterFinish: true` → 설치 완료 후 자동 실행.
+
+### 설치 위치 안내
+- `oneClick: true` + `perMachine: false` 구성이므로 **사용자 계정 기준**으로 조용히 설치됨.
+- **설치 경로**: `%LOCALAPPDATA%\Programs\system-monitor\System Monitor.exe`
+  - 예) `C:\Users\<사용자>\AppData\Local\Programs\system-monitor\System Monitor.exe`
+- **바로가기**
+  - 바탕화면: `%USERPROFILE%\Desktop\System Monitor.lnk`
+  - 시작 메뉴: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\System Monitor.lnk`
+- **설치 파일(`SystemMonitor-Setup-*.exe`) 다운로드 위치**: 브라우저 기본 다운로드 폴더 (`%USERPROFILE%\Downloads`).
+
+---
+
 ## v1.0.4 (2026-04-18)
 
 ### 수정
