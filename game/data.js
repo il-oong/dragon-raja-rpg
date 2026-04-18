@@ -1243,11 +1243,6 @@ const LOCATIONS = {
   },
 
   // ═══════════ 4대 드래곤 영지 (최종 컨텐츠) ═══════════
-  pendragon_peak: {
-    name: '백룡의 봉우리', desc: '눈으로 뒤덮인 절대고독의 봉우리. 백룡 펜드래곤이 둥지를 튼다.',
-    exits: { '얼음 황무지로': { to: 'ice_wastes', hours: 16 } },
-    boss: 'pendragon', requireLv: 80,
-  },
   kashirk_canyon: {
     name: '대지룡의 협곡', desc: '대륙을 가르는 거대 협곡. 카쉬르크가 잠들어 있다.',
     exits: { '비스럴 사막으로': { to: 'bisrul_desert', hours: 20 } },
@@ -1457,6 +1452,34 @@ LOCATIONS.cosmos_edge = {
 // 추가 출구: dragon_lair → ice_wastes 외 다른 경로 필요
 LOCATIONS.ice_wastes.exits['백룡의 봉우리'] = { to: 'pendragon_peak', hours: 16 };
 LOCATIONS.bisrul_desert.exits['대지룡의 협곡'] = { to: 'kashirk_canyon', hours: 20 };
+
+// ═══════════ 고립 지역 진입로 연결 (편도 출구만 있던 신규 지역들) ═══════════
+// 초반
+LOCATIONS.heltant.exits['낡은 시골길']      = { to: 'old_road',      hours: 2 };
+LOCATIONS.periwinkle.exits['버려진 농장']   = { to: 'abandoned_farm', hours: 3 };
+// 중반
+LOCATIONS.road_south.exits['도적의 숲']     = { to: 'thief_woods',   hours: 3 };
+LOCATIONS.capital.exits['상인 대상로']      = { to: 'trade_road',    hours: 6 };
+LOCATIONS.deep_forest.exits['미지의 유적']  = { to: 'unknown_ruins', hours: 4 };
+// 중후반
+LOCATIONS.carmilkar.exits['해적 소굴']      = { to: 'pirate_cove',   hours: 5 };
+LOCATIONS.ruined_cathedral.exits['고대 전장'] = { to: 'ancient_battlefield', hours: 6 };
+LOCATIONS.dragon_mt.exits['하늘 섬']        = { to: 'sky_island',    hours: 10 };
+// Lv 50~80
+LOCATIONS.elf_village.exits['영혼의 숲']    = { to: 'spirit_forest', hours: 8 };
+LOCATIONS.moonlit_grove.exits['별의 언덕']  = { to: 'star_hill',     hours: 6 };
+LOCATIONS.river_delta.exits['심해 도시 아틀리아'] = { to: 'deep_city',  hours: 12 };
+// Lv 80~120
+LOCATIONS.zaipun_dungeon.exits['악마군주의 성'] = { to: 'demon_keep', hours: 12 };
+LOCATIONS.dragon_mt.exits['용의 무덤']      = { to: 'dragon_graveyard', hours: 14 };
+LOCATIONS.dark_abyss.exits['옛 신의 무덤']  = { to: 'god_tomb',      hours: 10 };
+// Lv 120+
+LOCATIONS.rift_world.exits['시공의 회랑']   = { to: 'time_corridor', hours: 10 };
+LOCATIONS.polaris_shrine.exits['창조의 대지'] = { to: 'genesis_land', hours: 15 };
+// 진엔드 체인
+LOCATIONS.blyer_sanctum.exits['팔라레온 그림자 궁전'] = { to: 'palaleon_market',   hours: 15 };
+LOCATIONS.palaleon_market.exits['치프라이쏘스 허공의 탑'] = { to: 'tsiraithos_tower', hours: 20 };
+LOCATIONS.tsiraithos_tower.exits['우주의 끝'] = { to: 'cosmos_edge',   hours: 24 };
 
 // ───── 몬스터 ─────
 // drops: [[itemKey, 확률(0~1)]]
