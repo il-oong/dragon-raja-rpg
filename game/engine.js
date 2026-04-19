@@ -1177,7 +1177,7 @@ class Game {
     if (sk.type === 'buff') {
       const turns = sk.turns || 3;
       b[sk.effect] = turns;
-      if (['sage_aura','cha_up','gold_up','accuracy_up','phantom_weapon','boss_slay','poison_plus','wealth'].includes(sk.effect))
+      if (['sage_aura','cha_up','gold_up','accuracy_up','phantom_weapon','boss_slay','poison_plus','wealth','angel'].includes(sk.effect))
         this.state.buffsPersistent[sk.effect] = true;
       this.out(`▶ ${sk.name}! (${turns}턴)`);
       if (sk.effect === 'lock_on') this.combat.lockOn = true;
@@ -1500,7 +1500,7 @@ class Game {
     });
     if (b.regen) { const h = Math.round(this.getHpMax()*0.3); this.state.hp = Math.min(this.getHpMax(), this.state.hp + h); this.out(`  ✚ 기도 +${h}`); }
     Object.keys(b).forEach(k => {
-      if (['sage_aura','cha_up','gold_up','accuracy_up','phantom_weapon','boss_slay','poison_plus','wealth'].includes(k)) return;
+      if (['sage_aura','cha_up','gold_up','accuracy_up','phantom_weapon','boss_slay','poison_plus','wealth','angel'].includes(k)) return;
       b[k]--; if (b[k]<=0) delete b[k];
     });
     this.combat.foes.forEach(f => {
