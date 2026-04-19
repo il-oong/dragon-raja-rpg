@@ -230,6 +230,29 @@ app.whenReady().then(async () => {
     if (!win) return;
     win.webContents.send('toggle-disguise');
   });
+
+  // 위장 테마 순환: Ctrl+Shift+T (sysmon → excel → terminal → kakao)
+  globalShortcut.register('Control+Shift+T', () => {
+    if (!win || win.isDestroyed()) return;
+    try { win.webContents.send('cycle-disguise-theme'); } catch {}
+  });
+
+  // ─── 자동 업데이트 주기 재체크 (1시간마다) ───
+  // 시작 시 1회만 체크하면 오랫동안 켜놓은 세션은 새 릴리즈를 놓침.
+  // autoUpdater 는 이미 once 리스너로 시작 흐름에 묶여있어 여기선 checkForUpdates 호출만.
+  if (autoUpdater && app.isPackaged && !SKIP_UPDATE) {
+    setInterval(() => {
+      try { autoUpdater.checkForUpdates().catch(e => startupLog('periodic-check-err', e && e.message)); }
+      catch (e) { startupLog('periodic-check-throw', e && e.message); }
+    }, 60 * 60 * 1000);
+    // 재체크 후 update-downloaded 가 다시 오면 알림을 위해 영구 리스너도 등록.
+    try {
+      autoUpdater.on('update-downloaded', () => {
+        updateRestartScheduled = true;
+        try { if (win && !win.isDestroyed()) win.webContents.send('update-pending-restart'); } catch {}
+      });
+    } catch {}
+  }
 });
 
 app.on('window-all-closed', () => {
@@ -387,6 +410,20 @@ ipcMain.handle('check-for-updates', async () => {
     const r = await autoUpdater.checkForUpdates();
     return { ok: true, version: r && r.updateInfo && r.updateInfo.version };
   } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 지금 바로 업데이트 적용 — 다운로드된 상태에서만 성공. 앱 즉시 재시작.
+ipcMain.handle('install-update-now', () => {
+  if (!autoUpdater || !app.isPackaged) return { ok: false, error: 'dev mode' };
+  if (!updateRestartScheduled) return { ok: false, error: '다운로드된 업데이트가 없음' };
+  try {
+    startupLog('install-update-now');
+    autoUpdater.quitAndInstall(true, true);
+    return { ok: true };
+  } catch (e) {
+    startupLog('install-update-now:error', e && e.message);
+    return { ok: false, error: e.message };
+  }
 });
 
 // 현재 버전 + 업데이트 준비 상태 + CHANGELOG 내용 반환 — 마이페이지 "버전 정보" 탭용.
