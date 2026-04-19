@@ -8,6 +8,7 @@ saves.json
 
 # Claude Code 로컬 설정
 .claude/
+.omc/
 
 # 실수로 생성된 빈 파일
 /npm

@@ -1084,7 +1084,12 @@ const LOCATIONS = {
   heltant: {
     name: '헬턴트',
     desc: '그대가 자란 변방의 작은 마을. 풍차와 밀밭이 펼쳐져 있다.',
-    npcs: ['촌장', '대장장이 게롤트', '술집주인 메이린'],
+    npcs: {
+      '촌장':          { band: ['새벽','낮','황혼'] },
+      '대장장이 게롤트':{ band: ['낮','황혼'] },
+      '술집주인 메이린':{ band: ['황혼','밤'] },
+      '암거래상':       { band: ['밤'] },
+    },
     shop: true, inn: true,
     exits: {
       '북쪽 숲': { to: 'forest', hours: 2 },
@@ -1092,6 +1097,7 @@ const LOCATIONS = {
       '페리윙클 평원': { to: 'periwinkle', hours: 3 },
     },
     encounters: ['slime', 'wolf'], encounterRate: 0.3,
+    encountersByBand: { '밤': ['shadow_wolf','night_bat','moonlight_spider'] },
   },
   forest: {
     name: '북쪽 숲', desc: '울창한 전나무 숲. 고블린이 종종 출몰한다.',
@@ -1100,20 +1106,28 @@ const LOCATIONS = {
       '더 깊은 숲': { to: 'deep_forest', hours: 3 },
     },
     encounters: ['wolf', 'goblin', 'bigSpider', 'hare', 'forest_bee', 'giant_beetle', 'deer', 'forest_sprite'], encounterRate: 0.6,
+    encountersByBand: { '밤': ['shadow_wolf','ghoul','wisp','night_bat','moonlight_spider'] },
   },
   deep_forest: {
     name: '깊은 숲', desc: '햇빛이 겨우 스며드는 엘프의 영역.',
-    npcs: ['암흑 사제 모르간'],
+    npcs: {
+      '암흑 사제 모르간': { band: ['황혼','밤'] },
+    },
     exits: {
       '북쪽 숲으로': { to: 'forest', hours: 3 },
       '엘프의 마을': { to: 'elf_village', hours: 4 },
       '폐허된 성당': { to: 'ruined_cathedral', hours: 5 },
     },
     encounters: ['goblin', 'bigSpider', 'orc', 'forest_troll', 'dark_monk', 'forest_sprite'], encounterRate: 0.7, requireLv: 3,
+    encountersByBand: { '밤': ['ghoul','night_wraith','wisp','dark_monk','shadow_wolf'] },
   },
   elf_village: {
     name: '이루릴의 마을', desc: '나무 위에 지어진 엘프 마을. 하프엘프 이루릴의 전설.',
-    npcs: ['장로 엘리안', '상인 실바나', '수색자 카일란'],
+    npcs: {
+      '장로 엘리안':  { band: ['새벽','낮','황혼','밤'] },
+      '상인 실바나':  { band: ['낮','황혼'] },
+      '수색자 카일란':{ band: ['새벽','낮'] },
+    },
     shop: true, inn: true,
     exits: {
       '깊은 숲으로': { to: 'deep_forest', hours: 4 },
@@ -1130,10 +1144,19 @@ const LOCATIONS = {
       '황금사슬 도적굴': { to: 'golden_chain', hours: 4 },
     },
     encounters: ['bandit', 'wolf', 'poor_thief', 'bandit_archer'], encounterRate: 0.5,
+    encountersByBand: { '밤': ['shadow_wolf','ghoul','bandit','night_wraith'] },
   },
   capital: {
     name: '수도 바이서스', desc: '왕성 아래 번화한 수도. 모든 길드가 있다.',
-    npcs: ['왕궁 마법사 핸드레이크', '기사단장 리프크네', '대주교 유스티스', '암살자 길드장', '궁사 길드장 이무스', '대장장이 마스터 흐랄'],
+    npcs: {
+      '왕궁 마법사 핸드레이크': { band: ['새벽','낮','황혼'] },
+      '기사단장 리프크네':      { band: ['새벽','낮','황혼'] },
+      '대주교 유스티스':        { band: ['새벽','낮','황혼'] },
+      '암살자 길드장':          { band: ['황혼','밤'] },
+      '궁사 길드장 이무스':     { band: ['낮','황혼'] },
+      '대장장이 마스터 흐랄':   { band: ['낮','황혼'] },
+      '암거래상':               { band: ['밤'] },
+    },
     shop: true, inn: true, quest: true,
     exits: {
       '남쪽 가도로': { to: 'road_south', hours: 5 },
@@ -1146,7 +1169,10 @@ const LOCATIONS = {
   },
   palace: {
     name: '바이서스 왕궁', desc: '대리석 기둥과 푸른 깃발이 휘날린다.',
-    npcs: ['국왕 다케온', '재상'],
+    npcs: {
+      '국왕 다케온': { band: ['낮','황혼'] },
+      '재상':        { band: ['새벽','낮','황혼'] },
+    },
     exits: { '수도로': { to: 'capital', hours: 1 } },
     requireLv: 8,
   },
@@ -1170,6 +1196,7 @@ const LOCATIONS = {
     name: '페리윙클 평원', desc: '광활한 푸른 들판. 야생동물이 풍성하다.',
     exits: { '헬턴트로': { to: 'heltant', hours: 3 } },
     encounters: ['plain_wolf', 'wild_orc', 'hyena'], encounterRate: 0.6, requireLv: 4,
+    encountersByBand: { '밤': ['shadow_wolf','moonlight_spider','ghoul','night_bat'] },
   },
   golden_chain: {
     name: '황금사슬 도적굴', desc: '바이서스 최대 도적단의 본거지. 깊은 동굴.',
@@ -1191,7 +1218,11 @@ const LOCATIONS = {
   },
   carmilkar: {
     name: '카밀카르', desc: '남부의 향신료 무역 도시. 사막의 관문.',
-    npcs: ['상인 길드장 자히드', '검투사 챔피언 라크살'],
+    npcs: {
+      '상인 길드장 자히드':   { band: ['새벽','낮','황혼'] },
+      '검투사 챔피언 라크살': { band: ['낮','황혼'] },
+      '암거래상':              { band: ['밤'] },
+    },
     shop: true, inn: true,
     exits: {
       '수도로': { to: 'capital', hours: 12 },
@@ -1208,9 +1239,12 @@ const LOCATIONS = {
   },
   handrake_tower: {
     name: '핸드레이크의 탑', desc: '바이서스 최고 마법사의 탑. 미궁이 펼쳐진다.',
-    npcs: ['수련생 알라잔'],
+    npcs: {
+      '수련생 알라잔': { band: ['새벽','낮','황혼','밤'] },
+    },
     exits: { '수도로': { to: 'capital', hours: 4 } },
     encounters: ['arcane_construct', 'mage_apprentice', 'mirror_image', 'book_spirit', 'orb_guardian'], encounterRate: 0.6,
+    encountersByBand: { '밤': ['shadow_stalker','wisp','mirror_image','book_spirit'] },
     boss: 'tower_guardian', requireLv: 25,
     treasure: 'dragon_wisdom_1',
   },
@@ -1500,50 +1534,82 @@ const MONSTERS = {
   thug:      { name: '깡패',       hp: 110, atk: 22, def: 12, exp: 80, gold: 70, tags: [], drops: [['mace', 0.10], ['potion_m', 0.15]] },
   rogue_mage:{ name: '도적 마법사', hp: 95, atk: 14, def: 8, exp: 90, gold: 90, tags: ['mag'], drops: [['ether_m', 0.20], ['wand', 0.08]] },
   gold_chain_boss: { name: '두목 지스카', hp: 600, atk: 45, def: 22, exp: 500, gold: 800, tags: [], boss: true,
-    drops: [['cutlass', 0.40], ['gold_chain_amulet', 0.25], ['potion_l', 0.5]] },
+    drops: [['cutlass', 0.40], ['gold_chain_amulet', 0.25], ['potion_l', 0.5]],
+    phases: [
+      { at: 0.5, msg: '지스카가 부하를 부른다 — "모두 덤벼!"', effect: { atk_mul: 1.3 } },
+      { at: 0.25, msg: '지스카가 광기에 빠진다 — 최후의 발악!', effect: { atk_mul: 1.5 } },
+    ] },
   // ─── 폐허된 성당 (Lv 18~25) ───
   zombie:    { name: '좀비',       hp: 150, atk: 25, def: 12, exp: 100, gold: 30, tags: ['undead'], drops: [['potion_m', 0.20]] },
   skeleton:  { name: '스켈레톤',   hp: 130, atk: 28, def: 14, exp: 110, gold: 40, tags: ['undead'], drops: [['rusty_blade', 0.10], ['bonebow', 0.08]] },
   wraith:    { name: '망령',       hp: 180, atk: 35, def: 18, exp: 180, gold: 60, tags: ['undead', 'mag'], drops: [['ether_m', 0.25]] },
   dark_priest_lord: { name: '흑사제장 칼릭스', hp: 1100, atk: 75, def: 35, exp: 1200, gold: 1500, tags: ['undead', 'mag'], boss: true,
-    drops: [['cursed_staff', 0.40], ['shadow_robe', 0.30], ['potion_l', 0.5]] },
+    drops: [['cursed_staff', 0.40], ['shadow_robe', 0.30], ['potion_l', 0.5]],
+    phases: [
+      { at: 0.5, msg: '칼릭스가 사령(死靈)을 불러낸다 — 상태이상 해제', effect: { cleanse: true, atk_mul: 1.25 } },
+      { at: 0.25, msg: '칼릭스의 눈이 붉게 타오른다 — 암흑 각성!', effect: { atk_mul: 1.6 } },
+    ] },
   // ─── 드워프 광산 (Lv 18~25) ───
   kobold:    { name: '코볼트',     hp: 100, atk: 22, def: 10, exp: 75, gold: 50, tags: [], drops: [['shortsword', 0.10]] },
   cave_spider:{ name: '동굴거미',  hp: 140, atk: 30, def: 14, exp: 120, gold: 60, tags: ['beast'], drops: [['ether_m', 0.20]] },
   rock_golem:{ name: '록 골렘',    hp: 350, atk: 40, def: 35, exp: 350, gold: 150, tags: [], drops: [['warhammer', 0.15], ['plate', 0.10]] },
   mine_golem:{ name: '광산 골렘 군주', hp: 1500, atk: 80, def: 60, exp: 1800, gold: 2000, tags: [], boss: true,
-    drops: [['mithril_axe', 0.40], ['mithril', 0.30], ['ring_def', 0.6]] },
+    drops: [['mithril_axe', 0.40], ['mithril', 0.30], ['ring_def', 0.6]],
+    phases: [
+      { at: 0.5, msg: '광산 골렘이 미스릴 갑옷을 두른다 — 방어 강화', effect: { def_mul: 1.6 } },
+      { at: 0.25, msg: '골렘이 지진을 일으킨다!', effect: { atk_mul: 1.5 } },
+    ] },
   // ─── 핸드레이크의 탑 (Lv 25~30) ───
   arcane_construct: { name: '비전 골렘', hp: 280, atk: 35, def: 25, exp: 320, gold: 200, tags: ['mag'], drops: [['archstaff', 0.05], ['ether_l', 0.15]] },
   mage_apprentice:  { name: '수련생', hp: 200, atk: 30, def: 20, exp: 280, gold: 180, tags: ['mag'], drops: [['ether_m', 0.30], ['robe', 0.10]] },
   mirror_image:     { name: '거울상', hp: 240, atk: 38, def: 22, exp: 300, gold: 100, tags: ['mag'], drops: [['ether_l', 0.20]] },
   tower_guardian:   { name: '탑의 수호자', hp: 2200, atk: 110, def: 60, exp: 4000, gold: 5000, tags: ['mag'], boss: true,
-    drops: [['handrake_staff', 0.30], ['dragon_wisdom_1', 1.0], ['ether_l', 0.5]] },
+    drops: [['handrake_staff', 0.30], ['dragon_wisdom_1', 1.0], ['ether_l', 0.5]],
+    phases: [
+      { at: 0.5, msg: '수호자가 비전 진법을 전개한다 — 마법 증폭', effect: { atk_mul: 1.4 } },
+      { at: 0.25, msg: '수호자가 남은 마나로 자가 회복', effect: { heal: 0.20, atk_mul: 1.2 } },
+    ] },
   // ─── 비스럴 사막 (Lv 30~40) ───
   sand_lizard:    { name: '모래 도마뱀', hp: 250, atk: 42, def: 22, exp: 300, gold: 150, tags: ['beast'], drops: [['scimitar', 0.10]] },
   sand_worm:      { name: '사막 벌레',   hp: 400, atk: 55, def: 30, exp: 500, gold: 250, tags: ['beast'], drops: [['potion_l', 0.25]] },
   mummy:          { name: '미라',         hp: 320, atk: 48, def: 28, exp: 420, gold: 400, tags: ['undead'], drops: [['ether_l', 0.20], ['ring_atk', 0.15]] },
   darim_warrior:  { name: '다림 전사',   hp: 380, atk: 60, def: 32, exp: 480, gold: 350, tags: [], drops: [['scimitar', 0.20], ['darim_robe', 0.10]] },
   sand_pharaoh:   { name: '사막의 파라오', hp: 3000, atk: 130, def: 70, exp: 6000, gold: 8000, tags: ['undead', 'mag'], boss: true,
-    drops: [['pharaoh_blade', 0.40], ['dragonring', 0.30], ['potion_x', 0.6]] },
+    drops: [['pharaoh_blade', 0.40], ['dragonring', 0.30], ['potion_x', 0.6]],
+    phases: [
+      { at: 0.5, msg: '파라오가 사자(死者)의 가호를 두른다 — 독·화상 면역', effect: { immune_dot: true, cleanse: true } },
+      { at: 0.25, msg: '파라오가 모래폭풍을 일으킨다!', effect: { atk_mul: 1.6 } },
+    ] },
   // ─── 자이펀 지하감옥 (Lv 35~45) ───
   imp:        { name: '임프',     hp: 280, atk: 50, def: 25, exp: 350, gold: 200, tags: [], drops: [['ether_l', 0.20]] },
   demon:      { name: '데몬',     hp: 600, atk: 75, def: 40, exp: 850, gold: 600, tags: [], drops: [['demonsword', 0.15], ['potion_l', 0.30]] },
   hellhound:  { name: '지옥견',   hp: 450, atk: 70, def: 35, exp: 700, gold: 400, tags: ['beast'], drops: [['potion_l', 0.30]] },
   demon_lord: { name: '데몬 영주', hp: 4000, atk: 150, def: 80, exp: 8000, gold: 10000, tags: [], boss: true,
-    drops: [['demonblade_lord', 0.40], ['demon_armor', 0.30], ['elixir', 0.6]] },
+    drops: [['demonblade_lord', 0.40], ['demon_armor', 0.30], ['elixir', 0.6]],
+    phases: [
+      { at: 0.5, msg: '데몬 영주가 지옥불을 소환한다!', effect: { atk_mul: 1.5 } },
+      { at: 0.25, msg: '데몬 영주가 혈광(血光)에 물든다 — 광란!', effect: { atk_mul: 1.8, def_mul: 0.8 } },
+    ] },
   // ─── 얼음 황무지 (Lv 40~50) ───
   ice_wolf:      { name: '빙폭',         hp: 500, atk: 80, def: 40, exp: 800, gold: 350, tags: ['beast'], drops: [['potion_l', 0.30]] },
   frost_giant:   { name: '서리 거인',   hp: 900, atk: 110, def: 55, exp: 1500, gold: 700, tags: [], drops: [['frost_hammer', 0.20], ['mithril', 0.15]] },
   white_wyrmling:{ name: '백룡 새끼',   hp: 700, atk: 100, def: 50, exp: 1300, gold: 800, tags: ['dragon'], drops: [['ice_lance', 0.25]] },
   frost_dragon:  { name: '프로스트 드래곤', hp: 5500, atk: 170, def: 90, exp: 12000, gold: 15000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_2', 1.0], ['elixir', 1.0]] },
+    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_2', 1.0], ['elixir', 1.0]],
+    phases: [
+      { at: 0.5, msg: '프로스트 드래곤이 빙갑을 두른다 — 방어 강화', effect: { def_mul: 1.5 } },
+      { at: 0.25, msg: '프로스트 드래곤의 브레스가 하늘을 얼린다!', effect: { atk_mul: 1.8 } },
+    ] },
   // ─── 활화산 칼라일 (Lv 45~55) ───
   lava_slime:     { name: '용암 슬라임', hp: 600, atk: 90, def: 50, exp: 900, gold: 400, tags: [], drops: [['potion_l', 0.30]] },
   fire_elemental: { name: '화염 정령',   hp: 800, atk: 120, def: 55, exp: 1500, gold: 800, tags: ['mag'], drops: [['flameblade', 0.20], ['ether_l', 0.30]] },
   salamander:     { name: '샐러맨더',     hp: 1000, atk: 130, def: 60, exp: 1800, gold: 900, tags: ['beast'], drops: [['flame_robe', 0.15]] },
   volcanic_drake: { name: '화산 드레이크', hp: 6500, atk: 180, def: 95, exp: 15000, gold: 18000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['flameblade_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_3', 1.0], ['elixir', 1.0]] },
+    drops: [['flameblade_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_3', 1.0], ['elixir', 1.0]],
+    phases: [
+      { at: 0.5, msg: '화산 드레이크가 용암을 들이마신다 — HP 회복', effect: { heal: 0.20 } },
+      { at: 0.25, msg: '화산 드레이크의 비늘에 용암이 맺힌다 — 광포!', effect: { atk_mul: 1.8 } },
+    ] },
   // ─── 신규 다수 (레벨별 다양화) ───
   // 초반 (Lv 1~8)
   hare:           { name: '산토끼',    hp: 15, atk: 3, def: 0, exp: 5, gold: 3, tags: ['beast'], drops: [['potion_s', 0.15]] },
@@ -1599,7 +1665,12 @@ const MONSTERS = {
   lich_boss: { name: '고대 리치', hp: 1500, atk: 100, def: 50, exp: 2000, gold: 1200, tags: ['undead', 'mag'], boss: true,
     drops: [['cursed_staff', 0.40], ['amulet', 0.30]] },
   amurtat:   { name: '아무르타트', hp: 8000, atk: 250, def: 120, exp: 30000, gold: 15000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['scale_of_amurtat', 1.0], ['dragonring', 1.0], ['excalibur', 0.3]] },
+    drops: [['scale_of_amurtat', 1.0], ['dragonring', 1.0], ['excalibur', 0.3]],
+    phases: [
+      { at: 0.75, msg: '아무르타트가 처음으로 눈을 뜬다 — 용의 기백', effect: { atk_mul: 1.2 } },
+      { at: 0.5,  msg: '아무르타트가 비늘을 세운다 — 방어 강화', effect: { def_mul: 1.5, cleanse: true } },
+      { at: 0.25, msg: '아무르타트가 포효한다 — 드래곤 라자의 운명을 건 일격!', effect: { atk_mul: 2.0, heal: 0.10, immune_dot: true } },
+    ] },
 
   // ═══ 4대 드래곤 (최종 컨텐츠) ═══
   // 능력치 차이 압도적. Lv 80~150+ 대상.
@@ -1679,6 +1750,28 @@ const MONSTERS = {
     drops: [['claw_of_kashirk', 0.30], ['raja_sigil', 0.20]] },
   cosmic_entity:   { name: '우주의 존재',     hp: 3000000, atk: 8000, def: 3000,exp: 50000000, gold: 20000000, tags: ['boss','god'], boss: true,
     drops: [['raja_sigil', 1.0], ['oblivion_blade', 1.0], ['elixir', 5.0]] },
+
+  // ─── 야간 전용 몬스터 (C1) ─── band_night: '밤' / '황혼' 풀에 투입
+  night_bat:        { name: '박쥐떼',         hp: 25,   atk: 8,    def: 2,   exp: 12,    gold: 6,    tags: ['beast','night'], drops: [['potion_s', 0.15]] },
+  moonlight_spider: { name: '달빛거미',       hp: 40,   atk: 11,   def: 4,   exp: 20,    gold: 12,   tags: ['beast','night'], drops: [['ether_s', 0.20]] },
+  shadow_wolf:      { name: '그림자 늑대',    hp: 70,   atk: 18,   def: 6,   exp: 45,    gold: 28,   tags: ['beast','night'], drops: [['potion_s', 0.20], ['leather', 0.10]] },
+  ghoul:            { name: '구울',           hp: 120,  atk: 24,   def: 10,  exp: 85,    gold: 35,   tags: ['undead','night'], drops: [['potion_m', 0.18]] },
+  wisp:             { name: '도깨비불',       hp: 95,   atk: 28,   def: 8,   exp: 95,    gold: 50,   tags: ['undead','mag','night'], drops: [['ether_m', 0.25]] },
+  night_wraith:     { name: '밤의 망령',      hp: 220,  atk: 42,   def: 20,  exp: 240,   gold: 90,   tags: ['undead','mag','night'], drops: [['ether_m', 0.25], ['cursed_staff', 0.05]] },
+  bone_walker:      { name: '해골병',         hp: 190,  atk: 45,   def: 22,  exp: 220,   gold: 80,   tags: ['undead','night'], drops: [['rusty_blade', 0.15]] },
+  shadow_stalker:   { name: '그림자 추적자',  hp: 320,  atk: 60,   def: 28,  exp: 480,   gold: 220,  tags: ['mag','night'], drops: [['ether_l', 0.25]] },
+  fell_hound:       { name: '흑염견',         hp: 480,  atk: 80,   def: 38,  exp: 780,   gold: 380,  tags: ['beast','night'], drops: [['potion_l', 0.30]] },
+  dullahan:         { name: '듈라한',         hp: 650,  atk: 105,  def: 50,  exp: 1200,  gold: 650,  tags: ['undead','night'], drops: [['cursed_staff', 0.18], ['ring_atk', 0.12]] },
+  nightmare_horse:  { name: '악몽의 흑마',    hp: 820,  atk: 130,  def: 60,  exp: 1800,  gold: 900,  tags: ['beast','undead','night'], drops: [['potion_l', 0.35]] },
+  revenant:         { name: '복수귀',         hp: 1400, atk: 175,  def: 85,  exp: 3200,  gold: 1800, tags: ['undead','mag','night'], drops: [['ether_l', 0.35], ['shadow_robe', 0.15]] },
+
+  // ─── 시간 한정 보스 (C3) ───
+  moonlight_wolf_king: { name: '달빛 늑대왕',   hp: 8000,  atk: 220, def: 100, exp: 20000,  gold: 12000, tags: ['beast','boss','night'], boss: true,
+    drops: [['potion_x', 1.0], ['leather', 1.0], ['ring_atk', 0.40]] },
+  dawn_firebird:       { name: '여명의 불새',   hp: 6500,  atk: 250, def: 80,  exp: 18000,  gold: 10000, tags: ['beast','mag','boss'], boss: true,
+    drops: [['ether_l', 1.0], ['phoenix_feather', 0.30], ['ring_def', 0.40]] },
+  midnight_lich:       { name: '자정의 리치',   hp: 12000, atk: 280, def: 130, exp: 28000,  gold: 15000, tags: ['undead','mag','boss','night'], boss: true,
+    drops: [['cursed_staff', 1.0], ['shadow_robe', 0.50], ['ring_mag', 0.50]] },
 };
 
 // ───── 아이템 ─────
@@ -1945,22 +2038,252 @@ const TRADE_SKILLS = [
 ];
 
 // 퀘스트
+// 퀘스트 스키마:
+//   type: 'main' | 'chain_step' | 'sub' | 'repeat' (기본 'sub')
+//   next: 완료 시 자동 이어지는 다음 퀘스트 id (체인)
+//   timeBand: ['낮','밤',...] — 해당 시간대만 수주/완료 가능
+//   expiresAt: 수락 후 N일 이내 완료 실패 시 자동 실패
+//   cooldown: { days: N } — repeat 퀘스트 재수주 대기
 const QUESTS = {
-  q1: { id: 'q1', name: '늑대 퇴치', giver: '촌장', location: 'heltant',
+  q1: { id: 'q1', name: '늑대 퇴치', giver: '촌장', location: 'heltant', type: 'sub',
     desc: '마을 위협 늑대 3마리 처치.', target: { monster: 'wolf', count: 3 },
     reward: { exp: 50, gold: 100, item: 'potion_s' }, requireLv: 1 },
-  q2: { id: 'q2', name: '고블린 소굴', giver: '촌장', location: 'heltant',
+  q2: { id: 'q2', name: '고블린 소굴', giver: '촌장', location: 'heltant', type: 'sub',
     desc: '북쪽 숲 고블린 5마리.', target: { monster: 'goblin', count: 5 },
     reward: { exp: 200, gold: 300, item: 'leather' }, requireLv: 3 },
-  q3: { id: 'q3', name: '수도의 부름', giver: '기사단장 리프크네', location: 'capital',
+  q3: { id: 'q3', name: '수도의 부름', giver: '기사단장 리프크네', location: 'capital', type: 'sub',
     desc: '산적 3명 박멸.', target: { monster: 'bandit', count: 3 },
     reward: { exp: 500, gold: 800, item: 'sword' }, requireLv: 4 },
-  q4: { id: 'q4', name: '엘프의 전언', giver: '장로 엘리안', location: 'elf_village',
+  q4: { id: 'q4', name: '엘프의 전언', giver: '장로 엘리안', location: 'elf_village', type: 'sub',
     desc: '와이번 2마리 처치.', target: { monster: 'wyvern', count: 2 },
     reward: { exp: 2000, gold: 1500, item: 'amulet' }, requireLv: 10 },
-  q5: { id: 'q5', name: '드래곤 라자의 운명', giver: '국왕 다케온', location: 'palace',
+  q5: { id: 'q5', name: '드래곤 라자의 운명', giver: '국왕 다케온', location: 'palace', type: 'main',
     desc: '아무르타트를 쓰러뜨려라.', target: { monster: 'amurtat', count: 1 },
     reward: { exp: 20000, gold: 10000, item: 'excalibur' }, requireLv: 40 },
+
+  // ─── B3 개인 서사: 메이린의 아들 (2-step 체인) ───
+  q_meir_son:  { id: 'q_meir_son',  name: '메이린의 아들', giver: '술집주인 메이린', location: 'heltant', type: 'chain_step',
+    desc: '남쪽 가도에서 아들의 흔적을 쫓아라. 산적 2명 처치.', target: { monster: 'bandit', count: 2 },
+    reward: { exp: 400, gold: 500, item: 'potion_l' }, requireLv: 3, next: 'q_meir_son_2' },
+  q_meir_son_2:{ id: 'q_meir_son_2',name: '돌아오지 않은 자', giver: '암살자 길드장', location: 'capital', type: 'chain_step',
+    desc: '수도 암살자 길드에서 단서를 얻어라. 깡패 2명 처치.', target: { monster: 'thug', count: 2 },
+    reward: { exp: 1500, gold: 2000, item: 'ring_atk' }, requireLv: 8 },
+
+  // ─── D2: 메인 퀘스트 체인 (8스텝) ───
+  q_main_1: { id: 'q_main_1', name: '촌장의 불길한 꿈', giver: '촌장', location: 'heltant', type: 'main',
+    desc: '촌장의 악몽 속 늑대 2마리를 처치하라.', target: { monster: 'wolf', count: 2 },
+    reward: { exp: 100, gold: 150 }, requireLv: 1, next: 'q_main_2' },
+  q_main_2: { id: 'q_main_2', name: '밀사를 호위하라', giver: '촌장', location: 'heltant', type: 'chain_step',
+    desc: '남쪽 가도에서 밀사를 노리는 산적 3명을 막아라.', target: { monster: 'bandit', count: 3 },
+    reward: { exp: 400, gold: 600 }, requireLv: 4, next: 'q_main_3' },
+  q_main_3: { id: 'q_main_3', name: '왕궁 알현', giver: '기사단장 리프크네', location: 'capital', type: 'chain_step',
+    desc: '깡패 5명을 토벌하고 왕궁의 인정을 받아라.', target: { monster: 'thug', count: 5 },
+    reward: { exp: 1000, gold: 1500, item: 'plate' }, requireLv: 10, next: 'q_main_4' },
+  q_main_4: { id: 'q_main_4', name: '대주교의 시험', giver: '대주교 유스티스', location: 'capital', type: 'chain_step', timeBand: ['밤'],
+    desc: '자정에 폐허된 성당의 좀비 5체를 정화하라.', target: { monster: 'zombie', count: 5 },
+    reward: { exp: 2000, gold: 2500, item: 'ether_l' }, requireLv: 15, next: 'q_main_5' },
+  q_main_5: { id: 'q_main_5', name: '사라진 엘프 현자', giver: '장로 엘리안', location: 'elf_village', type: 'chain_step',
+    desc: '이루릴의 숲에서 숲 트롤 3마리를 처치하라.', target: { monster: 'forest_troll', count: 3 },
+    reward: { exp: 3500, gold: 3500, item: 'amulet' }, requireLv: 20, next: 'q_main_6' },
+  q_main_6: { id: 'q_main_6', name: '드워프 광산의 봉인', giver: '장로 엘리안', location: 'elf_village', type: 'chain_step',
+    desc: '잊혀진 광산에서 록 골렘 3체를 쓰러뜨려 봉인을 풀어라.', target: { monster: 'rock_golem', count: 3 },
+    reward: { exp: 8000, gold: 5000, item: 'mithril' }, requireLv: 30, next: 'q_main_7' },
+  q_main_7: { id: 'q_main_7', name: '혈월의 균열', giver: '왕궁 마법사 핸드레이크', location: 'capital', type: 'chain_step',
+    desc: '핸드레이크의 탑에서 비전 구조체 5체를 처치해 균열을 닫아라.', target: { monster: 'arcane_construct', count: 5 },
+    reward: { exp: 15000, gold: 8000, item: 'handrake_staff' }, requireLv: 45, next: 'q_main_8' },
+  q_main_8: { id: 'q_main_8', name: '드래곤 라자의 운명', giver: '국왕 다케온', location: 'palace', type: 'chain_step',
+    desc: '용의 둥지에서 아무르타트를 쓰러뜨리고 전설을 끝내라.', target: { monster: 'amurtat', count: 1 },
+    reward: { exp: 30000, gold: 15000, item: 'excalibur' }, requireLv: 50 },
+
+  // ─── D3: 지역별 서브 퀘스트 ───
+  q_sub_forest_1: { id: 'q_sub_forest_1', name: '숲의 불청객', giver: '촌장', location: 'heltant', type: 'sub',
+    desc: '북쪽 숲에서 고블린 4마리를 쫓아내라.', target: { monster: 'goblin', count: 4 },
+    reward: { exp: 180, gold: 200 }, requireLv: 2 },
+  q_sub_forest_2: { id: 'q_sub_forest_2', name: '거미줄 사냥', giver: '대장장이 게롤트', location: 'heltant', type: 'sub',
+    desc: '거대거미 3마리 사냥.', target: { monster: 'bigSpider', count: 3 },
+    reward: { exp: 250, gold: 300, item: 'leather' }, requireLv: 3 },
+  q_sub_road_1: { id: 'q_sub_road_1', name: '가도 청소', giver: '상인 실바나', location: 'elf_village', type: 'sub',
+    desc: '남쪽 가도의 산적 4명 처치.', target: { monster: 'bandit', count: 4 },
+    reward: { exp: 500, gold: 700 }, requireLv: 5 },
+  q_sub_capital_1: { id: 'q_sub_capital_1', name: '도적 토벌', giver: '기사단장 리프크네', location: 'capital', type: 'sub',
+    desc: '황금사슬 도적굴의 깡패 5명 처치.', target: { monster: 'thug', count: 5 },
+    reward: { exp: 1200, gold: 1500 }, requireLv: 8 },
+  q_sub_dragon_1: { id: 'q_sub_dragon_1', name: '산맥의 괴물', giver: '장로 엘리안', location: 'elf_village', type: 'sub',
+    desc: '용의 산맥에서 그리핀 2마리 처치.', target: { monster: 'griffin', count: 2 },
+    reward: { exp: 3000, gold: 3000, item: 'potion_l' }, requireLv: 15 },
+  q_sub_undead_1: { id: 'q_sub_undead_1', name: '성당의 언데드', giver: '대주교 유스티스', location: 'capital', type: 'sub',
+    desc: '망령 3체 정화.', target: { monster: 'wraith', count: 3 },
+    reward: { exp: 2500, gold: 2000, item: 'ether_m' }, requireLv: 18 },
+  q_sub_tower_1: { id: 'q_sub_tower_1', name: '탑의 실수', giver: '왕궁 마법사 핸드레이크', location: 'capital', type: 'sub',
+    desc: '거울상 3체 처치.', target: { monster: 'mirror_image', count: 3 },
+    reward: { exp: 2000, gold: 2000, item: 'ether_l' }, requireLv: 18 },
+  q_sub_desert_1: { id: 'q_sub_desert_1', name: '모래 도마뱀 가죽', giver: '상인 길드장 자히드', location: 'carmilkar', type: 'sub',
+    desc: '모래 도마뱀 5마리 처치.', target: { monster: 'sand_lizard', count: 5 },
+    reward: { exp: 2500, gold: 2500, item: 'scimitar' }, requireLv: 20 },
+  q_sub_ice_1: { id: 'q_sub_ice_1', name: '빙폭 사냥', giver: '대장장이 마스터 흐랄', location: 'capital', type: 'sub',
+    desc: '빙폭 3마리 처치.', target: { monster: 'ice_wolf', count: 3 },
+    reward: { exp: 4000, gold: 3500 }, requireLv: 25 },
+  q_sub_volcano_1: { id: 'q_sub_volcano_1', name: '용암의 정령', giver: '검투사 챔피언 라크살', location: 'carmilkar', type: 'sub',
+    desc: '화염 정령 3체 처치.', target: { monster: 'fire_elemental', count: 3 },
+    reward: { exp: 6000, gold: 4500 }, requireLv: 35 },
+
+  // ─── D4: 반복 퀘스트 (일일/주간) ───
+  q_rep_heltant: { id: 'q_rep_heltant', name: '일일: 슬라임 청소', giver: '촌장', location: 'heltant', type: 'repeat', cooldown: { days: 1 },
+    desc: '슬라임 10마리 (매일).', target: { monster: 'slime', count: 10 },
+    reward: { exp: 200, gold: 200 }, requireLv: 1 },
+  q_rep_elf: { id: 'q_rep_elf', name: '일일: 숲 견제', giver: '수색자 카일란', location: 'elf_village', type: 'repeat', cooldown: { days: 1 },
+    desc: '숲 트롤 2체 (매일).', target: { monster: 'forest_troll', count: 2 },
+    reward: { exp: 600, gold: 500 }, requireLv: 7 },
+  q_rep_capital: { id: 'q_rep_capital', name: '일일: 치안 유지', giver: '기사단장 리프크네', location: 'capital', type: 'repeat', cooldown: { days: 1 },
+    desc: '산적 3명 (매일).', target: { monster: 'bandit', count: 3 },
+    reward: { exp: 800, gold: 700 }, requireLv: 6 },
+  q_rep_carmilkar: { id: 'q_rep_carmilkar', name: '일일: 사막 견제', giver: '상인 길드장 자히드', location: 'carmilkar', type: 'repeat', cooldown: { days: 1 },
+    desc: '모래 도마뱀 3마리 (매일).', target: { monster: 'sand_lizard', count: 3 },
+    reward: { exp: 1500, gold: 1200 }, requireLv: 20 },
+  q_rep_weekly: { id: 'q_rep_weekly', name: '주간: 왕의 칙령', giver: '국왕 다케온', location: 'palace', type: 'repeat', cooldown: { days: 7 },
+    desc: '와이번 1체 처치 (주간).', target: { monster: 'wyvern', count: 1 },
+    reward: { exp: 8000, gold: 5000, item: 'potion_x' }, requireLv: 15 },
+
+  // ─── D5: 시간대 한정·연쇄 ───
+  q_midnight: { id: 'q_midnight', name: '자정의 의뢰', giver: '암살자 길드장', location: 'capital', type: 'sub', timeBand: ['밤'], expiresAt: 1,
+    desc: '오늘 밤 자정 전까지 망령 2체 처치.', target: { monster: 'wraith', count: 2 },
+    reward: { exp: 2000, gold: 3000 }, requireLv: 15 },
+  q_dawn_market: { id: 'q_dawn_market', name: '새벽 시장 경비', giver: '상인 실바나', location: 'elf_village', type: 'sub', timeBand: ['새벽'], expiresAt: 1,
+    desc: '새벽 동안 산적 2명 처치.', target: { monster: 'bandit', count: 2 },
+    reward: { exp: 900, gold: 1500 }, requireLv: 5 },
+};
+
+// ─── NPC 대화 트리 (B1 / B3 / B4) ───
+// 노드 스키마: { lines: [...문장들], options: [{ text, next?, action?, qid?, race? }] }
+//   action: 'accept' → QUESTS[qid] 수락, 'advance' → ADVANCE_NPC[qid] 전직, 'shop' → 상점 진입
+//   race: 특정 종족일 때만 노출 (race 키와 일치 시)
+// 모든 노드에는 '돌아가기' 옵션이 자동 추가된다 (엔진 측).
+const NPC_DIALOG = {
+  '촌장': {
+    root: {
+      lines: ['"...그대가 왔군. 요즘 북쪽 숲이 심상치 않아."'],
+      options: [
+        { text: '무슨 일이 있었습니까?', next: 'trouble' },
+        { text: '도움이 필요하십니까?', next: 'help' },
+        { text: '(드워프) 땅의 소리가 거칠어졌더군.', race: 'dwarf', next: 'dwarf_hint' },
+        { text: '(오우거) 힘쓸 일이 있으면 말하시오.', race: 'ogre', next: 'ogre_hint' },
+      ],
+    },
+    trouble: {
+      lines: ['"늑대 떼가 마을 근처를 돌고 있어. 사람이 다칠까 두렵네."'],
+      options: [
+        { text: '제가 처리하겠습니다.', action: 'accept', qid: 'q1' },
+      ],
+    },
+    help: {
+      lines: ['"고블린이 숲 입구를 자주 습격한다네. 도와줄 텐가?"'],
+      options: [
+        { text: '맡겨 주십시오.', action: 'accept', qid: 'q2' },
+      ],
+    },
+    dwarf_hint: { lines: ['"드워프여! 광산 쪽에서 암석 울음이 들린다. 자네 형제들이 걱정돼."'], options: [] },
+    ogre_hint:  { lines: ['"오우거라! 저 돌 담을 혼자 밀어봐 주겠나? ...농담일세."'], options: [] },
+  },
+  '술집주인 메이린': {
+    root: {
+      lines: ['"한 잔 하실 건가? ...아니면 다른 볼 일이라도?"'],
+      options: [
+        { text: '북방 소식을 듣고 싶소.', next: 'news' },
+        { text: '(조용히) 무슨 걱정이 있나?', next: 'worry' },
+        { text: '(하프엘프) 나도 비밀이 있어.', race: 'half_elf', next: 'half_elf_bond' },
+      ],
+    },
+    news: { lines: ['"북방에서 용이 운다고 하더군. 옛이야기로만 듣던 소리를."'], options: [] },
+    worry: {
+      lines: ['"...아들이 일 년 전 남쪽 가도로 떠난 뒤 연락이 없어. 혹시 아시는 게 있소?"'],
+      options: [
+        { text: '찾아보겠소.', action: 'accept', qid: 'q_meir_son' },
+      ],
+    },
+    half_elf_bond: { lines: ['"하프엘프끼리는 말 없이 통하지. ...고맙네."'], options: [] },
+  },
+  '대장장이 게롤트': {
+    root: {
+      lines: ['"강철은 두드려야 나온다."'],
+      options: [
+        { text: '무기 주문이 가능합니까?', action: 'shop' },
+        { text: '(드워프) 네 망치질은 예술이네.', race: 'dwarf', next: 'dwarf_bond' },
+      ],
+    },
+    dwarf_bond: { lines: ['"드워프의 혈통이군! ...상점 가격 5% 깎아주지."', '(다음 구매부터 5% 할인)'], options: [], onEnter: 'discount:5' },
+  },
+  '장로 엘리안': {
+    root: {
+      lines: ['"바람이 심상치 않다."'],
+      options: [
+        { text: '와이번이 출몰한다고 들었습니다.', action: 'accept', qid: 'q4' },
+        { text: '(엘프) 숲의 안부를 묻고 싶습니다.', race: 'elf', next: 'elf_wisdom' },
+        { text: '(하프엘프) 혈통의 뿌리를 알고 싶습니다.', race: 'half_elf', next: 'half_elf_root' },
+      ],
+    },
+    elf_wisdom: { lines: ['"동족이여, 숲은 기억한다. 너의 걸음을 기억할 것이다."'], options: [] },
+    half_elf_root: { lines: ['"피는 거짓을 말하지 않는다. 너의 길을 걸어라, 이루릴의 후손."'], options: [] },
+  },
+  '왕궁 마법사 핸드레이크': {
+    root: {
+      lines: ['"드래곤 라자의 전승... 자네가 그 아이인가?"'],
+      options: [
+        { text: '드래곤 라자가 무엇입니까?', next: 'raja' },
+        { text: '(엘프) 마법의 근원에 대해 묻고 싶습니다.', race: 'elf', next: 'elf_mag' },
+      ],
+    },
+    raja: { lines: ['"아무르타트와 맺어진 자. 용을 벨 운명을 진 자를 일컫지."'], options: [] },
+    elf_mag: { lines: ['"엘프의 마법은 숲에서 온다. 자네의 지팡이는 여전히 숲을 기억할 것이야."'], options: [] },
+  },
+  '기사단장 리프크네': {
+    root: {
+      lines: ['"검을 든 자여, 왕국이 그대를 부른다."'],
+      options: [
+        { text: '산적 토벌 명령을 받겠습니다.', action: 'accept', qid: 'q3' },
+        { text: '(인간) 바이서스의 왕도를 이어가겠소.', race: 'human', next: 'human_honor' },
+      ],
+    },
+    human_honor: { lines: ['"바이서스의 혈통이여, 검을 놓지 마라."'], options: [] },
+  },
+  '대주교 유스티스': {
+    root: {
+      lines: ['"신의 뜻이 그대와 함께."'],
+      options: [
+        { text: '축복을 받을 수 있습니까?', next: 'blessing' },
+        { text: '(오우거) 힘은 축복인가 저주인가?', race: 'ogre', next: 'ogre_bless' },
+      ],
+    },
+    blessing: { lines: ['"...그대의 마음에 이미 있다."'], options: [] },
+    ogre_bless: { lines: ['"힘은 짐이다. 짐을 짊어지는 자가 기사다."'], options: [] },
+  },
+  '국왕 다케온': {
+    root: {
+      lines: ['"아무르타트가 깨어났다."'],
+      options: [
+        { text: '그를 쓰러뜨리겠습니다.', action: 'accept', qid: 'q5' },
+        { text: '(인간) 폐하의 뜻을 받들겠습니다.', race: 'human', next: 'human_vow' },
+        { text: '(오우거) 바이서스에 충성 바치겠소.', race: 'ogre', next: 'ogre_vow' },
+      ],
+    },
+    human_vow: { lines: ['"너는 바이서스의 자식이다. 나라가 너를 기억할 것이다."'], options: [] },
+    ogre_vow:  { lines: ['"대공 가문이여, 너의 일족의 무용을 오래 기억했다."'], options: [] },
+  },
+  '암살자 길드장': {
+    root: {
+      lines: ['"...그림자는 이미 그대를 안다."'],
+      options: [
+        { text: '메이린의 아들을 찾고 있다.', next: 'meir_son', qid: 'q_meir_son' },
+        { text: '(하프엘프) 그림자는 종족을 묻지 않지.', race: 'half_elf', next: 'half_elf_shade' },
+      ],
+    },
+    meir_son: {
+      lines: ['"...그 아이 이야기군. 수도 뒷골목에 그와 닮은 아이가 깡패들과 어울려 다닌다."'],
+      options: [
+        { text: '단서를 쫓아 깡패를 쓰러뜨리겠다.', action: 'accept', qid: 'q_meir_son_2' },
+      ],
+    },
+    half_elf_shade: { lines: ['"피는 진하고, 그림자는 더 진하다. 알지?"'], options: [] },
+  },
 };
 
 // ───── 전직 시스템 ─────
@@ -3318,6 +3641,6 @@ function reconcileDeactivations(state) {
   state.skillsReconciled = true;
 }
 
-const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, learnSkill, reconcileDeactivations, SKILL_BOOKS };
+const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, learnSkill, reconcileDeactivations, SKILL_BOOKS };
 if (typeof module !== 'undefined' && module.exports) module.exports = __DATA_EXPORTS__;
 if (typeof window !== 'undefined') window.__GAME_DATA__ = __DATA_EXPORTS__;
