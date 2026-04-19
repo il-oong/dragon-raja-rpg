@@ -1084,7 +1084,12 @@ const LOCATIONS = {
   heltant: {
     name: '헬턴트',
     desc: '그대가 자란 변방의 작은 마을. 풍차와 밀밭이 펼쳐져 있다.',
-    npcs: ['촌장', '대장장이 게롤트', '술집주인 메이린'],
+    npcs: {
+      '촌장':          { band: ['새벽','낮','황혼'] },
+      '대장장이 게롤트':{ band: ['낮','황혼'] },
+      '술집주인 메이린':{ band: ['황혼','밤'] },
+      '암거래상':       { band: ['밤'] },
+    },
     shop: true, inn: true,
     exits: {
       '북쪽 숲': { to: 'forest', hours: 2 },
@@ -1092,6 +1097,7 @@ const LOCATIONS = {
       '페리윙클 평원': { to: 'periwinkle', hours: 3 },
     },
     encounters: ['slime', 'wolf'], encounterRate: 0.3,
+    encountersByBand: { '밤': ['shadow_wolf','night_bat','moonlight_spider'] },
   },
   forest: {
     name: '북쪽 숲', desc: '울창한 전나무 숲. 고블린이 종종 출몰한다.',
@@ -1100,20 +1106,28 @@ const LOCATIONS = {
       '더 깊은 숲': { to: 'deep_forest', hours: 3 },
     },
     encounters: ['wolf', 'goblin', 'bigSpider', 'hare', 'forest_bee', 'giant_beetle', 'deer', 'forest_sprite'], encounterRate: 0.6,
+    encountersByBand: { '밤': ['shadow_wolf','ghoul','wisp','night_bat','moonlight_spider'] },
   },
   deep_forest: {
     name: '깊은 숲', desc: '햇빛이 겨우 스며드는 엘프의 영역.',
-    npcs: ['암흑 사제 모르간'],
+    npcs: {
+      '암흑 사제 모르간': { band: ['황혼','밤'] },
+    },
     exits: {
       '북쪽 숲으로': { to: 'forest', hours: 3 },
       '엘프의 마을': { to: 'elf_village', hours: 4 },
       '폐허된 성당': { to: 'ruined_cathedral', hours: 5 },
     },
     encounters: ['goblin', 'bigSpider', 'orc', 'forest_troll', 'dark_monk', 'forest_sprite'], encounterRate: 0.7, requireLv: 3,
+    encountersByBand: { '밤': ['ghoul','night_wraith','wisp','dark_monk','shadow_wolf'] },
   },
   elf_village: {
     name: '이루릴의 마을', desc: '나무 위에 지어진 엘프 마을. 하프엘프 이루릴의 전설.',
-    npcs: ['장로 엘리안', '상인 실바나', '수색자 카일란'],
+    npcs: {
+      '장로 엘리안':  { band: ['새벽','낮','황혼','밤'] },
+      '상인 실바나':  { band: ['낮','황혼'] },
+      '수색자 카일란':{ band: ['새벽','낮'] },
+    },
     shop: true, inn: true,
     exits: {
       '깊은 숲으로': { to: 'deep_forest', hours: 4 },
@@ -1130,10 +1144,19 @@ const LOCATIONS = {
       '황금사슬 도적굴': { to: 'golden_chain', hours: 4 },
     },
     encounters: ['bandit', 'wolf', 'poor_thief', 'bandit_archer'], encounterRate: 0.5,
+    encountersByBand: { '밤': ['shadow_wolf','ghoul','bandit','night_wraith'] },
   },
   capital: {
     name: '수도 바이서스', desc: '왕성 아래 번화한 수도. 모든 길드가 있다.',
-    npcs: ['왕궁 마법사 핸드레이크', '기사단장 리프크네', '대주교 유스티스', '암살자 길드장', '궁사 길드장 이무스', '대장장이 마스터 흐랄'],
+    npcs: {
+      '왕궁 마법사 핸드레이크': { band: ['새벽','낮','황혼'] },
+      '기사단장 리프크네':      { band: ['새벽','낮','황혼'] },
+      '대주교 유스티스':        { band: ['새벽','낮','황혼'] },
+      '암살자 길드장':          { band: ['황혼','밤'] },
+      '궁사 길드장 이무스':     { band: ['낮','황혼'] },
+      '대장장이 마스터 흐랄':   { band: ['낮','황혼'] },
+      '암거래상':               { band: ['밤'] },
+    },
     shop: true, inn: true, quest: true,
     exits: {
       '남쪽 가도로': { to: 'road_south', hours: 5 },
@@ -1146,7 +1169,10 @@ const LOCATIONS = {
   },
   palace: {
     name: '바이서스 왕궁', desc: '대리석 기둥과 푸른 깃발이 휘날린다.',
-    npcs: ['국왕 다케온', '재상'],
+    npcs: {
+      '국왕 다케온': { band: ['낮','황혼'] },
+      '재상':        { band: ['새벽','낮','황혼'] },
+    },
     exits: { '수도로': { to: 'capital', hours: 1 } },
     requireLv: 8,
   },
@@ -1170,6 +1196,7 @@ const LOCATIONS = {
     name: '페리윙클 평원', desc: '광활한 푸른 들판. 야생동물이 풍성하다.',
     exits: { '헬턴트로': { to: 'heltant', hours: 3 } },
     encounters: ['plain_wolf', 'wild_orc', 'hyena'], encounterRate: 0.6, requireLv: 4,
+    encountersByBand: { '밤': ['shadow_wolf','moonlight_spider','ghoul','night_bat'] },
   },
   golden_chain: {
     name: '황금사슬 도적굴', desc: '바이서스 최대 도적단의 본거지. 깊은 동굴.',
@@ -1191,7 +1218,11 @@ const LOCATIONS = {
   },
   carmilkar: {
     name: '카밀카르', desc: '남부의 향신료 무역 도시. 사막의 관문.',
-    npcs: ['상인 길드장 자히드', '검투사 챔피언 라크살'],
+    npcs: {
+      '상인 길드장 자히드':   { band: ['새벽','낮','황혼'] },
+      '검투사 챔피언 라크살': { band: ['낮','황혼'] },
+      '암거래상':              { band: ['밤'] },
+    },
     shop: true, inn: true,
     exits: {
       '수도로': { to: 'capital', hours: 12 },
@@ -1208,9 +1239,12 @@ const LOCATIONS = {
   },
   handrake_tower: {
     name: '핸드레이크의 탑', desc: '바이서스 최고 마법사의 탑. 미궁이 펼쳐진다.',
-    npcs: ['수련생 알라잔'],
+    npcs: {
+      '수련생 알라잔': { band: ['새벽','낮','황혼','밤'] },
+    },
     exits: { '수도로': { to: 'capital', hours: 4 } },
     encounters: ['arcane_construct', 'mage_apprentice', 'mirror_image', 'book_spirit', 'orb_guardian'], encounterRate: 0.6,
+    encountersByBand: { '밤': ['shadow_stalker','wisp','mirror_image','book_spirit'] },
     boss: 'tower_guardian', requireLv: 25,
     treasure: 'dragon_wisdom_1',
   },
@@ -1679,6 +1713,20 @@ const MONSTERS = {
     drops: [['claw_of_kashirk', 0.30], ['raja_sigil', 0.20]] },
   cosmic_entity:   { name: '우주의 존재',     hp: 3000000, atk: 8000, def: 3000,exp: 50000000, gold: 20000000, tags: ['boss','god'], boss: true,
     drops: [['raja_sigil', 1.0], ['oblivion_blade', 1.0], ['elixir', 5.0]] },
+
+  // ─── 야간 전용 몬스터 (C1) ─── band_night: '밤' / '황혼' 풀에 투입
+  night_bat:        { name: '박쥐떼',         hp: 25,   atk: 8,    def: 2,   exp: 12,    gold: 6,    tags: ['beast','night'], drops: [['potion_s', 0.15]] },
+  moonlight_spider: { name: '달빛거미',       hp: 40,   atk: 11,   def: 4,   exp: 20,    gold: 12,   tags: ['beast','night'], drops: [['ether_s', 0.20]] },
+  shadow_wolf:      { name: '그림자 늑대',    hp: 70,   atk: 18,   def: 6,   exp: 45,    gold: 28,   tags: ['beast','night'], drops: [['potion_s', 0.20], ['leather', 0.10]] },
+  ghoul:            { name: '구울',           hp: 120,  atk: 24,   def: 10,  exp: 85,    gold: 35,   tags: ['undead','night'], drops: [['potion_m', 0.18]] },
+  wisp:             { name: '도깨비불',       hp: 95,   atk: 28,   def: 8,   exp: 95,    gold: 50,   tags: ['undead','mag','night'], drops: [['ether_m', 0.25]] },
+  night_wraith:     { name: '밤의 망령',      hp: 220,  atk: 42,   def: 20,  exp: 240,   gold: 90,   tags: ['undead','mag','night'], drops: [['ether_m', 0.25], ['cursed_staff', 0.05]] },
+  bone_walker:      { name: '해골병',         hp: 190,  atk: 45,   def: 22,  exp: 220,   gold: 80,   tags: ['undead','night'], drops: [['rusty_blade', 0.15]] },
+  shadow_stalker:   { name: '그림자 추적자',  hp: 320,  atk: 60,   def: 28,  exp: 480,   gold: 220,  tags: ['mag','night'], drops: [['ether_l', 0.25]] },
+  fell_hound:       { name: '흑염견',         hp: 480,  atk: 80,   def: 38,  exp: 780,   gold: 380,  tags: ['beast','night'], drops: [['potion_l', 0.30]] },
+  dullahan:         { name: '듈라한',         hp: 650,  atk: 105,  def: 50,  exp: 1200,  gold: 650,  tags: ['undead','night'], drops: [['cursed_staff', 0.18], ['ring_atk', 0.12]] },
+  nightmare_horse:  { name: '악몽의 흑마',    hp: 820,  atk: 130,  def: 60,  exp: 1800,  gold: 900,  tags: ['beast','undead','night'], drops: [['potion_l', 0.35]] },
+  revenant:         { name: '복수귀',         hp: 1400, atk: 175,  def: 85,  exp: 3200,  gold: 1800, tags: ['undead','mag','night'], drops: [['ether_l', 0.35], ['shadow_robe', 0.15]] },
 };
 
 // ───── 아이템 ─────

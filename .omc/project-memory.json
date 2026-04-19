@@ -1,0 +1,136 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1776574159340,
+  "projectRoot": "/Users/gromit/chan/brain/.claude/worktrees/game/repos/dragon-raja-rpg",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": "npm run start",
+    "scripts": {
+      "start": "electron .",
+      "dist": "electron-builder",
+      "dist:portable": "electron-builder --win portable",
+      "dist:installer": "electron-builder --win nsis",
+      "release": "electron-builder --win --publish always",
+      "tauri": "tauri",
+      "tauri:dev": "tauri dev",
+      "tauri:build": "tauri build"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "master",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "build": {
+      "path": "build",
+      "purpose": "Build output",
+      "fileCount": 1,
+      "lastAccessed": 1776574159332,
+      "keyFiles": [
+        "installer.nsh"
+      ]
+    },
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 1,
+      "lastAccessed": 1776574159332,
+      "keyFiles": [
+        "builder-debug.yml"
+      ]
+    },
+    "game": {
+      "path": "game",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1776574159334,
+      "keyFiles": [
+        "bundle.js",
+        "data.js",
+        "engine.js"
+      ]
+    },
+    "server": {
+      "path": "server",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1776574159334,
+      "keyFiles": [
+        "README.md",
+        "index.js",
+        "package.json"
+      ]
+    },
+    "src-tauri": {
+      "path": "src-tauri",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1776574159334,
+      "keyFiles": [
+        "Cargo.toml",
+        "README.md",
+        "build.rs",
+        "tauri.conf.json"
+      ]
+    },
+    "src-tauri/src": {
+      "path": "src-tauri/src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1776574159334,
+      "keyFiles": [
+        "main.rs"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "index.html",
+      "accessCount": 38,
+      "lastAccessed": 1776578346923,
+      "type": "file"
+    },
+    {
+      "path": "game/engine.js",
+      "accessCount": 27,
+      "lastAccessed": 1776578304562,
+      "type": "directory"
+    },
+    {
+      "path": "game/data.js",
+      "accessCount": 19,
+      "lastAccessed": 1776578477655,
+      "type": "directory"
+    }
+  ],
+  "userDirectives": []
+}

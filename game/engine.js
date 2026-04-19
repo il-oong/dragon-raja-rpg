@@ -275,6 +275,8 @@ class Game {
     const newBand = this.timeBand();
     if (newBand !== prevBand) {
       this.out(`  ${this.timeBandEmoji(newBand)} ${newBand}이 되었다. (${this.timeStr()})`);
+      // 밤에서 벗어나면 암시장 접근은 사라진다
+      if (prevBand === '밤' && this.state.flags) this.state.flags.black_market = false;
     }
     if (t.day !== prevDay) this.checkQuestExpiry();
   }
@@ -284,6 +286,37 @@ class Game {
     return `Day ${t.day}, ${hh}:00`;
   }
   isNight() { const h = this.state.time.hour; return h < 6 || h >= 20; }
+
+  // ─── 시간대 기반 헬퍼 (A4/C1) ───
+  // 현재 시간대에 출현 중인 NPC 이름 목록. 구 배열 포맷(항상 출현)도 지원.
+  locationNpcs(locKey, band) {
+    const loc = LOCATIONS[locKey || this.state.location]; if (!loc || !loc.npcs) return [];
+    if (Array.isArray(loc.npcs)) return loc.npcs;
+    const b = band || this.timeBand();
+    return Object.entries(loc.npcs)
+      .filter(([, meta]) => !meta || !meta.band || meta.band.includes(b))
+      .map(([n]) => n);
+  }
+  // 현재 시간대 조우 풀. 밴드별 정의가 있으면 우선, 없으면 기본 encounters fallback.
+  locationEncounters(locKey, band) {
+    const loc = LOCATIONS[locKey || this.state.location]; if (!loc) return [];
+    const b = band || this.timeBand();
+    const byBand = loc.encountersByBand;
+    if (byBand && byBand[b] && byBand[b].length) return byBand[b];
+    return loc.encounters || [];
+  }
+  // 조우율: 밤엔 +30% (최대 1.0)
+  locationEncounterRate(locKey, band) {
+    const loc = LOCATIONS[locKey || this.state.location]; if (!loc) return 0;
+    const base = loc.encounterRate || 0;
+    const b = band || this.timeBand();
+    return b === '밤' ? Math.min(1, base * 1.3) : base;
+  }
+  // 시간대 기반 상점 영업: black_market 플래그가 있으면 밤에도 개장
+  shopOpen() {
+    if (this.state.flags && this.state.flags.black_market) return true;
+    return ['낮','황혼'].includes(this.timeBand());
+  }
 
   // ════════════════ 명령 처리 ════════════════
   runCommand(raw) {
@@ -657,10 +690,11 @@ class Game {
   // ════════════════ 이동 ════════════════
   lookAround() {
     const loc = LOCATIONS[this.state.location];
-    this.out(`\n━━ ${loc.name} ━━ [${this.timeStr()}]`);
+    this.out(`\n━━ ${loc.name} ━━ [${this.timeStr()} ${this.timeBandEmoji()} ${this.timeBand()}]`);
     this.out(loc.desc);
-    if (loc.npcs) this.out(`  NPC: ${loc.npcs.join(', ')}`);
-    if (loc.shop) this.out('  [🛒 상점 — shop]');
+    const npcs = this.locationNpcs();
+    if (npcs.length) this.out(`  NPC: ${npcs.join(', ')}`);
+    if (loc.shop) this.out(this.shopOpen() ? '  [🛒 상점 — shop]' : '  [🛒 상점 — 밤에는 닫혀 있다]');
     if (loc.inn)  this.out('  [🛏 여관 — rest]');
     if (TRADE_PRICES[this.state.location]) this.out('  [📦 무역 거래소 — trade]');
     if (loc.boss) this.out(`  [☠ ${MONSTERS[loc.boss].name}]`);
@@ -716,7 +750,7 @@ class Game {
       // 인카운트 굴림 (상인 캐러밴 스킬로 감소 가능)
       const encRate = 0.20 * (1 - this.tradeBonus().safeTravel);
       if (chance(encRate)) {
-        const pool = (loc.encounters || []).concat(next.encounters || []);
+        const pool = this.locationEncounters(this.state.location).concat(this.locationEncounters(toKey));
         if (pool.length) {
           const roll = Math.random();
           let num, elite = false;
@@ -755,8 +789,10 @@ class Game {
       return;
     }
     this.advanceTime(1);
-    if (!loc.encounters || !loc.encounters.length) { this.out('적이 없다.'); return; }
-    if (chance(loc.encounterRate || 0.4)) {
+    const pool = this.locationEncounters();
+    if (!pool.length) { this.out('적이 없다.'); return; }
+    const rate = this.locationEncounterRate();
+    if (chance(rate || 0.4)) {
       // 조우 롤: 1마리(60%) · 2마리(25%) · 3마리(10%) · 무리 4-6마리(4%) · 엘리트(1%)
       const roll = Math.random();
       let num, elite = false, swarm = false;
@@ -766,7 +802,7 @@ class Game {
       else if (roll < 0.40)  { num = 2; }
       else                   { num = 1; }
       const foes = [];
-      for (let i = 0; i < num; i++) foes.push(loc.encounters[rnd(loc.encounters.length)]);
+      for (let i = 0; i < num; i++) foes.push(pool[rnd(pool.length)]);
       if (elite) {
         this.out(`\n⚠ 엘리트 조우! ${MONSTERS[foes[0]].name}의 강화된 개체가 나타났다!`, 'warn');
       } else if (swarm) {
@@ -1627,9 +1663,28 @@ class Game {
 
   // ════════════════ NPC 대화 ════════════════
   talk(npcName) {
+    const present = this.locationNpcs();
+    if (!present.some(n => n.includes(npcName))) {
+      // 구조 변경 후 부재 안내 — 소속 지역이지만 시간대 차이로 없을 때도 힌트.
+      const loc = LOCATIONS[this.state.location];
+      const rosterAll = loc.npcs && !Array.isArray(loc.npcs) ? Object.keys(loc.npcs) : (loc.npcs || []);
+      const matched = rosterAll.find(n => n.includes(npcName));
+      if (matched) {
+        const meta = loc.npcs[matched];
+        const bands = (meta && meta.band) ? meta.band.join('/') : '?';
+        this.out(`  ${matched}은(는) 자리에 없다. (${bands} 시간대에 나타남)`);
+      } else this.out('없다.');
+      return;
+    }
+    const npc = present.find(n => n.includes(npcName));
+    // 암거래상 특수 처리: 밤에만 등장, 대화 시 암시장 플래그 on
+    if (npc === '암거래상') {
+      this.out('\n"...조용히. 내 물건은 낮엔 팔지 않아."');
+      this.state.flags.black_market = true;
+      this.out('  [🗝 암시장 개방 — shop 명령으로 특수 상품 확인]');
+      return;
+    }
     const loc = LOCATIONS[this.state.location];
-    if (!loc.npcs || !loc.npcs.some(n => n.includes(npcName))) { this.out('없다.'); return; }
-    const npc = loc.npcs.find(n => n.includes(npcName));
     const advances = Object.entries(ADVANCE_NPC).filter(([,v]) => v.loc === this.state.location && v.npc === npc);
     const availAdvance = advances.map(([jk]) => ({ jk, j: JOBS[jk] }))
       .filter(({j}) => j.from === this.state.job && this.state.lv >= j.reqLv);
@@ -1732,9 +1787,13 @@ class Game {
   shop() {
     const list = SHOP_ITEMS[this.state.location];
     if (!list && !this.state.flags.black_market) { this.out('상점 없다.'); return; }
+    if (!this.shopOpen()) {
+      this.out(`  🌙 ${this.timeBand()}에는 상점 문이 닫혔다. (여관은 열려 있다)`);
+      return;
+    }
     const useList = list || ['potion_l', 'ether_l', 'sword', 'plate'];
     const disc = this.getShopDisc();
-    this.out('\n[🛒 상점]');
+    this.out(this.state.flags.black_market ? '\n[🗝 암시장]' : '\n[🛒 상점]');
     if (disc > 0) this.out(`  CHA 할인: -${(disc*100).toFixed(1)}%`);
     useList.forEach(k => {
       const it = ITEMS[k];

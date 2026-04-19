@@ -433,6 +433,10 @@
     if (eff.raceBonus && eff.raceBonus[s.race]) baseXp *= eff.raceBonus[s.race];
     // 작위 보너스
     if (eff.titleMul && s.title) baseXp *= eff.titleMul;
+    // 시간대: 밤 수련은 사부도 동료도 없어 효율 -50%
+    const band = game.timeBand();
+    let nightPenalty = false;
+    if (band === '밤') { baseXp *= 0.5; nightPenalty = true; }
     baseXp = Math.round(baseXp);
 
     // 이벤트 간격: eventMul이 높을수록 짧아짐
@@ -455,6 +459,7 @@
     print(`\n── ${hall.name} 입장 ──`, 'title');
     print(`${hall.desc}`);
     print(`${durationMin}분 동안 집중 수련 시작. 예상 XP +${baseXp.toLocaleString()}`, 'good');
+    if (nightPenalty) print(`🌙 야간 수련: 효율 -50% (새벽 이후 재방문 권장)`, 'warn');
     print(`(중간에 깨달음 이벤트 발생 가능 · 중지 버튼 누르면 경과 비례 XP 획득)`, 'dim');
 
     focusState.timer = setInterval(() => {
@@ -1540,7 +1545,10 @@
     if (loc.inn || Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location)) {
       row2.appendChild(mkBtn(Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location) ? '저택 휴식' : '여관', 'rest', { hotkey: nextActKey() }));
     }
-    if (loc.shop) row2.appendChild(mkBtn('상점', () => enterMode('shop', 'shop'), { hotkey: nextActKey() }));
+    if (loc.shop) {
+      const open = game.shopOpen();
+      row2.appendChild(mkBtn(open ? '상점' : '상점 (닫힘 🌙)', () => enterMode('shop', 'shop'), { hotkey: nextActKey(), disabled: !open, title: open ? undefined : '밤에는 문이 닫혀 있다' }));
+    }
     if (TRADE_PRICES[game.state.location]) row2.appendChild(mkBtn('무역', () => enterMode('trade', 'trade'), { hotkey: nextActKey() }));
     // 수련장 (해당 지역에 수련장 있을 때만)
     if (TRAINING_HALLS[game.state.location]) {
@@ -1567,11 +1575,13 @@
       act.appendChild(row3);
     }
 
-    // NPC 대화
-    if (loc.npcs && loc.npcs.length) {
+    // NPC 대화 (시간대별 출현)
+    const presentNpcs = game.locationNpcs();
+    if (presentNpcs.length) {
       const row4 = mkSection('대화:');
-      loc.npcs.forEach(npc => {
-        row4.appendChild(mkBtn(`💬 ${npc}`, () => enterMode('npc', `talk ${npc}`, { npc }), { mini: true }));
+      presentNpcs.forEach(npc => {
+        const label = npc === '암거래상' ? `🗝 ${npc}` : `💬 ${npc}`;
+        row4.appendChild(mkBtn(label, () => enterMode('npc', `talk ${npc}`, { npc }), { mini: true }));
       });
       act.appendChild(row4);
     }
