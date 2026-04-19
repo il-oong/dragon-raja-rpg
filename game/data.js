@@ -1727,6 +1727,14 @@ const MONSTERS = {
   dullahan:         { name: '듈라한',         hp: 650,  atk: 105,  def: 50,  exp: 1200,  gold: 650,  tags: ['undead','night'], drops: [['cursed_staff', 0.18], ['ring_atk', 0.12]] },
   nightmare_horse:  { name: '악몽의 흑마',    hp: 820,  atk: 130,  def: 60,  exp: 1800,  gold: 900,  tags: ['beast','undead','night'], drops: [['potion_l', 0.35]] },
   revenant:         { name: '복수귀',         hp: 1400, atk: 175,  def: 85,  exp: 3200,  gold: 1800, tags: ['undead','mag','night'], drops: [['ether_l', 0.35], ['shadow_robe', 0.15]] },
+
+  // ─── 시간 한정 보스 (C3) ───
+  moonlight_wolf_king: { name: '달빛 늑대왕',   hp: 8000,  atk: 220, def: 100, exp: 20000,  gold: 12000, tags: ['beast','boss','night'], boss: true,
+    drops: [['potion_x', 1.0], ['leather', 1.0], ['ring_atk', 0.40]] },
+  dawn_firebird:       { name: '여명의 불새',   hp: 6500,  atk: 250, def: 80,  exp: 18000,  gold: 10000, tags: ['beast','mag','boss'], boss: true,
+    drops: [['ether_l', 1.0], ['phoenix_feather', 0.30], ['ring_def', 0.40]] },
+  midnight_lich:       { name: '자정의 리치',   hp: 12000, atk: 280, def: 130, exp: 28000,  gold: 15000, tags: ['undead','mag','boss','night'], boss: true,
+    drops: [['cursed_staff', 1.0], ['shadow_robe', 0.50], ['ring_mag', 0.50]] },
 };
 
 // ───── 아이템 ─────

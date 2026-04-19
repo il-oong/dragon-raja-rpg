@@ -3,6 +3,37 @@ const __DATA__ = (typeof require === 'function')
   : (typeof window !== 'undefined' ? window.__GAME_DATA__ : globalThis.__GAME_DATA__);
 const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS } = __DATA__;
 
+// ═══════ 시간 한정 보스 (C3) ═══════
+// bands: 등장 시간대 · dayMod: day가 N의 배수일 때만 · cooldownDays: 처치 후 N일 재등장 불가 · rate: 조건 일치 시 조우 확률
+const TIMED_BOSSES = {
+  moonlight_wolf_king: {
+    name: '달빛 늑대왕', locations: ['dragon_mt'], bands: ['밤'], dayMod: 3,
+    cooldownDays: 3, rate: 0.30,
+    entry: ['달 아래에서 짙은 그림자가 일어섰다.', '⚔ 달빛 늑대왕이 모습을 드러냈다!'],
+    exit:  ['달빛 늑대왕이 안개 속으로 사라졌다.'],
+  },
+  dawn_firebird: {
+    name: '여명의 불새', locations: ['dragon_mt'], bands: ['새벽'],
+    cooldownDays: 0, rate: 0.25,
+    entry: ['동녘 하늘이 불붙듯 타오른다.', '🔥 여명의 불새가 날아올랐다!'],
+    exit:  ['불새가 태양 너머로 사라졌다.'],
+  },
+  midnight_lich: {
+    name: '자정의 리치', locations: ['ruined_cathedral'], bands: ['밤'],
+    cooldownDays: 7, rate: 0.40,
+    entry: ['제단에서 푸른 불꽃이 피어올랐다.', '💀 자정의 리치가 봉인을 풀었다!'],
+    exit:  ['리치가 재가 되어 흩어졌다.'],
+  },
+};
+
+// 탐험 시간대 플레이버 (E2)
+const EXPLORE_FLAVORS = {
+  '새벽': ['새들의 지저귐이 안개를 가른다.', '이슬을 밟으며 길을 걷는다.', '동녘에 여명이 퍼진다.', '멀리서 방울소리가 들린다.'],
+  '낮':   ['햇살이 등을 데운다.', '먼 지평선에 구름이 솟는다.', '바람이 기분좋다.', '발아래 꽃잎이 부서진다.'],
+  '황혼': ['석양이 산등성이를 붉게 물들인다.', '마지막 햇살이 사라진다.', '저녁 종이 멀리서 울린다.', '그림자가 길어진다.'],
+  '밤':   ['달빛이 길을 비춘다.', '부엉이 울음이 들린다.', '차가운 바람이 뺨을 스친다.', '어둠 속에서 무언가가 움직였다.', '별이 유난히 밝다.'],
+};
+
 const rnd = (n) => Math.floor(Math.random() * n);
 const chance = (p) => Math.random() < p;
 
@@ -102,6 +133,8 @@ class Game {
       tradeInv: {},          // 무역 상품
       skills: job.skills.filter(s => s.lv <= 1).map(s => s.id),
       quests: {}, killCount: {}, flags: {},
+      activeHunt: null,        // 주간 사냥감 { monster, locationKey, day }
+      bossCooldowns: {},       // 시간한정 보스 { bossKey: nextAvailableDay }
       buffsPersistent: {},
       time: { day: 1, hour: 6 },
       completedTrials: {},
@@ -339,7 +372,7 @@ class Game {
       'buy': () => this.buy(arg), 'sell': () => this.sell(arg),
       'use': () => this.useItem(arg),
       'equip': () => this.equip(arg), 'unequip': () => this.unequip(arg),
-      'rest': () => this.rest(), 'inn': () => this.rest(),
+      'rest': () => this.rest(arg), 'inn': () => this.rest(arg),
       'accept': () => this.acceptQuest(arg), 'complete': () => this.completeQuest(arg),
       'allocate': () => this.allocate(arg), 'alloc': () => this.allocate(arg),
       'advance': () => this.advance(arg),
@@ -772,6 +805,13 @@ class Game {
     }
     this.state.location = toKey;
     this.out(`[${this.timeStr()}] ${next.name} 도착.`);
+    // C2: 지역을 벗어나면 사냥감 추적을 잃는다
+    if (this.state.activeHunt && this.state.activeHunt.locationKey !== toKey && !this.state.activeHunt.slain) {
+      this.out(`  🌑 사냥감의 흔적을 놓쳤다.`, 'dim');
+      this.state.activeHunt = null;
+    }
+    // 지역을 옮기면 암시장 개방도 사라진다
+    if (this.state.flags && this.state.flags.black_market) this.state.flags.black_market = false;
     this.lookAround();
   }
 
@@ -789,8 +829,30 @@ class Game {
       return;
     }
     this.advanceTime(1);
+    // C3: 시간한정 보스 체크 (advanceTime 후 시간대 기준)
+    const timed = this.checkTimedBoss();
+    if (timed) {
+      this.out('');
+      this.out('═══════════════════════════');
+      (timed.meta.entry || []).forEach(line => this.out('  ' + line, 'warn'));
+      this.out('═══════════════════════════', 'warn');
+      this.state.flags._timed_boss_active = timed.key;
+      this.startCombat([timed.key]);
+      return;
+    }
+    // C2: 사냥의 날 — 현재 지역에 엘리트 사냥감이 숨어있다면 강제 조우
     const pool = this.locationEncounters();
-    if (!pool.length) { this.out('적이 없다.'); return; }
+    if (!pool.length) { this.out(this.pickExploreFlavor(true)); return; }
+    if (this.state.time.day % 7 === 0) this.ensureActiveHunt(pool);
+    if (this.state.activeHunt && this.state.activeHunt.locationKey === this.state.location
+        && !this.state.activeHunt.slain) {
+      const mkey = this.state.activeHunt.monster;
+      this.out('');
+      this.out('⚠⚠⚠  사냥의 날 — 엘리트 개체의 기운이 짙다.', 'warn');
+      this.out(`  어둠 속에서 ${MONSTERS[mkey].name}의 눈이 번뜩인다.`, 'warn');
+      this.startCombat([mkey], false, { elite: true });
+      return;
+    }
     const rate = this.locationEncounterRate();
     if (chance(rate || 0.4)) {
       // 조우 롤: 1마리(60%) · 2마리(25%) · 3마리(10%) · 무리 4-6마리(4%) · 엘리트(1%)
@@ -814,8 +876,39 @@ class Game {
       this.startCombat(foes, false, { elite });
     } else {
       if (chance(0.3)) { const g = 5 + rnd(20); this.state.gold += g; this.out(`동전 ${g}G.`); }
-      else this.out('별일 없다.');
+      else this.out(this.pickExploreFlavor());
     }
+  }
+
+  // ═══════ 탐험 플레이버 (E2) · 시간한정 보스 (C3) · 주간 엘리트 (C2) ═══════
+  pickExploreFlavor(emptyPool) {
+    const band = this.timeBand();
+    const pool = EXPLORE_FLAVORS[band] || EXPLORE_FLAVORS['낮'];
+    const txt = pool[rnd(pool.length)];
+    return emptyPool ? `  ${txt} (이곳엔 적이 없다)` : `  ${txt}`;
+  }
+  checkTimedBoss() {
+    for (const [key, meta] of Object.entries(TIMED_BOSSES)) {
+      if (!meta.locations.includes(this.state.location)) continue;
+      if (meta.bands && !meta.bands.includes(this.timeBand())) continue;
+      if (meta.dayMod && (this.state.time.day % meta.dayMod !== 0)) continue;
+      const cd = (this.state.bossCooldowns && this.state.bossCooldowns[key]) || 0;
+      if (this.state.time.day < cd) continue;
+      if (Math.random() < (meta.rate || 0.2)) return { key, meta };
+    }
+    return null;
+  }
+  ensureActiveHunt(pool) {
+    const ah = this.state.activeHunt;
+    if (ah && ah.day === this.state.time.day && ah.locationKey === this.state.location && !ah.slain) return;
+    // 동일 day·지역이 아니면 새로 생성
+    if (ah && ah.day !== this.state.time.day) this.state.activeHunt = null;
+    if (this.state.activeHunt && this.state.activeHunt.locationKey === this.state.location) return;
+    const pick = pool[rnd(pool.length)];
+    this.state.activeHunt = { monster: pick, locationKey: this.state.location, day: this.state.time.day, slain: false };
+    this.out('');
+    this.out(`🌑 ⚔ 사냥의 날 — ${MONSTERS[pick].name}의 엘리트 개체가 ${LOCATIONS[this.state.location].name}에 숨어들었다.`, 'warn');
+    this.out(`  이 지역을 탐험하면 반드시 조우하며, 벗어나면 추적을 잃는다.`, 'warn');
   }
 
   // ════════════════ 전투 ════════════════
@@ -1452,6 +1545,30 @@ class Game {
     if (drops.length) this.out(`  📦 드랍: ${drops.join(', ')}`);
     this.checkLevel();
 
+    // C2: 주간 사냥감 처치 체크
+    if (this.state.activeHunt && !this.state.activeHunt.slain && this.combat) {
+      const foeKeys = this.combat.foes.map(f => f.key);
+      if (foeKeys.includes(this.state.activeHunt.monster)) {
+        this.state.activeHunt.slain = true;
+        this.out(`  🌟 사냥의 날 사냥감을 처치했다! 이 지역의 추적은 끝났다.`, 'good');
+      }
+    }
+    // C3: 시간한정 보스 처치 → 쿨다운 설정 + 퇴장 메시지
+    if (this.state.flags._timed_boss_active) {
+      const bk = this.state.flags._timed_boss_active;
+      const meta = TIMED_BOSSES[bk];
+      if (meta) {
+        this.state.bossCooldowns = this.state.bossCooldowns || {};
+        this.state.bossCooldowns[bk] = this.state.time.day + (meta.cooldownDays || 0);
+        this.out('');
+        this.out('═══════════════════════════', 'good');
+        (meta.exit || [`${MONSTERS[bk].name} 처치.`]).forEach(line => this.out('  ' + line, 'good'));
+        if (meta.cooldownDays) this.out(`  다음 출현: Day ${this.state.time.day + meta.cooldownDays} 이후`);
+        this.out('═══════════════════════════', 'good');
+      }
+      delete this.state.flags._timed_boss_active;
+    }
+
     // 시련 모드 처리
     const wasTrialMode = this.combat.trialMode;
     this.combat = null;
@@ -1852,25 +1969,40 @@ class Game {
     this.out(`${ITEMS[cur].name} 해제`);
   }
 
-  rest() {
+  rest(arg) {
     const loc = LOCATIONS[this.state.location];
+    // 숙박 옵션 (E4): 1시간 · 8시간 · 새벽까지
+    let hours = 8, ratio = 1.0, label = '8시간 휴식';
+    if (arg === '1') { hours = 1; ratio = 0.20; label = '1시간 선잠'; }
+    else if (arg === 'dawn') {
+      const h = this.state.time.hour;
+      hours = h < 5 ? (5 - h) : (24 - h + 5);
+      if (hours < 1) hours = 1;
+      ratio = 1.0;
+      label = '새벽까지 휴식';
+    }
+    const hpGain = ratio >= 1 ? (this.getHpMax() - this.state.hp) : Math.round(this.getHpMax() * ratio);
+    const mpGain = ratio >= 1 ? (this.getMpMax() - this.state.mp) : Math.round(this.getMpMax() * ratio);
     // 저택 보유 시 무료
     const myProp = Object.entries(this.state.properties || {}).find(([k]) => PROPERTIES[k].loc === this.state.location);
     if (myProp) {
-      this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
-      this.advanceTime(8);
-      this.out(`✦ 보유 저택(${PROPERTIES[myProp[0]].name})에서 휴식. 무료. HP/MP 완전회복.`);
+      this.state.hp = Math.min(this.getHpMax(), this.state.hp + hpGain);
+      this.state.mp = Math.min(this.getMpMax(), this.state.mp + mpGain);
+      this.advanceTime(hours);
+      this.out(`✦ 보유 저택(${PROPERTIES[myProp[0]].name})에서 ${label} (${hours}시간). 무료.`);
       this.out(`현재 ${this.timeStr()}`);
       return;
     }
     if (!loc.inn) { this.out('여관 없음'); return; }
-    let cost = 20 + this.state.lv * 5;
+    const baseCost = 20 + this.state.lv * 5;
+    let cost = Math.max(5, Math.round(baseCost * (hours / 8)));
     if (this.state.title) cost = Math.max(0, cost - 20);  // 작위 할인
     if (this.state.gold < cost) { this.out(`${cost}G 필요`); return; }
     this.state.gold -= cost;
-    this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
-    this.advanceTime(8);
-    this.out(`여관에서 8시간 휴식. (-${cost}G) HP/MP 완전회복`);
+    this.state.hp = Math.min(this.getHpMax(), this.state.hp + hpGain);
+    this.state.mp = Math.min(this.getMpMax(), this.state.mp + mpGain);
+    this.advanceTime(hours);
+    this.out(`여관에서 ${label} (${hours}시간, -${cost}G)`);
     this.out(`현재 ${this.timeStr()}`);
   }
 
