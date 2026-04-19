@@ -2060,6 +2060,147 @@ const QUESTS = {
   q5: { id: 'q5', name: '드래곤 라자의 운명', giver: '국왕 다케온', location: 'palace', type: 'main',
     desc: '아무르타트를 쓰러뜨려라.', target: { monster: 'amurtat', count: 1 },
     reward: { exp: 20000, gold: 10000, item: 'excalibur' }, requireLv: 40 },
+
+  // ─── B3 개인 서사: 메이린의 아들 (2-step 체인) ───
+  q_meir_son:  { id: 'q_meir_son',  name: '메이린의 아들', giver: '술집주인 메이린', location: 'heltant', type: 'chain_step',
+    desc: '남쪽 가도에서 아들의 흔적을 쫓아라. 산적 2명 처치.', target: { monster: 'bandit', count: 2 },
+    reward: { exp: 400, gold: 500, item: 'potion_l' }, requireLv: 3, next: 'q_meir_son_2' },
+  q_meir_son_2:{ id: 'q_meir_son_2',name: '돌아오지 않은 자', giver: '암살자 길드장', location: 'capital', type: 'chain_step',
+    desc: '수도 암살자 길드에서 단서를 얻어라. 깡패 2명 처치.', target: { monster: 'thug', count: 2 },
+    reward: { exp: 1500, gold: 2000, item: 'ring_atk' }, requireLv: 8 },
+};
+
+// ─── NPC 대화 트리 (B1 / B3 / B4) ───
+// 노드 스키마: { lines: [...문장들], options: [{ text, next?, action?, qid?, race? }] }
+//   action: 'accept' → QUESTS[qid] 수락, 'advance' → ADVANCE_NPC[qid] 전직, 'shop' → 상점 진입
+//   race: 특정 종족일 때만 노출 (race 키와 일치 시)
+// 모든 노드에는 '돌아가기' 옵션이 자동 추가된다 (엔진 측).
+const NPC_DIALOG = {
+  '촌장': {
+    root: {
+      lines: ['"...그대가 왔군. 요즘 북쪽 숲이 심상치 않아."'],
+      options: [
+        { text: '무슨 일이 있었습니까?', next: 'trouble' },
+        { text: '도움이 필요하십니까?', next: 'help' },
+        { text: '(드워프) 땅의 소리가 거칠어졌더군.', race: 'dwarf', next: 'dwarf_hint' },
+        { text: '(오우거) 힘쓸 일이 있으면 말하시오.', race: 'ogre', next: 'ogre_hint' },
+      ],
+    },
+    trouble: {
+      lines: ['"늑대 떼가 마을 근처를 돌고 있어. 사람이 다칠까 두렵네."'],
+      options: [
+        { text: '제가 처리하겠습니다.', action: 'accept', qid: 'q1' },
+      ],
+    },
+    help: {
+      lines: ['"고블린이 숲 입구를 자주 습격한다네. 도와줄 텐가?"'],
+      options: [
+        { text: '맡겨 주십시오.', action: 'accept', qid: 'q2' },
+      ],
+    },
+    dwarf_hint: { lines: ['"드워프여! 광산 쪽에서 암석 울음이 들린다. 자네 형제들이 걱정돼."'], options: [] },
+    ogre_hint:  { lines: ['"오우거라! 저 돌 담을 혼자 밀어봐 주겠나? ...농담일세."'], options: [] },
+  },
+  '술집주인 메이린': {
+    root: {
+      lines: ['"한 잔 하실 건가? ...아니면 다른 볼 일이라도?"'],
+      options: [
+        { text: '북방 소식을 듣고 싶소.', next: 'news' },
+        { text: '(조용히) 무슨 걱정이 있나?', next: 'worry' },
+        { text: '(하프엘프) 나도 비밀이 있어.', race: 'half_elf', next: 'half_elf_bond' },
+      ],
+    },
+    news: { lines: ['"북방에서 용이 운다고 하더군. 옛이야기로만 듣던 소리를."'], options: [] },
+    worry: {
+      lines: ['"...아들이 일 년 전 남쪽 가도로 떠난 뒤 연락이 없어. 혹시 아시는 게 있소?"'],
+      options: [
+        { text: '찾아보겠소.', action: 'accept', qid: 'q_meir_son' },
+      ],
+    },
+    half_elf_bond: { lines: ['"하프엘프끼리는 말 없이 통하지. ...고맙네."'], options: [] },
+  },
+  '대장장이 게롤트': {
+    root: {
+      lines: ['"강철은 두드려야 나온다."'],
+      options: [
+        { text: '무기 주문이 가능합니까?', action: 'shop' },
+        { text: '(드워프) 네 망치질은 예술이네.', race: 'dwarf', next: 'dwarf_bond' },
+      ],
+    },
+    dwarf_bond: { lines: ['"드워프의 혈통이군! ...상점 가격 5% 깎아주지."', '(다음 구매부터 5% 할인)'], options: [], onEnter: 'discount:5' },
+  },
+  '장로 엘리안': {
+    root: {
+      lines: ['"바람이 심상치 않다."'],
+      options: [
+        { text: '와이번이 출몰한다고 들었습니다.', action: 'accept', qid: 'q4' },
+        { text: '(엘프) 숲의 안부를 묻고 싶습니다.', race: 'elf', next: 'elf_wisdom' },
+        { text: '(하프엘프) 혈통의 뿌리를 알고 싶습니다.', race: 'half_elf', next: 'half_elf_root' },
+      ],
+    },
+    elf_wisdom: { lines: ['"동족이여, 숲은 기억한다. 너의 걸음을 기억할 것이다."'], options: [] },
+    half_elf_root: { lines: ['"피는 거짓을 말하지 않는다. 너의 길을 걸어라, 이루릴의 후손."'], options: [] },
+  },
+  '왕궁 마법사 핸드레이크': {
+    root: {
+      lines: ['"드래곤 라자의 전승... 자네가 그 아이인가?"'],
+      options: [
+        { text: '드래곤 라자가 무엇입니까?', next: 'raja' },
+        { text: '(엘프) 마법의 근원에 대해 묻고 싶습니다.', race: 'elf', next: 'elf_mag' },
+      ],
+    },
+    raja: { lines: ['"아무르타트와 맺어진 자. 용을 벨 운명을 진 자를 일컫지."'], options: [] },
+    elf_mag: { lines: ['"엘프의 마법은 숲에서 온다. 자네의 지팡이는 여전히 숲을 기억할 것이야."'], options: [] },
+  },
+  '기사단장 리프크네': {
+    root: {
+      lines: ['"검을 든 자여, 왕국이 그대를 부른다."'],
+      options: [
+        { text: '산적 토벌 명령을 받겠습니다.', action: 'accept', qid: 'q3' },
+        { text: '(인간) 바이서스의 왕도를 이어가겠소.', race: 'human', next: 'human_honor' },
+      ],
+    },
+    human_honor: { lines: ['"바이서스의 혈통이여, 검을 놓지 마라."'], options: [] },
+  },
+  '대주교 유스티스': {
+    root: {
+      lines: ['"신의 뜻이 그대와 함께."'],
+      options: [
+        { text: '축복을 받을 수 있습니까?', next: 'blessing' },
+        { text: '(오우거) 힘은 축복인가 저주인가?', race: 'ogre', next: 'ogre_bless' },
+      ],
+    },
+    blessing: { lines: ['"...그대의 마음에 이미 있다."'], options: [] },
+    ogre_bless: { lines: ['"힘은 짐이다. 짐을 짊어지는 자가 기사다."'], options: [] },
+  },
+  '국왕 다케온': {
+    root: {
+      lines: ['"아무르타트가 깨어났다."'],
+      options: [
+        { text: '그를 쓰러뜨리겠습니다.', action: 'accept', qid: 'q5' },
+        { text: '(인간) 폐하의 뜻을 받들겠습니다.', race: 'human', next: 'human_vow' },
+        { text: '(오우거) 바이서스에 충성 바치겠소.', race: 'ogre', next: 'ogre_vow' },
+      ],
+    },
+    human_vow: { lines: ['"너는 바이서스의 자식이다. 나라가 너를 기억할 것이다."'], options: [] },
+    ogre_vow:  { lines: ['"대공 가문이여, 너의 일족의 무용을 오래 기억했다."'], options: [] },
+  },
+  '암살자 길드장': {
+    root: {
+      lines: ['"...그림자는 이미 그대를 안다."'],
+      options: [
+        { text: '메이린의 아들을 찾고 있다.', next: 'meir_son', qid: 'q_meir_son' },
+        { text: '(하프엘프) 그림자는 종족을 묻지 않지.', race: 'half_elf', next: 'half_elf_shade' },
+      ],
+    },
+    meir_son: {
+      lines: ['"...그 아이 이야기군. 수도 뒷골목에 그와 닮은 아이가 깡패들과 어울려 다닌다."'],
+      options: [
+        { text: '단서를 쫓아 깡패를 쓰러뜨리겠다.', action: 'accept', qid: 'q_meir_son_2' },
+      ],
+    },
+    half_elf_shade: { lines: ['"피는 진하고, 그림자는 더 진하다. 알지?"'], options: [] },
+  },
 };
 
 // ───── 전직 시스템 ─────
@@ -3206,6 +3347,6 @@ const THEMES = {
   cosmos_edge:        { accent: '#2a2a4a', tint: 'rgba(30,30,60,0.12)',    mood: '현실의 끝' },
 };
 
-const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES };
+const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES };
 if (typeof module !== 'undefined' && module.exports) module.exports = __DATA_EXPORTS__;
 if (typeof window !== 'undefined') window.__GAME_DATA__ = __DATA_EXPORTS__;

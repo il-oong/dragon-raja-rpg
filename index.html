@@ -271,7 +271,7 @@
   // 기존 코드가 ipcRenderer.invoke 를 직접 부르던 곳 대응
   if (!ipcRenderer) ipcRenderer = ipc;
   const { LOCATIONS, JOBS, ITEMS, MONSTERS, RACES, SHOP_ITEMS, TRADE_PRICES, TRADE_GOODS, TRADE_SELL_TAX, TRADE_SKILLS,
-          QUESTS, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
+          QUESTS, NPC_DIALOG, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
           GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, THEMES } = D;
 
   // ═══════ 지역 테마 적용 (소소하게) ═══════
@@ -1835,6 +1835,40 @@
   function renderNpc() {
     const npc = uiCtx.npc;
     if (!npc) { uiMode = 'main'; uiCtx = {}; render(); return; }
+
+    // B1/B4: 대화 트리 진행 중이면 선택지 렌더
+    const dialog = game.state.dialog;
+    if (dialog && dialog.npc === npc && NPC_DIALOG && NPC_DIALOG[npc]) {
+      const tree = NPC_DIALOG[npc];
+      const node = tree[dialog.node] || tree.root;
+      const opts = (node.options || []).filter(o => !o.race || game.state.race === o.race);
+      const row = mkSection('💬 선택:');
+      let idx = 1;
+      opts.forEach(opt => {
+        const hk = idx < 10 ? String(idx++) : undefined;
+        const cb = () => {
+          if (opt.action === 'accept' && opt.qid) {
+            game.handleInput(`accept ${opt.qid}`);
+            game.exitDialog();
+            uiMode = 'main';
+          } else if (opt.action === 'shop') {
+            game.exitDialog();
+            enterMode('shop', 'shop');
+            return;
+          } else if (opt.next) {
+            game.advanceDialog(opt.next);
+          }
+        };
+        row.appendChild(mkBtn(opt.text, cb, { hotkey: hk }));
+      });
+      // 노드 복귀 + 종료
+      if (dialog.node !== 'root') {
+        row.appendChild(mkBtn('↩ 돌아가기', () => game.advanceDialog('root'), { mini: true }));
+      }
+      row.appendChild(mkBtn('✖ 대화 종료', () => { game.exitDialog(); uiMode = 'main'; }, { mini: true, danger: true }));
+      act.appendChild(row);
+    }
+
     const curJob = game.state.job;
     // 전직 버튼
     const advances = Object.entries(ADVANCE_NPC).filter(([,v]) => v.loc === game.state.location && v.npc === npc);

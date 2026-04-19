@@ -1,7 +1,7 @@
 const __DATA__ = (typeof require === 'function')
   ? require('./data.js')
   : (typeof window !== 'undefined' ? window.__GAME_DATA__ : globalThis.__GAME_DATA__);
-const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS } = __DATA__;
+const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS } = __DATA__;
 
 // ═══════ 시간 한정 보스 (C3) ═══════
 // bands: 등장 시간대 · dayMod: day가 N의 배수일 때만 · cooldownDays: 처치 후 N일 재등장 불가 · rate: 조건 일치 시 조우 확률
@@ -269,6 +269,7 @@ class Game {
     if (this.state.title === 'duke') d += 0.10;
     d += this.racePassive().shop_disc || 0;
     d += this.tradeBonus().shopDisc || 0;
+    d += ((this.state.flags && this.state.flags.bondDiscount) || 0) / 100;
     return Math.min(0.75, d);
   }
 
@@ -1827,6 +1828,12 @@ class Game {
       this.out('  [🗝 암시장 개방 — shop 명령으로 특수 상품 확인]');
       return;
     }
+    // B1: 대화 트리 데이터가 있으면 다이얼로그 모드로 진입
+    if (NPC_DIALOG && NPC_DIALOG[npc]) {
+      this.state.dialog = { npc, node: 'root' };
+      this._emitDialogNode(npc, 'root');
+      return;
+    }
     const loc = LOCATIONS[this.state.location];
     const advances = Object.entries(ADVANCE_NPC).filter(([,v]) => v.loc === this.state.location && v.npc === npc);
     const availAdvance = advances.map(([jk]) => ({ jk, j: JOBS[jk] }))
@@ -1864,6 +1871,31 @@ class Game {
       });
       this.out(`  [trial <직업> 으로 시련 시작 / advance <직업> 으로 전직]`);
     }
+  }
+
+  // ─── 대화 트리 (B1) ───
+  _emitDialogNode(npc, nodeKey) {
+    const tree = NPC_DIALOG && NPC_DIALOG[npc]; if (!tree) return;
+    const node = tree[nodeKey] || tree.root; if (!node) return;
+    this.out('');
+    (node.lines || []).forEach(l => this.out(`  ${npc}: ${l}`));
+    // 특수 효과: onEnter 키
+    if (node.onEnter && this.state.flags) {
+      const [kind, val] = String(node.onEnter).split(':');
+      if (kind === 'discount') {
+        const pct = parseInt(val, 10) || 0;
+        this.state.flags.bondDiscount = Math.max(this.state.flags.bondDiscount || 0, pct);
+        this.out(`  ✦ 유대감 +${pct}% (영구 상점 할인)`, 'good');
+      }
+    }
+  }
+  advanceDialog(nodeKey) {
+    if (!this.state.dialog) return;
+    this.state.dialog.node = nodeKey;
+    this._emitDialogNode(this.state.dialog.npc, nodeKey);
+  }
+  exitDialog() {
+    this.state.dialog = null;
   }
 
   acceptQuest(id) {
