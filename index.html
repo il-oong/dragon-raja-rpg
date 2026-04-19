@@ -26,6 +26,7 @@
       --region-accent: #858585;
       --region-tint: rgba(0,0,0,0);
       --region-strip: #858585;
+      --time-tint: rgba(0,0,0,0);
     }
 
     /* ═══════ 위장 모드 — 4가지 테마 ═══════ */
@@ -154,6 +155,7 @@
       font-family: 'Consolas', 'Courier New', monospace; font-size: 12.5px;
       background:
         linear-gradient(to bottom, var(--region-tint), transparent 120px),
+        linear-gradient(to top, var(--time-tint), transparent 60%),
         #1e1e1e;
       border-bottom: 1px solid #3a3a3a;
       transition: background 0.5s ease;
@@ -412,7 +414,7 @@
   // 기존 코드가 ipcRenderer.invoke 를 직접 부르던 곳 대응
   if (!ipcRenderer) ipcRenderer = ipc;
   const { LOCATIONS, JOBS, ITEMS, MONSTERS, RACES, SHOP_ITEMS, TRADE_PRICES, TRADE_GOODS, TRADE_SELL_TAX, TRADE_SKILLS,
-          QUESTS, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
+          QUESTS, NPC_DIALOG, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
           GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, THEMES,
           SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, reconcileDeactivations } = D;
 
@@ -428,6 +430,40 @@
     root.style.setProperty('--region-strip', t.accent);
     const tag = document.getElementById('regionTag');
     if (tag) tag.textContent = t.mood ? `· ${t.mood}` : '';
+  }
+
+  // ═══════ 시간대 틴트 (A2) ═══════
+  const TIME_TINTS = {
+    '새벽': 'rgba(255, 170, 100, 0.10)',
+    '낮':   'rgba(0, 0, 0, 0)',
+    '황혼': 'rgba(220, 110, 80, 0.12)',
+    '밤':   'rgba(60, 85, 160, 0.16)',
+  };
+  let _lastTimeBand = null;
+  function applyTimeTint() {
+    if (!game || !game.state) return;
+    const band = game.timeBand();
+    if (band === _lastTimeBand) return;
+    _lastTimeBand = band;
+    document.documentElement.style.setProperty('--time-tint', TIME_TINTS[band] || 'rgba(0,0,0,0)');
+  }
+
+  // ═══════ 달력 (E3) ═══════
+  const DAY_NAMES = ['월','화','수','목','금','토','일'];
+  function getDayName(day) {
+    // Day 1 = 월요일
+    return DAY_NAMES[(day - 1) % 7] + '요일';
+  }
+  // 주간 사냥의 날: Day 7, 14, 21... (7의 배수)
+  function daysUntilNextHunt(day) {
+    if (day % 7 === 0) return 0;
+    return 7 - (day % 7);
+  }
+  function renderHuntDay(day) {
+    const left = daysUntilNextHunt(day);
+    if (left === 0) return `<div class="s-row"><span class="k" style="color:#e5c24c">⚔ 사냥의 날</span><span class="v" style="color:#e5c24c">엘리트 출현 ↑</span></div>`;
+    if (left === 1) return `<div class="s-row"><span class="k">⚔ 사냥의 날</span><span class="v">D-1 (내일)</span></div>`;
+    return `<div class="s-row"><span class="k">⚔ 사냥의 날</span><span class="v">D-${left}</span></div>`;
   }
 
   // ═══════ 출력 ═══════
@@ -583,6 +619,10 @@
     if (eff.raceBonus && eff.raceBonus[s.race]) baseXp *= eff.raceBonus[s.race];
     // 작위 보너스
     if (eff.titleMul && s.title) baseXp *= eff.titleMul;
+    // 시간대: 밤 수련은 사부도 동료도 없어 효율 -50%
+    const band = game.timeBand();
+    let nightPenalty = false;
+    if (band === '밤') { baseXp *= 0.5; nightPenalty = true; }
     baseXp = Math.round(baseXp);
 
     // 이벤트 간격: eventMul이 높을수록 짧아짐
@@ -605,6 +645,7 @@
     print(`\n── ${hall.name} 입장 ──`, 'title');
     print(`${hall.desc}`);
     print(`${durationMin}분 동안 집중 수련 시작. 예상 XP +${baseXp.toLocaleString()}`, 'good');
+    if (nightPenalty) print(`🌙 야간 수련: 효율 -50% (새벽 이후 재방문 권장)`, 'warn');
     print(`(중간에 깨달음 이벤트 발생 가능 · 중지 버튼 누르면 경과 비례 XP 획득)`, 'dim');
 
     focusState.timer = setInterval(() => {
@@ -702,12 +743,7 @@
     print(`경과: 실시간 ${mins}분 / 게임 ${daysElapsed}일`, 'sys');
     print(`획득 XP: +${focusState.xpAwarded.toLocaleString()}${lvGain > 0 ? ` · 레벨업 ${lvGain}` : ''}`, 'good');
     if (focusState.eventLog.length) print(`깨달음 ${focusState.eventLog.length}회 발생.`, 'dim');
-    // ── 서재 발견 ── 이 도시에 LIBRARIES 가 있으면 확률로 스킬북 발견.
-    const found = tryLibraryDiscovery();
-    if (found) {
-      const grade = SKILL_GRADES[found.book.grade] || { name: '?', color: '#fff' };
-      print(`📚 [${grade.name}] 「${found.book.name}」 을 발견! 인벤에서 사용해 스킬을 습득하라.`, 'good');
-    }
+    // 서재 발견은 이제 전용 uiMode('library') 에서만 동작 — 수련 종료 시 자동 호출 제거.
     if (currentCharId) ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
     focusActive = false;
     focusState = null;
@@ -934,9 +970,14 @@
       </div>
       <div class="s-block">
         <div class="s-row"><span class="k">💰 골드</span><span class="v">${s.gold.toLocaleString()}</span></div>
-        <div class="s-row"><span class="k">🕒 시간</span><span class="v">D${s.time.day} ${String(s.time.hour).padStart(2,'0')}:00</span></div>
         <div class="s-row"><span class="k">📍 위치</span><span class="v">${LOCATIONS[s.location].name}</span></div>
         <div class="s-row"><span class="k">⏱ 플레이</span><span class="v">${formatPlayTime(s.playTimeSec||0)}</span></div>
+      </div>
+      <div class="s-block">
+        <div class="s-title">📅 달력</div>
+        <div class="s-row"><span class="k">Day ${s.time.day}</span><span class="v">${getDayName(s.time.day)}</span></div>
+        <div class="s-row"><span class="k">${String(s.time.hour).padStart(2,'0')}:00</span><span class="v">${game.timeBandEmoji()} ${game.timeBand()}</span></div>
+        ${renderHuntDay(s.time.day)}
       </div>
       <div class="s-block">
         <div class="s-title">전투 능력치</div>
@@ -1017,7 +1058,7 @@
 
   function mkBtn(label, cb, opts = {}) {
     const b = document.createElement('button');
-    b.textContent = label;
+    b.textContent = opts.hotkey ? `[${opts.hotkey.toUpperCase()}] ${label}` : label;
     if (opts.primary) b.className = 'primary';
     if (opts.danger) b.className = 'danger';
     if (opts.success) b.className = 'success';
@@ -1025,6 +1066,7 @@
     if (opts.mini) b.className = (b.className + ' mini').trim();
     if (opts.disabled) b.disabled = true;
     if (opts.title) b.title = opts.title;
+    if (opts.hotkey) b.dataset.hotkey = String(opts.hotkey).toLowerCase();
     b.onclick = () => {
       if (typeof cb === 'function') cb();
       else if (typeof cb === 'string') game.handleInput(cb);
@@ -1046,8 +1088,9 @@
   }
 
   function render() {
-    // 지역 테마 갱신 (있을 때만)
+    // 지역 테마 + 시간대 틴트 갱신
     if (game.state && game.state.location) applyTheme(game.state.location);
+    applyTimeTint();
     renderSide();
     act.innerHTML = '';
 
@@ -1062,6 +1105,7 @@
     if (uiMode === 'mail')         return renderMail();
     if (uiMode === 'mail_send')    return renderMailSend();
     if (uiMode === 'mypage')       return renderMyPage();
+    if (uiMode === 'library')      return renderLibrary();
 
     // 0) 수련 중 — 최우선 잠금
     if (focusActive) return renderFocusActive();
@@ -1091,6 +1135,7 @@
     if (uiMode === 'pet')      return renderPet();
     if (uiMode === 'jobs')     return renderJobTree();
     if (uiMode === 'inv')      return renderInv();
+    if (uiMode === 'inn')      return renderInn();
     if (uiMode === 'train')    return renderTrain();
 
     // 5) 기본 메뉴
@@ -1685,16 +1730,21 @@
   }
 
   // ─── 전투 ───
+  const TOP_ROW_KEYS = ['q','w','e','r','t','y','u','i','o','p'];
+  const BOTTOM_ROW_KEYS = ['a','s','d','f','g','h','j','k','l'];
+  const NUM_ROW_KEYS = ['1','2','3','4','5','6','7','8','9','0'];
+  const COMBAT_SKILL_KEYS = TOP_ROW_KEYS;
   function renderCombat() {
     const row1 = mkSection('행동:');
-    row1.appendChild(mkBtn('⚔ 공격', 'attack', { primary: true }));
+    let actNum = 1;
+    row1.appendChild(mkBtn('⚔ 공격', 'attack', { primary: true, hotkey: String(actNum++) }));
     if (!game.combat.trialMode) {
-      row1.appendChild(mkBtn('🏃 도주', 'run', { danger: true }));
+      row1.appendChild(mkBtn('🏃 도주', 'run', { danger: true, hotkey: String(actNum++) }));
       // 상인 계열 & 무역품 보유 시: 희생 도주
       const isMerchant = JOBS[game.state.job].line === 'merchant';
       const hasGoods = Object.values(game.state.tradeInv || {}).some(v => v > 0);
       if (isMerchant && hasGoods) {
-        row1.appendChild(mkBtn('💰 희생 도주 (무역품 20% 버리고 +50%)', 'runsac', { danger: true, mini: true, title: '상인 전용: 무역품 20%를 버려 도주 성공률을 대폭 올린다.' }));
+        row1.appendChild(mkBtn('💰 희생 도주 (무역품 20% 버리고 +50%)', 'runsac', { danger: true, mini: true, hotkey: String(actNum++), title: '상인 전용: 무역품 20%를 버려 도주 성공률을 대폭 올린다.' }));
       }
     }
     act.appendChild(row1);
@@ -1702,13 +1752,15 @@
     // 스킬 — 마이페이지에서 비활성화한 스킬은 전투 메뉴에서 숨김.
     const skillRow = mkSection('스킬:');
     let hasSkill = false;
+    let skillIdx = 0;
     game.state.jobs.forEach(jk => JOBS[jk].skills.forEach(sk => {
       if (game.state.skills.includes(sk.id) && isSkillActive(sk.id)) {
         hasSkill = true;
         const mpCost = game.combat.buffs.mag_mastery ? Math.round(sk.mp * 0.5) : sk.mp;
         const can = game.state.mp >= mpCost;
+        const hk = COMBAT_SKILL_KEYS[skillIdx++];
         skillRow.appendChild(mkBtn(`${sk.name}(${mpCost})`, `skill ${sk.id}`,
-          { disabled: !can, title: sk.desc }));
+          { disabled: !can, title: sk.desc, hotkey: hk }));
       }
     }));
     if (hasSkill) act.appendChild(skillRow);
@@ -1716,10 +1768,12 @@
     // 소비 아이템
     const itemRow = mkSection('아이템:');
     let hasItem = false;
+    let itemIdx = 0;
     Object.entries(game.state.inv).forEach(([k, v]) => {
       if (v > 0 && ITEMS[k] && ITEMS[k].type === 'use') {
         hasItem = true;
-        itemRow.appendChild(mkBtn(`${ITEMS[k].name}x${v}`, `use ${k}`, { mini: true }));
+        const hk = BOTTOM_ROW_KEYS[itemIdx++];
+        itemRow.appendChild(mkBtn(`${ITEMS[k].name}x${v}`, `use ${k}`, { mini: true, hotkey: hk }));
       }
     });
     if (hasItem) act.appendChild(itemRow);
@@ -1731,26 +1785,36 @@
 
     // 상태/정보 — 상세 항목들은 마이페이지로 통합. 메인메뉴는 세션 액션만.
     const row1 = mkSection('정보:');
-    row1.appendChild(mkBtn('📋 마이페이지', () => enterMyPage(), { primary: true }));
-    row1.appendChild(mkBtn('시간', 'time', { mini: true }));
-    row1.appendChild(mkBtn('저장', saveGame, { success: true, mini: true }));
-    row1.appendChild(mkBtn('캐릭터 선택', backToSelect, { danger: true, mini: true }));
+    row1.appendChild(mkBtn('📋 마이페이지', () => enterMyPage(), { primary: true, hotkey: '1' }));
+    row1.appendChild(mkBtn('시간', 'time', { mini: true, hotkey: '2' }));
+    row1.appendChild(mkBtn('저장', saveGame, { success: true, mini: true, hotkey: '3' }));
+    row1.appendChild(mkBtn('캐릭터 선택', backToSelect, { danger: true, mini: true, hotkey: '4' }));
     if (game.state.pendingPoints > 0) {
-      row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; render(); }, { gold: true }));
+      row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; render(); }, { gold: true, hotkey: '5' }));
     }
     act.appendChild(row1);
 
     // 주 활동
     const row2 = mkSection('행동:');
-    row2.appendChild(mkBtn('탐험', 'explore', { primary: true }));
+    let actIdx = 0;
+    const nextActKey = () => TOP_ROW_KEYS[actIdx++];
+    row2.appendChild(mkBtn('탐험', 'explore', { primary: true, hotkey: nextActKey() }));
     if (loc.inn || Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location)) {
-      row2.appendChild(mkBtn(Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location) ? '저택 휴식' : '여관', 'rest'));
+      const hasMansion = Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location);
+      row2.appendChild(mkBtn(hasMansion ? '저택 휴식' : '여관', () => enterMode('inn'), { hotkey: nextActKey() }));
     }
-    if (loc.shop) row2.appendChild(mkBtn('상점', () => enterMode('shop', 'shop')));
-    if (TRADE_PRICES[game.state.location]) row2.appendChild(mkBtn('무역', () => enterMode('trade', 'trade')));
+    if (loc.shop) {
+      const open = game.shopOpen();
+      row2.appendChild(mkBtn(open ? '상점' : '상점 (닫힘 🌙)', () => enterMode('shop', 'shop'), { hotkey: nextActKey(), disabled: !open, title: open ? undefined : '밤에는 문이 닫혀 있다' }));
+    }
+    if (TRADE_PRICES[game.state.location]) row2.appendChild(mkBtn('무역', () => enterMode('trade', 'trade'), { hotkey: nextActKey() }));
     // 수련장 (해당 지역에 수련장 있을 때만)
     if (TRAINING_HALLS[game.state.location]) {
-      row2.appendChild(mkBtn('● 수련장', () => enterMode('train'), { primary: true }));
+      row2.appendChild(mkBtn('● 수련장', () => enterMode('train'), { primary: true, hotkey: nextActKey() }));
+    }
+    // 서재 (해당 지역에 서재 정의 있을 때만) — 수련장과는 별개. 스킬북 발견 전용.
+    if (LIBRARIES && LIBRARIES[game.state.location]) {
+      row2.appendChild(mkBtn('📚 서재', () => { uiMode = 'library'; render(); }, { hotkey: nextActKey() }));
     }
     act.appendChild(row2);
 
@@ -1758,6 +1822,7 @@
     if (loc.exits) {
       const row3 = mkSection('이동:');
       const isMerchant = JOBS[game.state.job].line === 'merchant';
+      let moveIdx = 0;
       Object.entries(loc.exits).forEach(([dst, info]) => {
         const h = (typeof info === 'object') ? info.hours : '?';
         const toKey = (typeof info === 'object') ? info.to : info;
@@ -1766,16 +1831,19 @@
         const can = game.state.lv >= effReq;
         let label = `${dst} (${h}h)${effReq ? ` Lv${effReq}+` : ''}`;
         if (isMerchant && rawReq && effReq < rawReq) label += ' 🎫';
-        row3.appendChild(mkBtn(label, `go ${dst}`, { disabled: !can, title: isMerchant && rawReq ? `상인 완화 (원래 Lv.${rawReq}, -4)` : undefined }));
+        const hk = BOTTOM_ROW_KEYS[moveIdx++];
+        row3.appendChild(mkBtn(label, `go ${dst}`, { disabled: !can, hotkey: hk, title: isMerchant && rawReq ? `상인 완화 (원래 Lv.${rawReq}, -4)` : undefined }));
       });
       act.appendChild(row3);
     }
 
-    // NPC 대화
-    if (loc.npcs && loc.npcs.length) {
+    // NPC 대화 (시간대별 출현)
+    const presentNpcs = game.locationNpcs();
+    if (presentNpcs.length) {
       const row4 = mkSection('대화:');
-      loc.npcs.forEach(npc => {
-        row4.appendChild(mkBtn(`💬 ${npc}`, () => enterMode('npc', `talk ${npc}`, { npc }), { mini: true }));
+      presentNpcs.forEach(npc => {
+        const label = npc === '암거래상' ? `🗝 ${npc}` : `💬 ${npc}`;
+        row4.appendChild(mkBtn(label, () => enterMode('npc', `talk ${npc}`, { npc }), { mini: true }));
       });
       act.appendChild(row4);
     }
@@ -2154,20 +2222,55 @@
       act.appendChild(r);
       return;
     }
+    // 타입별 정렬 (main → chain_step → sub → repeat)
+    const order = { main: 0, chain_step: 1, sub: 2, repeat: 3 };
+    qs.sort((a, b) => {
+      const ta = (QUESTS[a[0]] && QUESTS[a[0]].type) || 'sub';
+      const tb = (QUESTS[b[0]] && QUESTS[b[0]].type) || 'sub';
+      return (order[ta] ?? 9) - (order[tb] ?? 9);
+    });
+    const today = s.time.day;
     qs.forEach(([id, q]) => {
       const info = QUESTS[id];
       if (!info) return;
+      const typeMark = { main: '★', chain_step: '▸', sub: '•', repeat: '↻' }[info.type || 'sub'] || '•';
+      const typeColor = { main: '#e5c24c', chain_step: '#7ec7ff', sub: '#b4b4b4', repeat: '#8fd88f' }[info.type || 'sub'] || '#b4b4b4';
+      let statusHtml, statusColor = '#858585';
+      let canComplete = false, canReaccept = false;
+      if (q.failed) { statusHtml = '❌ 실패'; statusColor = '#d48a8a'; }
+      else if (q.done) {
+        if (info.type === 'repeat') {
+          const cd = (info.cooldown && info.cooldown.days) || 1;
+          const ready = (q.completedDay || 0) + cd;
+          if (today >= ready) { statusHtml = '↻ 재수주 가능'; statusColor = '#8fd88f'; canReaccept = true; }
+          else { statusHtml = `✓ 쿨다운 ${ready - today}일`; }
+        } else { statusHtml = '<span style="color:#7ec77e;">✓ 완료</span>'; }
+      } else {
+        statusHtml = `진행 ${q.progress}/${info.target.count}`;
+        if (q.expireDay) statusHtml += ` · ⏳${Math.max(0, q.expireDay - today)}일`;
+        if (info.timeBand) statusHtml += ` · 🕓${info.timeBand.join('/')}`;
+        if (q.progress >= info.target.count) { canComplete = true; statusColor = '#e5c24c'; }
+      }
       const row = mkSection();
       const d = document.createElement('div');
-      d.style.cssText = 'width:100%;color:#cccccc;font-size:12px;line-height:1.7;';
-      const status = q.done ? '<span style="color:#7ec77e;">✓ 완료</span>' : `진행 ${q.progress}/${info.target.count}`;
+      d.style.cssText = `width:100%;padding:4px 8px;border-left:2px solid ${typeColor};color:#cccccc;font-size:12px;line-height:1.7;`;
+      const goldNet = Math.round((info.reward?.gold || 0) * 0.70); // Stage E 적용 후 실수령
       d.innerHTML = `
-        <div><b>${escHtml(info.name)}</b> — ${status}</div>
+        <div style="display:flex;justify-content:space-between;gap:8px;">
+          <b style="color:${typeColor};">${typeMark} ${escHtml(info.name)}</b>
+          <span style="color:${statusColor};font-size:11px;">${statusHtml}</span>
+        </div>
         <div style="color:#858585;font-size:11px;">${escHtml(info.desc || '')}</div>
-        ${info.reward ? `<div style="color:#a0a0a0;font-size:11px;">보상: ${info.reward.gold || 0}G · ${info.reward.exp || 0} XP</div>` : ''}
+        ${info.reward ? `<div style="color:#a0a0a0;font-size:11px;">보상: ${goldNet}G · ${info.reward.exp || 0} XP${info.reward.item ? ' + ' + escHtml((ITEMS[info.reward.item]&&ITEMS[info.reward.item].name) || '?') : ''}</div>` : ''}
       `;
       row.appendChild(d);
       act.appendChild(row);
+      if (canComplete || canReaccept) {
+        const btnRow = mkSection();
+        if (canComplete) btnRow.appendChild(mkBtn('✅ 완료 제출', `complete ${id}`, { success: true, mini: true }));
+        if (canReaccept) btnRow.appendChild(mkBtn('↻ 재수주', `accept ${id}`, { primary: true, mini: true }));
+        act.appendChild(btnRow);
+      }
     });
   }
 
@@ -2374,6 +2477,40 @@
   function renderNpc() {
     const npc = uiCtx.npc;
     if (!npc) { uiMode = 'main'; uiCtx = {}; render(); return; }
+
+    // B1/B4: 대화 트리 진행 중이면 선택지 렌더
+    const dialog = game.state.dialog;
+    if (dialog && dialog.npc === npc && NPC_DIALOG && NPC_DIALOG[npc]) {
+      const tree = NPC_DIALOG[npc];
+      const node = tree[dialog.node] || tree.root;
+      const opts = (node.options || []).filter(o => !o.race || game.state.race === o.race);
+      const row = mkSection('💬 선택:');
+      let idx = 1;
+      opts.forEach(opt => {
+        const hk = idx < 10 ? String(idx++) : undefined;
+        const cb = () => {
+          if (opt.action === 'accept' && opt.qid) {
+            game.handleInput(`accept ${opt.qid}`);
+            game.exitDialog();
+            uiMode = 'main';
+          } else if (opt.action === 'shop') {
+            game.exitDialog();
+            enterMode('shop', 'shop');
+            return;
+          } else if (opt.next) {
+            game.advanceDialog(opt.next);
+          }
+        };
+        row.appendChild(mkBtn(opt.text, cb, { hotkey: hk }));
+      });
+      // 노드 복귀 + 종료
+      if (dialog.node !== 'root') {
+        row.appendChild(mkBtn('↩ 돌아가기', () => game.advanceDialog('root'), { mini: true }));
+      }
+      row.appendChild(mkBtn('✖ 대화 종료', () => { game.exitDialog(); uiMode = 'main'; }, { mini: true, danger: true }));
+      act.appendChild(row);
+    }
+
     const curJob = game.state.job;
     // 전직 버튼
     const advances = Object.entries(ADVANCE_NPC).filter(([,v]) => v.loc === game.state.location && v.npc === npc);
@@ -2547,6 +2684,194 @@
     act.appendChild(backBtn());
   }
 
+  function renderQuests() {
+    const qs = Object.entries(game.state.quests || {});
+    const header = mkSection('📜 수락한 퀘스트');
+    act.appendChild(header);
+    if (qs.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'color:#888;padding:6px 10px;font-size:12px;';
+      empty.textContent = '수락한 퀘스트가 없다. NPC와 대화해 퀘스트를 받아라.';
+      act.appendChild(empty);
+    } else {
+      const order = { main: 0, chain_step: 1, sub: 2, repeat: 3 };
+      qs.sort((a, b) => {
+        const ta = (QUESTS[a[0]] && QUESTS[a[0]].type) || 'sub';
+        const tb = (QUESTS[b[0]] && QUESTS[b[0]].type) || 'sub';
+        return (order[ta] ?? 9) - (order[tb] ?? 9);
+      });
+      const today = game.state.time.day;
+      qs.forEach(([qid, st]) => {
+        const info = QUESTS[qid]; if (!info) return;
+        const typeMark = { main: '★', chain_step: '▸', sub: '•', repeat: '↻' }[info.type || 'sub'] || '•';
+        const typeColor = { main: '#e5c24c', chain_step: '#7ec7ff', sub: '#b4b4b4', repeat: '#8fd88f' }[info.type || 'sub'] || '#b4b4b4';
+        let statusText, statusColor = '#888';
+        let canComplete = false, canReaccept = false;
+        if (st.failed) { statusText = '❌ 실패'; statusColor = '#d48a8a'; }
+        else if (st.done) {
+          if (info.type === 'repeat') {
+            const cd = (info.cooldown && info.cooldown.days) || 1;
+            const ready = (st.completedDay || 0) + cd;
+            const daysLeft = ready - today;
+            if (daysLeft > 0) { statusText = `✓ 완료 · 쿨다운 ${daysLeft}일`; statusColor = '#888'; }
+            else { statusText = '↻ 재수주 가능'; statusColor = '#8fd88f'; canReaccept = true; }
+          } else { statusText = '✓ 완료'; statusColor = '#8fd88f'; }
+        } else {
+          const prog = `${st.progress}/${info.target.count}`;
+          const extras = [];
+          if (st.expireDay) extras.push(`⏳${Math.max(0, st.expireDay - today)}일`);
+          if (info.timeBand) extras.push(`🕓${info.timeBand.join('/')}`);
+          statusText = prog + (extras.length ? ' · ' + extras.join(' · ') : '');
+          if (st.progress >= info.target.count) { statusColor = '#e5c24c'; canComplete = true; }
+        }
+        const card = document.createElement('div');
+        card.style.cssText = 'padding:6px 10px;margin:2px 0;border-left:2px solid ' + typeColor + ';background:#2a2a2a;';
+        card.innerHTML =
+          `<div style="display:flex;justify-content:space-between;align-items:center;">` +
+            `<span style="color:${typeColor};font-weight:bold;">${typeMark} [${qid}] ${info.name}</span>` +
+            `<span style="color:${statusColor};font-size:11px;">${statusText}</span>` +
+          `</div>` +
+          `<div style="color:#888;font-size:11px;margin-top:2px;">${info.desc}</div>`;
+        act.appendChild(card);
+        if (canComplete || canReaccept) {
+          const btnRow = mkSection();
+          if (canComplete) btnRow.appendChild(mkBtn('✅ 완료 제출', `complete ${qid}`, { success: true, mini: true }));
+          if (canReaccept) btnRow.appendChild(mkBtn('↻ 재수주', `accept ${qid}`, { primary: true, mini: true }));
+          act.appendChild(btnRow);
+        }
+      });
+    }
+    act.appendChild(backBtn());
+  }
+
+  function renderInn() {
+    const s = game.state;
+    const loc = LOCATIONS[s.location];
+    const hasMansion = Object.keys(s.properties||{}).some(k => PROPERTIES[k].loc === s.location);
+    const placeName = hasMansion
+      ? PROPERTIES[Object.keys(s.properties).find(k => PROPERTIES[k].loc === s.location)].name
+      : (loc.inn ? `${loc.name} 여관` : '쉴 곳 없음');
+    const head = mkSection(`🛏 ${placeName}`);
+    act.appendChild(head);
+    const h = s.time.hour;
+    const untilDawn = h < 5 ? (5 - h) : (24 - h + 5);
+    const baseCost = 20 + s.lv * 5;
+    const cost1 = hasMansion ? 0 : Math.max(5, Math.round(baseCost / 8));
+    const cost8 = hasMansion ? 0 : baseCost;
+    const costDawn = hasMansion ? 0 : Math.max(5, Math.round(baseCost * untilDawn / 8));
+    const row = mkSection('선택:');
+    const doRest = (cmd) => { game.handleInput(cmd); uiMode = 'main'; };
+    row.appendChild(mkBtn(`1시간 선잠 (HP/MP +20% · ${cost1}G)`, () => doRest('rest 1'), { mini: true, hotkey: '1' }));
+    row.appendChild(mkBtn(`8시간 휴식 (완전회복 · ${cost8}G)`, () => doRest('rest'), { primary: true, hotkey: '2' }));
+    row.appendChild(mkBtn(`새벽까지 휴식 (${untilDawn}시간 · ${costDawn}G)`, () => doRest('rest dawn'), { mini: true, hotkey: '3' }));
+    act.appendChild(row);
+    act.appendChild(backBtn());
+  }
+
+  // ─── 서재 (스킬북 발견 전용) ─────────────────────
+  // 수련장과 분리: 수련 = XP, 서재 = 스킬북. 각 세션에 게임 시간 2시간 + 골드 100G 소비.
+  function renderLibrary() {
+    const lib = LIBRARIES && LIBRARIES[game.state.location];
+    if (!lib) {
+      const r = mkSection();
+      const d = document.createElement('span');
+      d.style.color = '#858585';
+      d.textContent = '이 지역엔 서재가 없다.';
+      r.appendChild(d);
+      act.appendChild(r);
+      // 서재 위치 안내
+      const r2 = mkSection('서재 위치:');
+      const list = document.createElement('div');
+      list.style.cssText = 'color:#b4b4b4;font-size:12px;line-height:1.8;width:100%;';
+      Object.entries(LIBRARIES).forEach(([k, h]) => {
+        list.innerHTML += `<div>• ${escHtml(LOCATIONS[k] ? LOCATIONS[k].name : k)} — ${escHtml(h.name)}</div>`;
+      });
+      r2.appendChild(list);
+      act.appendChild(r2);
+      act.appendChild(backBtn());
+      return;
+    }
+    // 시간 게이트 — 밤엔 닫혀있음 (NPC 대화 시간 규칙과 동일 감성)
+    const band = typeof game.getTimeBand === 'function' ? game.getTimeBand() : '낮';
+    const openBands = ['새벽', '낮', '황혼'];
+    const libOpen = openBands.includes(band);
+
+    const intro = mkSection();
+    const i = document.createElement('div');
+    i.style.cssText = 'color:#cccccc;line-height:1.7;width:100%;';
+    const grades = Object.entries(lib.pool).map(([g, w]) => {
+      const gr = SKILL_GRADES[g] || { name: g, color: '#fff' };
+      return `<span style="color:${gr.color};">${escHtml(gr.name)}</span>`;
+    }).join(' / ');
+    i.innerHTML = `<b>📚 ${escHtml(lib.name)}</b> · 발견율 ${(lib.chancePerSession*100).toFixed(0)}% · 등급 ${grades}
+      <br><span style="color:#858585;font-size:11.5px;">${escHtml(lib.desc)}</span>
+      ${lib.titleBonus ? `<br><span style="color:#f4c96b;font-size:11px;">✦ 작위 보유 시 발견율 ×${lib.titleBonus}</span>` : ''}
+      ${!libOpen ? `<br><span style="color:#cc6666;font-size:11px;">🌙 밤에는 닫혀있다. 다음 낮을 기다려라.</span>` : ''}`;
+    intro.appendChild(i);
+    act.appendChild(intro);
+
+    // 세션 비용/조건
+    const COST_GOLD = 100;
+    const COST_HOURS = 2;
+    const cost = mkSection();
+    const cd = document.createElement('div');
+    cd.style.cssText = 'color:#a0a0a0;font-size:12px;width:100%;line-height:1.6;';
+    cd.innerHTML = `책을 뒤적이며 시간을 보낸다 — 비용 <b>${COST_GOLD}G</b> · 게임 시간 <b>${COST_HOURS}시간</b>`;
+    cost.appendChild(cd);
+    act.appendChild(cost);
+
+    const btnRow = mkSection();
+    const canPay = game.state.gold >= COST_GOLD;
+    btnRow.appendChild(mkBtn(libOpen ? '📖 책을 찾아본다' : '🌙 닫혀있음', () => {
+      if (!canPay) { print(`골드 ${COST_GOLD}G 이 필요하다.`, 'warn'); return; }
+      if (!libOpen) { print('서재는 밤에 닫혀있다.', 'warn'); return; }
+      game.state.gold -= COST_GOLD;
+      game.advanceTime(COST_HOURS);
+      const found = tryLibraryDiscovery();
+      if (found) {
+        const grade = SKILL_GRADES[found.book.grade] || { name: '?', color: '#fff' };
+        print(`📚 [${grade.name}] 「${escHtml(found.book.name)}」 을 발견! 인벤에서 사용해 스킬을 습득하라.`, 'good');
+      } else {
+        print('이번엔 별 수확이 없다. 다시 시도해볼 수 있다.', 'dim');
+      }
+      render();
+    }, { primary: libOpen && canPay, disabled: !libOpen || !canPay }));
+    btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'main'; render(); }, { danger: true }));
+    act.appendChild(btnRow);
+
+    // 오늘 이 도시의 책 카탈로그 미리보기 (미습득 중 랜덤 5개)
+    const preview = mkSection('발견 가능한 책 예시:');
+    const candidates = [];
+    const myLine = JOBS[game.state.job].line;
+    for (const jk of Object.keys(JOBS)) {
+      const job = JOBS[jk];
+      if (lib.favorLines && !lib.favorLines.includes(job.line)) continue;
+      for (const sk of (job.skills || [])) {
+        const g = sk.grade || getSkillGrade(sk);
+        if (!lib.pool[g]) continue;
+        if (game.state.skills.includes(sk.id)) continue;
+        if ((game.state.inv['book_' + sk.id] || 0) > 0) continue;
+        candidates.push({ sk, grade: g });
+      }
+    }
+    const sample = candidates.slice(0, 5);
+    if (sample.length) {
+      const listEl = document.createElement('div');
+      listEl.style.cssText = 'color:#a0a0a0;font-size:11px;line-height:1.7;width:100%;';
+      sample.forEach(({ sk, grade }) => {
+        const gr = SKILL_GRADES[grade] || { name: grade, color: '#fff' };
+        listEl.innerHTML += `<div><span style="color:${gr.color};font-size:10.5px;">[${escHtml(gr.name)}]</span> ${escHtml(sk.name)} <span style="color:#666;">— ${escHtml(sk.desc || '')}</span></div>`;
+      });
+      preview.appendChild(listEl);
+    } else {
+      const empty = document.createElement('span');
+      empty.style.color = '#858585';
+      empty.textContent = '이 서재의 책을 이미 다 알고 있거나 적합한 후보가 없다.';
+      preview.appendChild(empty);
+    }
+    act.appendChild(preview);
+  }
+
   function renderTrain() {
     // 현재 지역이 수련장인지 확인
     const hall = TRAINING_HALLS[game.state.location];
@@ -2587,18 +2912,12 @@
     notice.appendChild(n);
     act.appendChild(notice);
 
-    // 이 도시에 서재가 있으면 안내 — 수련 종료 시 스킬북 발견 가능.
-    const lib = LIBRARIES && LIBRARIES[game.state.location];
-    if (lib) {
+    // 서재 안내 — 수련장과 분리됐으므로 메인메뉴의 [📚 서재] 버튼 힌트만.
+    if (LIBRARIES && LIBRARIES[game.state.location]) {
       const libRow = mkSection();
       const ld = document.createElement('div');
-      ld.style.cssText = 'width:100%;color:#7ec7ff;font-size:11.5px;line-height:1.6;';
-      const grades = Object.entries(lib.pool).map(([g, w]) => {
-        const gr = SKILL_GRADES[g] || { name: g, color: '#fff' };
-        return `<span style="color:${gr.color};">${escHtml(gr.name)}</span>`;
-      }).join(' / ');
-      ld.innerHTML = `📚 <b>${escHtml(lib.name)}</b> · 발견율 ${(lib.chancePerSession*100).toFixed(0)}% · 등급: ${grades}<br>
-        <span style="color:#858585;font-size:11px;">${escHtml(lib.desc)}</span>`;
+      ld.style.cssText = 'width:100%;color:#858585;font-size:11px;line-height:1.6;';
+      ld.innerHTML = `📚 이 지역엔 별도 <b>서재</b> 가 있다 — 메인메뉴의 [📚 서재] 에서 스킬북을 찾을 수 있다.`;
       libRow.appendChild(ld);
       act.appendChild(libRow);
     }
@@ -2741,6 +3060,19 @@
   setDisguise(true);
   ipcRenderer.on('toggle-disguise', () => setDisguise(!disguised));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setDisguise(true); });
+
+  // ═══════ 단축키 (전투·메인·이동) ═══════
+  document.addEventListener('keydown', (e) => {
+    if (disguised) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const key = e.key.toLowerCase();
+    const btn = act.querySelector(`button[data-hotkey="${key}"]:not([disabled])`);
+    if (!btn) return;
+    e.preventDefault();
+    btn.click();
+  });
 
   // ═══════ 위장 테마 — 4종 순환 (Ctrl+Shift+T) ═══════
   const DISGUISE_THEMES = ['sysmon', 'excel', 'terminal', 'kakao'];

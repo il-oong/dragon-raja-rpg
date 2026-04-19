@@ -1,10 +1,41 @@
 const __DATA__ = (typeof require === 'function')
   ? require('./data.js')
   : (typeof window !== 'undefined' ? window.__GAME_DATA__ : globalThis.__GAME_DATA__);
-const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS,
+const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS,
         learnSkill, findSkillById, LIBRARIES, SKILL_GRADES } = __DATA__;
 // 별칭 — cUse 등 메서드 내부에서 짧게 호출.
 const findSkillByIdLocal = findSkillById;
+
+// ═══════ 시간 한정 보스 (C3) ═══════
+// bands: 등장 시간대 · dayMod: day가 N의 배수일 때만 · cooldownDays: 처치 후 N일 재등장 불가 · rate: 조건 일치 시 조우 확률
+const TIMED_BOSSES = {
+  moonlight_wolf_king: {
+    name: '달빛 늑대왕', locations: ['dragon_mt'], bands: ['밤'], dayMod: 3,
+    cooldownDays: 3, rate: 0.30,
+    entry: ['달 아래에서 짙은 그림자가 일어섰다.', '⚔ 달빛 늑대왕이 모습을 드러냈다!'],
+    exit:  ['달빛 늑대왕이 안개 속으로 사라졌다.'],
+  },
+  dawn_firebird: {
+    name: '여명의 불새', locations: ['dragon_mt'], bands: ['새벽'],
+    cooldownDays: 0, rate: 0.25,
+    entry: ['동녘 하늘이 불붙듯 타오른다.', '🔥 여명의 불새가 날아올랐다!'],
+    exit:  ['불새가 태양 너머로 사라졌다.'],
+  },
+  midnight_lich: {
+    name: '자정의 리치', locations: ['ruined_cathedral'], bands: ['밤'],
+    cooldownDays: 7, rate: 0.40,
+    entry: ['제단에서 푸른 불꽃이 피어올랐다.', '💀 자정의 리치가 봉인을 풀었다!'],
+    exit:  ['리치가 재가 되어 흩어졌다.'],
+  },
+};
+
+// 탐험 시간대 플레이버 (E2)
+const EXPLORE_FLAVORS = {
+  '새벽': ['새들의 지저귐이 안개를 가른다.', '이슬을 밟으며 길을 걷는다.', '동녘에 여명이 퍼진다.', '멀리서 방울소리가 들린다.'],
+  '낮':   ['햇살이 등을 데운다.', '먼 지평선에 구름이 솟는다.', '바람이 기분좋다.', '발아래 꽃잎이 부서진다.'],
+  '황혼': ['석양이 산등성이를 붉게 물들인다.', '마지막 햇살이 사라진다.', '저녁 종이 멀리서 울린다.', '그림자가 길어진다.'],
+  '밤':   ['달빛이 길을 비춘다.', '부엉이 울음이 들린다.', '차가운 바람이 뺨을 스친다.', '어둠 속에서 무언가가 움직였다.', '별이 유난히 밝다.'],
+};
 
 const rnd = (n) => Math.floor(Math.random() * n);
 const chance = (p) => Math.random() < p;
@@ -114,6 +145,8 @@ class Game {
       skills: [],
       skillsDeactivated: [],
       quests: {}, killCount: {}, flags: {},
+      activeHunt: null,        // 주간 사냥감 { monster, locationKey, day }
+      bossCooldowns: {},       // 시간한정 보스 { bossKey: nextAvailableDay }
       buffsPersistent: {},
       time: { day: 1, hour: 6 },
       completedTrials: {},
@@ -250,6 +283,7 @@ class Game {
     if (this.state.title === 'duke') d += 0.10;
     d += this.racePassive().shop_disc || 0;
     d += this.tradeBonus().shopDisc || 0;
+    d += ((this.state.flags && this.state.flags.bondDiscount) || 0) / 100;
     return Math.min(0.75, d);
   }
 
@@ -269,10 +303,30 @@ class Game {
   }
 
   // ════════════════ 시간 ════════════════
+  // 시간대: 새벽(05~06), 낮(07~17), 황혼(18~19), 밤(20~04)
+  timeBand(hour) {
+    const h = (hour === undefined) ? this.state.time.hour : hour;
+    if (h >= 5 && h < 7)  return '새벽';
+    if (h >= 7 && h < 18) return '낮';
+    if (h >= 18 && h < 20) return '황혼';
+    return '밤';
+  }
+  timeBandEmoji(band) {
+    return { '새벽':'🌅', '낮':'☀️', '황혼':'🌆', '밤':'🌙' }[band || this.timeBand()] || '';
+  }
   advanceTime(hours) {
     const t = this.state.time;
+    const prevBand = this.timeBand();
+    const prevDay = t.day;
     t.hour += hours;
     while (t.hour >= 24) { t.hour -= 24; t.day++; }
+    const newBand = this.timeBand();
+    if (newBand !== prevBand) {
+      this.out(`  ${this.timeBandEmoji(newBand)} ${newBand}이 되었다. (${this.timeStr()})`);
+      // 밤에서 벗어나면 암시장 접근은 사라진다
+      if (prevBand === '밤' && this.state.flags) this.state.flags.black_market = false;
+    }
+    if (t.day !== prevDay) this.checkQuestExpiry();
   }
   timeStr() {
     const t = this.state.time;
@@ -280,6 +334,37 @@ class Game {
     return `Day ${t.day}, ${hh}:00`;
   }
   isNight() { const h = this.state.time.hour; return h < 6 || h >= 20; }
+
+  // ─── 시간대 기반 헬퍼 (A4/C1) ───
+  // 현재 시간대에 출현 중인 NPC 이름 목록. 구 배열 포맷(항상 출현)도 지원.
+  locationNpcs(locKey, band) {
+    const loc = LOCATIONS[locKey || this.state.location]; if (!loc || !loc.npcs) return [];
+    if (Array.isArray(loc.npcs)) return loc.npcs;
+    const b = band || this.timeBand();
+    return Object.entries(loc.npcs)
+      .filter(([, meta]) => !meta || !meta.band || meta.band.includes(b))
+      .map(([n]) => n);
+  }
+  // 현재 시간대 조우 풀. 밴드별 정의가 있으면 우선, 없으면 기본 encounters fallback.
+  locationEncounters(locKey, band) {
+    const loc = LOCATIONS[locKey || this.state.location]; if (!loc) return [];
+    const b = band || this.timeBand();
+    const byBand = loc.encountersByBand;
+    if (byBand && byBand[b] && byBand[b].length) return byBand[b];
+    return loc.encounters || [];
+  }
+  // 조우율: 밤엔 +30% (최대 1.0)
+  locationEncounterRate(locKey, band) {
+    const loc = LOCATIONS[locKey || this.state.location]; if (!loc) return 0;
+    const base = loc.encounterRate || 0;
+    const b = band || this.timeBand();
+    return b === '밤' ? Math.min(1, base * 1.3) : base;
+  }
+  // 시간대 기반 상점 영업: black_market 플래그가 있으면 밤에도 개장
+  shopOpen() {
+    if (this.state.flags && this.state.flags.black_market) return true;
+    return ['낮','황혼'].includes(this.timeBand());
+  }
 
   // ════════════════ 명령 처리 ════════════════
   runCommand(raw) {
@@ -294,7 +379,7 @@ class Game {
       'skills': () => this.showSkills(),
       'quests': () => this.showQuests(), 'q': () => this.showQuests(),
       'jobs': () => this.showJobTree(),
-      'time': () => this.out(`\n${this.timeStr()} (${this.isNight() ? '밤' : '낮'})`),
+      'time': () => this.out(`\n${this.timeStr()} ${this.timeBandEmoji()} ${this.timeBand()}`),
       'go': () => this.travel(arg), 'move': () => this.travel(arg),
       'explore': () => this.explore(), 'e': () => this.explore(),
       'talk': () => this.talk(arg),
@@ -302,7 +387,7 @@ class Game {
       'buy': () => this.buy(arg), 'sell': () => this.sell(arg),
       'use': () => this.useItem(arg),
       'equip': () => this.equip(arg), 'unequip': () => this.unequip(arg),
-      'rest': () => this.rest(), 'inn': () => this.rest(),
+      'rest': () => this.rest(arg), 'inn': () => this.rest(arg),
       'accept': () => this.acceptQuest(arg), 'complete': () => this.completeQuest(arg),
       'allocate': () => this.allocate(arg), 'alloc': () => this.allocate(arg),
       'advance': () => this.advance(arg),
@@ -602,12 +687,32 @@ class Game {
   showQuests() {
     this.out('\n[퀘스트]');
     const qs = Object.entries(this.state.quests);
-    if (qs.length === 0) this.out('  (없음)');
+    if (qs.length === 0) { this.out('  (없음)'); return; }
+    const today = this.state.time.day;
+    const order = { main: 0, chain_step: 1, sub: 2, repeat: 3 };
+    qs.sort((a, b) => {
+      const ta = (QUESTS[a[0]] && QUESTS[a[0]].type) || 'sub';
+      const tb = (QUESTS[b[0]] && QUESTS[b[0]].type) || 'sub';
+      return (order[ta] ?? 9) - (order[tb] ?? 9);
+    });
     qs.forEach(([id, q]) => {
-      const info = QUESTS[id];
-      const status = q.done ? '✓ 완료' : `진행 ${q.progress}/${info.target.count}`;
-      this.out(`  ${id} [${info.name}] — ${status}`);
-      if (!q.done) this.out(`     ${info.desc}`);
+      const info = QUESTS[id]; if (!info) return;
+      const typeMark = { main: '★', chain_step: '▸', sub: '•', repeat: '↻' }[info.type || 'sub'] || '•';
+      let status;
+      if (q.failed) status = '❌ 실패';
+      else if (q.done) {
+        if (info.type === 'repeat') {
+          const cd = (info.cooldown && info.cooldown.days) || 1;
+          const ready = (q.completedDay || 0) + cd;
+          status = today >= ready ? '↻ 재수주 가능' : `✓ 쿨다운 D${ready - today}일`;
+        } else status = '✓ 완료';
+      } else {
+        status = `진행 ${q.progress}/${info.target.count}`;
+        if (q.expireDay) status += ` · ⏳D${Math.max(0, q.expireDay - today)}`;
+        if (info.timeBand) status += ` · 🕓${info.timeBand.join('/')}`;
+      }
+      this.out(`  ${typeMark} ${id.padEnd(4)} ${info.name.padEnd(18)} — ${status}`);
+      if (!q.done && !q.failed) this.out(`       ${info.desc}`);
     });
   }
 
@@ -633,10 +738,11 @@ class Game {
   // ════════════════ 이동 ════════════════
   lookAround() {
     const loc = LOCATIONS[this.state.location];
-    this.out(`\n━━ ${loc.name} ━━ [${this.timeStr()}]`);
+    this.out(`\n━━ ${loc.name} ━━ [${this.timeStr()} ${this.timeBandEmoji()} ${this.timeBand()}]`);
     this.out(loc.desc);
-    if (loc.npcs) this.out(`  NPC: ${loc.npcs.join(', ')}`);
-    if (loc.shop) this.out('  [🛒 상점 — shop]');
+    const npcs = this.locationNpcs();
+    if (npcs.length) this.out(`  NPC: ${npcs.join(', ')}`);
+    if (loc.shop) this.out(this.shopOpen() ? '  [🛒 상점 — shop]' : '  [🛒 상점 — 밤에는 닫혀 있다]');
     if (loc.inn)  this.out('  [🛏 여관 — rest]');
     if (TRADE_PRICES[this.state.location]) this.out('  [📦 무역 거래소 — trade]');
     if (loc.boss) this.out(`  [☠ ${MONSTERS[loc.boss].name}]`);
@@ -692,7 +798,7 @@ class Game {
       // 인카운트 굴림 (상인 캐러밴 스킬로 감소 가능)
       const encRate = 0.20 * (1 - this.tradeBonus().safeTravel);
       if (chance(encRate)) {
-        const pool = (loc.encounters || []).concat(next.encounters || []);
+        const pool = this.locationEncounters(this.state.location).concat(this.locationEncounters(toKey));
         if (pool.length) {
           const roll = Math.random();
           let num, elite = false;
@@ -714,6 +820,13 @@ class Game {
     }
     this.state.location = toKey;
     this.out(`[${this.timeStr()}] ${next.name} 도착.`);
+    // C2: 지역을 벗어나면 사냥감 추적을 잃는다
+    if (this.state.activeHunt && this.state.activeHunt.locationKey !== toKey && !this.state.activeHunt.slain) {
+      this.out(`  🌑 사냥감의 흔적을 놓쳤다.`, 'dim');
+      this.state.activeHunt = null;
+    }
+    // 지역을 옮기면 암시장 개방도 사라진다
+    if (this.state.flags && this.state.flags.black_market) this.state.flags.black_market = false;
     this.lookAround();
   }
 
@@ -731,8 +844,32 @@ class Game {
       return;
     }
     this.advanceTime(1);
-    if (!loc.encounters || !loc.encounters.length) { this.out('적이 없다.'); return; }
-    if (chance(loc.encounterRate || 0.4)) {
+    // C3: 시간한정 보스 체크 (advanceTime 후 시간대 기준)
+    const timed = this.checkTimedBoss();
+    if (timed) {
+      this.out('');
+      this.out('═══════════════════════════');
+      (timed.meta.entry || []).forEach(line => this.out('  ' + line, 'warn'));
+      this.out('═══════════════════════════', 'warn');
+      this.state.flags._timed_boss_active = timed.key;
+      this.startCombat([timed.key]);
+      return;
+    }
+    // C2: 사냥의 날 — 현재 지역에 엘리트 사냥감이 숨어있다면 강제 조우
+    const pool = this.locationEncounters();
+    if (!pool.length) { this.out(this.pickExploreFlavor(true)); return; }
+    if (this.state.time.day % 7 === 0) this.ensureActiveHunt(pool);
+    if (this.state.activeHunt && this.state.activeHunt.locationKey === this.state.location
+        && !this.state.activeHunt.slain) {
+      const mkey = this.state.activeHunt.monster;
+      this.out('');
+      this.out('⚠⚠⚠  사냥의 날 — 엘리트 개체의 기운이 짙다.', 'warn');
+      this.out(`  어둠 속에서 ${MONSTERS[mkey].name}의 눈이 번뜩인다.`, 'warn');
+      this.startCombat([mkey], false, { elite: true });
+      return;
+    }
+    const rate = this.locationEncounterRate();
+    if (chance(rate || 0.4)) {
       // 조우 롤: 1마리(60%) · 2마리(25%) · 3마리(10%) · 무리 4-6마리(4%) · 엘리트(1%)
       const roll = Math.random();
       let num, elite = false, swarm = false;
@@ -742,7 +879,7 @@ class Game {
       else if (roll < 0.40)  { num = 2; }
       else                   { num = 1; }
       const foes = [];
-      for (let i = 0; i < num; i++) foes.push(loc.encounters[rnd(loc.encounters.length)]);
+      for (let i = 0; i < num; i++) foes.push(pool[rnd(pool.length)]);
       if (elite) {
         this.out(`\n⚠ 엘리트 조우! ${MONSTERS[foes[0]].name}의 강화된 개체가 나타났다!`, 'warn');
       } else if (swarm) {
@@ -754,8 +891,39 @@ class Game {
       this.startCombat(foes, false, { elite });
     } else {
       if (chance(0.3)) { const g = 5 + rnd(20); this.state.gold += g; this.out(`동전 ${g}G.`); }
-      else this.out('별일 없다.');
+      else this.out(this.pickExploreFlavor());
     }
+  }
+
+  // ═══════ 탐험 플레이버 (E2) · 시간한정 보스 (C3) · 주간 엘리트 (C2) ═══════
+  pickExploreFlavor(emptyPool) {
+    const band = this.timeBand();
+    const pool = EXPLORE_FLAVORS[band] || EXPLORE_FLAVORS['낮'];
+    const txt = pool[rnd(pool.length)];
+    return emptyPool ? `  ${txt} (이곳엔 적이 없다)` : `  ${txt}`;
+  }
+  checkTimedBoss() {
+    for (const [key, meta] of Object.entries(TIMED_BOSSES)) {
+      if (!meta.locations.includes(this.state.location)) continue;
+      if (meta.bands && !meta.bands.includes(this.timeBand())) continue;
+      if (meta.dayMod && (this.state.time.day % meta.dayMod !== 0)) continue;
+      const cd = (this.state.bossCooldowns && this.state.bossCooldowns[key]) || 0;
+      if (this.state.time.day < cd) continue;
+      if (Math.random() < (meta.rate || 0.2)) return { key, meta };
+    }
+    return null;
+  }
+  ensureActiveHunt(pool) {
+    const ah = this.state.activeHunt;
+    if (ah && ah.day === this.state.time.day && ah.locationKey === this.state.location && !ah.slain) return;
+    // 동일 day·지역이 아니면 새로 생성
+    if (ah && ah.day !== this.state.time.day) this.state.activeHunt = null;
+    if (this.state.activeHunt && this.state.activeHunt.locationKey === this.state.location) return;
+    const pick = pool[rnd(pool.length)];
+    this.state.activeHunt = { monster: pick, locationKey: this.state.location, day: this.state.time.day, slain: false };
+    this.out('');
+    this.out(`🌑 ⚔ 사냥의 날 — ${MONSTERS[pick].name}의 엘리트 개체가 ${LOCATIONS[this.state.location].name}에 숨어들었다.`, 'warn');
+    this.out(`  이 지역을 탐험하면 반드시 조우하며, 벗어나면 추적을 잃는다.`, 'warn');
   }
 
   // ════════════════ 전투 ════════════════
@@ -1009,7 +1177,7 @@ class Game {
     if (sk.type === 'buff') {
       const turns = sk.turns || 3;
       b[sk.effect] = turns;
-      if (['sage_aura','cha_up','gold_up','accuracy_up','phantom_weapon','boss_slay','poison_plus','wealth'].includes(sk.effect))
+      if (['sage_aura','cha_up','gold_up','accuracy_up','phantom_weapon','boss_slay','poison_plus','wealth','angel'].includes(sk.effect))
         this.state.buffsPersistent[sk.effect] = true;
       this.out(`▶ ${sk.name}! (${turns}턴)`);
       if (sk.effect === 'lock_on') this.combat.lockOn = true;
@@ -1209,6 +1377,7 @@ class Game {
   endPlayerTurn() {
     this.combat.foes.forEach(f => {
       if (f.hp <= 0) return;
+      if (f.immuneDot) { f.poison = 0; f.burn = 0; return; }
       if (f.poison) {
         let d = 10 + rnd(12);
         if (this.combat.buffs.poison_plus) d *= 3;
@@ -1331,7 +1500,7 @@ class Game {
     });
     if (b.regen) { const h = Math.round(this.getHpMax()*0.3); this.state.hp = Math.min(this.getHpMax(), this.state.hp + h); this.out(`  ✚ 기도 +${h}`); }
     Object.keys(b).forEach(k => {
-      if (['sage_aura','cha_up','gold_up','accuracy_up','phantom_weapon','boss_slay','poison_plus','wealth'].includes(k)) return;
+      if (['sage_aura','cha_up','gold_up','accuracy_up','phantom_weapon','boss_slay','poison_plus','wealth','angel'].includes(k)) return;
       b[k]--; if (b[k]<=0) delete b[k];
     });
     this.combat.foes.forEach(f => {
@@ -1356,8 +1525,41 @@ class Game {
       else { this.defeat(); return; }
     }
     this.combat.turn++;
+    this.checkBossPhases();
     this.renderCombat();
     this.out('[명령: attack / skill / use / run]');
+  }
+
+  // C4: 보스 페이즈 전환 — foes.phases 기반
+  // 치명타/원샷으로 여러 임계를 한번에 넘기거나 사살되어도 지금까지 안 뜬 페이즈는
+  // 메시지를 뿌려준다 (heal/buff 효과는 hp>0 일 때만 적용 — 시체가 힐되면 이상).
+  checkBossPhases() {
+    if (!this.combat) return;
+    this.combat.foes.forEach(f => {
+      if (!Array.isArray(f.phases) || f.phases.length === 0) return;
+      f.triggeredPhases = f.triggeredPhases || [];
+      const hpMax = f.hpMax || 1;
+      // 사망 직전 ratio 기준. 0 까지 포함해 아래 임계들도 다 트리거.
+      const ratio = Math.max(0, f.hp) / hpMax;
+      const alive = f.hp > 0;
+      for (const p of f.phases) {
+        if (f.triggeredPhases.includes(p.at)) continue;
+        if (ratio > p.at) continue;
+        f.triggeredPhases.push(p.at);
+        this.out('');
+        this.out(`⚠⚡ ${f.name}: ${p.msg}`, 'warn');
+        const e = p.effect || {};
+        // 전투적 버프는 살아있을 때만 의미있음.
+        if (alive) {
+          if (e.atk_mul) { f.atk = Math.round(f.atk * e.atk_mul); this.out(`  공격력 ×${e.atk_mul}`, 'warn'); }
+          if (e.def_mul) { f.def = Math.round((f.def || 0) * e.def_mul); this.out(`  방어력 ×${e.def_mul}`, 'warn'); }
+          if (e.heal)    { const h = Math.round(hpMax * e.heal); f.hp = Math.min(hpMax, f.hp + h); this.out(`  HP 회복 +${h}`, 'warn'); }
+          if (e.immune_dot) { f.immuneDot = true; this.out(`  독·화상 면역`, 'warn'); }
+          if (e.cleanse) { f.poison = 0; f.burn = 0; this.out(`  상태이상 해제`, 'warn'); }
+        }
+        if (e.msg_after) this.out(`  ${e.msg_after}`, 'warn');
+      }
+    });
   }
 
   checkVictory() {
@@ -1403,11 +1605,37 @@ class Game {
     if (trb.goldMul) gold = Math.round(gold * trb.goldMul);
     // 상인 계열은 전투 특화 직업이 아니므로 전투 XP -20% (거래 XP로 보상 받음)
     if (JOBS[this.state.job].line === 'merchant') exp = Math.round(exp * 0.8);
-    // 드랍 proc 효과는 위에서 체크 필요하나 간단히 로그만
+    // NaN 방어 — 위 배율 체인 중 하나라도 NaN 을 만들면 state 전체가 망가진다.
+    exp  = Number.isFinite(exp)  ? Math.max(0, Math.round(exp))  : 0;
+    gold = Number.isFinite(gold) ? Math.max(0, Math.round(gold)) : 0;
     this.state.exp += exp; this.state.gold += gold;
     this.out(`\n승리! EXP +${exp}, GOLD +${gold}`);
     if (drops.length) this.out(`  📦 드랍: ${drops.join(', ')}`);
     this.checkLevel();
+
+    // C2: 주간 사냥감 처치 체크
+    if (this.state.activeHunt && !this.state.activeHunt.slain && this.combat) {
+      const foeKeys = this.combat.foes.map(f => f.key);
+      if (foeKeys.includes(this.state.activeHunt.monster)) {
+        this.state.activeHunt.slain = true;
+        this.out(`  🌟 사냥의 날 사냥감을 처치했다! 이 지역의 추적은 끝났다.`, 'good');
+      }
+    }
+    // C3: 시간한정 보스 처치 → 쿨다운 설정 + 퇴장 메시지
+    if (this.state.flags._timed_boss_active) {
+      const bk = this.state.flags._timed_boss_active;
+      const meta = TIMED_BOSSES[bk];
+      if (meta) {
+        this.state.bossCooldowns = this.state.bossCooldowns || {};
+        this.state.bossCooldowns[bk] = this.state.time.day + (meta.cooldownDays || 0);
+        this.out('');
+        this.out('═══════════════════════════', 'good');
+        (meta.exit || [`${MONSTERS[bk].name} 처치.`]).forEach(line => this.out('  ' + line, 'good'));
+        if (meta.cooldownDays) this.out(`  다음 출현: Day ${this.state.time.day + meta.cooldownDays} 이후`);
+        this.out('═══════════════════════════', 'good');
+      }
+      delete this.state.flags._timed_boss_active;
+    }
 
     // 시련 모드 처리
     const wasTrialMode = this.combat.trialMode;
@@ -1449,7 +1677,10 @@ class Game {
   }
 
   checkLevel() {
-    while (this.state.exp >= this.expForNext(this.state.lv)) {
+    const MAX_LV = 200;
+    // NaN 방어 + 레벨 상한 — exp 가 NaN 이면 무한 루프 회피.
+    if (!Number.isFinite(this.state.exp)) this.state.exp = 0;
+    while (this.state.lv < MAX_LV && this.state.exp >= this.expForNext(this.state.lv)) {
       this.state.exp -= this.expForNext(this.state.lv);
       this.state.lv++;
       const job = JOBS[this.state.job];
@@ -1620,9 +1851,34 @@ class Game {
 
   // ════════════════ NPC 대화 ════════════════
   talk(npcName) {
+    const present = this.locationNpcs();
+    if (!present.some(n => n.includes(npcName))) {
+      // 구조 변경 후 부재 안내 — 소속 지역이지만 시간대 차이로 없을 때도 힌트.
+      const loc = LOCATIONS[this.state.location];
+      const rosterAll = loc.npcs && !Array.isArray(loc.npcs) ? Object.keys(loc.npcs) : (loc.npcs || []);
+      const matched = rosterAll.find(n => n.includes(npcName));
+      if (matched) {
+        const meta = loc.npcs[matched];
+        const bands = (meta && meta.band) ? meta.band.join('/') : '?';
+        this.out(`  ${matched}은(는) 자리에 없다. (${bands} 시간대에 나타남)`);
+      } else this.out('없다.');
+      return;
+    }
+    const npc = present.find(n => n.includes(npcName));
+    // 암거래상 특수 처리: 밤에만 등장, 대화 시 암시장 플래그 on
+    if (npc === '암거래상') {
+      this.out('\n"...조용히. 내 물건은 낮엔 팔지 않아."');
+      this.state.flags.black_market = true;
+      this.out('  [🗝 암시장 개방 — shop 명령으로 특수 상품 확인]');
+      return;
+    }
+    // B1: 대화 트리 데이터가 있으면 다이얼로그 모드로 진입
+    if (NPC_DIALOG && NPC_DIALOG[npc]) {
+      this.state.dialog = { npc, node: 'root' };
+      this._emitDialogNode(npc, 'root');
+      return;
+    }
     const loc = LOCATIONS[this.state.location];
-    if (!loc.npcs || !loc.npcs.some(n => n.includes(npcName))) { this.out('없다.'); return; }
-    const npc = loc.npcs.find(n => n.includes(npcName));
     const advances = Object.entries(ADVANCE_NPC).filter(([,v]) => v.loc === this.state.location && v.npc === npc);
     const availAdvance = advances.map(([jk]) => ({ jk, j: JOBS[jk] }))
       .filter(({j}) => j.from === this.state.job && this.state.lv >= j.reqLv);
@@ -1661,37 +1917,113 @@ class Game {
     }
   }
 
+  // ─── 대화 트리 (B1) ───
+  _emitDialogNode(npc, nodeKey) {
+    const tree = NPC_DIALOG && NPC_DIALOG[npc]; if (!tree) return;
+    const node = tree[nodeKey] || tree.root; if (!node) return;
+    this.out('');
+    (node.lines || []).forEach(l => this.out(`  ${npc}: ${l}`));
+    // 특수 효과: onEnter 키
+    if (node.onEnter && this.state.flags) {
+      const [kind, val] = String(node.onEnter).split(':');
+      if (kind === 'discount') {
+        const pct = parseInt(val, 10) || 0;
+        this.state.flags.bondDiscount = Math.max(this.state.flags.bondDiscount || 0, pct);
+        this.out(`  ✦ 유대감 +${pct}% (영구 상점 할인)`, 'good');
+      }
+    }
+  }
+  advanceDialog(nodeKey) {
+    if (!this.state.dialog) return;
+    this.state.dialog.node = nodeKey;
+    this._emitDialogNode(this.state.dialog.npc, nodeKey);
+  }
+  exitDialog() {
+    this.state.dialog = null;
+  }
+
   acceptQuest(id) {
     const q = QUESTS[id]; if (!q) { this.out('없음'); return; }
-    if (this.state.quests[id]) { this.out('이미 수락'); return; }
+    const prev = this.state.quests[id];
+    // 반복 퀘스트: 쿨다운 체크
+    if (q.type === 'repeat' && prev) {
+      if (!prev.done) { this.out('진행 중'); return; }
+      const cd = q.cooldown && q.cooldown.days ? q.cooldown.days : 1;
+      const canAfter = (prev.completedDay || 0) + cd;
+      if (this.state.time.day < canAfter) {
+        this.out(`  🕓 쿨다운: Day ${canAfter}부터 다시 수주 가능`); return;
+      }
+      // 리셋
+    } else if (prev) { this.out('이미 수락'); return; }
     if (this.state.lv < q.requireLv) { this.out(`Lv.${q.requireLv} 필요`); return; }
-    this.state.quests[id] = { progress: 0, done: false };
-    this.out(`\n📜 [${q.name}] ${q.desc}`);
+    if (q.timeBand && !q.timeBand.includes(this.timeBand())) {
+      this.out(`  🕓 ${q.timeBand.join('/')} 시간대에만 수주 가능 (현재 ${this.timeBand()})`); return;
+    }
+    const rec = { progress: 0, done: false, acceptedDay: this.state.time.day };
+    if (q.expiresAt) rec.expireDay = this.state.time.day + q.expiresAt;
+    this.state.quests[id] = rec;
+    const typeTag = q.type && q.type !== 'sub' ? ` [${q.type}]` : '';
+    this.out(`\n📜${typeTag} [${q.name}] ${q.desc}`);
+    if (rec.expireDay) this.out(`  ⏳ Day ${rec.expireDay}까지 완료 필요`);
   }
 
   completeQuest(id) {
     const q = QUESTS[id], cur = this.state.quests[id];
     if (!q || !cur) { this.out('없음'); return; }
     if (cur.done) { this.out('완료됨'); return; }
+    if (cur.failed) { this.out('실패한 퀘스트'); return; }
     if (cur.progress < q.target.count) { this.out('미달성'); return; }
+    if (q.timeBand && !q.timeBand.includes(this.timeBand())) {
+      this.out(`  🕓 ${q.timeBand.join('/')} 시간대에만 완료 가능 (현재 ${this.timeBand()})`); return;
+    }
     cur.done = true;
-    // Stage E: 퀘스트 골드 보상 -30%. EXP 는 유지.
-    const questGold = Math.round(q.reward.gold * ECONOMY.questGoldMul);
-    this.state.exp += q.reward.exp; this.state.gold += questGold;
-    if (q.reward.item) {
-      this.state.inv[q.reward.item] = (this.state.inv[q.reward.item]||0) + 1;
-      this.out(`  보상 EXP+${q.reward.exp} GOLD+${questGold} [${ITEMS[q.reward.item].name}]`);
-    } else this.out(`  보상 EXP+${q.reward.exp} GOLD+${questGold}`);
+    cur.completedDay = this.state.time.day;
+    // Stage E: 퀘스트 골드 보상 -30%. EXP 는 유지. 누락 필드는 0 처리 — NaN 전파 방지.
+    const reward = q.reward || {};
+    const rExp  = Number.isFinite(reward.exp)  ? reward.exp  : 0;
+    const rGold = Number.isFinite(reward.gold) ? reward.gold : 0;
+    const questGold = Math.round(rGold * ECONOMY.questGoldMul);
+    this.state.exp += rExp; this.state.gold += questGold;
+    if (reward.item && ITEMS[reward.item]) {
+      this.state.inv[reward.item] = (this.state.inv[reward.item]||0) + 1;
+      this.out(`  보상 EXP+${rExp} GOLD+${questGold} [${ITEMS[reward.item].name}]`);
+    } else this.out(`  보상 EXP+${rExp} GOLD+${questGold}`);
     this.checkLevel();
+    // 체인: 다음 퀘스트 자동 수락 — NPC 대화로 수락 불가능한 메인 퀘스트도 자연스럽게 진행.
+    if (q.next && QUESTS[q.next] && !this.state.quests[q.next]) {
+      const nextQ = QUESTS[q.next];
+      this.state.quests[q.next] = {
+        progress: 0, done: false, failed: false,
+        acceptedDay: this.state.time.day,
+      };
+      this.out(`  ▶ 다음 퀘스트 자동 수락: [${nextQ.name}]`);
+      if (nextQ.desc) this.out(`     ${nextQ.desc}`);
+    }
+  }
+
+  // 매일 호출: 만료된 퀘스트 실패 처리
+  checkQuestExpiry() {
+    Object.entries(this.state.quests).forEach(([qid, q]) => {
+      if (q.done || q.failed) return;
+      if (q.expireDay && this.state.time.day > q.expireDay) {
+        q.failed = true;
+        const qi = QUESTS[qid];
+        this.out(`  ❌ [${qi.name}] 기한 만료 — 실패 처리`);
+      }
+    });
   }
 
   // ════════════════ 상점 / 무역 / 장비 ════════════════
   shop() {
     const list = SHOP_ITEMS[this.state.location];
     if (!list && !this.state.flags.black_market) { this.out('상점 없다.'); return; }
+    if (!this.shopOpen()) {
+      this.out(`  🌙 ${this.timeBand()}에는 상점 문이 닫혔다. (여관은 열려 있다)`);
+      return;
+    }
     const useList = list || ['potion_l', 'ether_l', 'sword', 'plate'];
     const disc = this.getShopDisc();
-    this.out('\n[🛒 상점]');
+    this.out(this.state.flags.black_market ? '\n[🗝 암시장]' : '\n[🛒 상점]');
     if (disc > 0) this.out(`  CHA 할인: -${(disc*100).toFixed(1)}%`);
     useList.forEach(k => {
       const it = ITEMS[k];
@@ -1750,25 +2082,40 @@ class Game {
     this.out(`${ITEMS[cur].name} 해제`);
   }
 
-  rest() {
+  rest(arg) {
     const loc = LOCATIONS[this.state.location];
+    // 숙박 옵션 (E4): 1시간 · 8시간 · 새벽까지
+    let hours = 8, ratio = 1.0, label = '8시간 휴식';
+    if (arg === '1') { hours = 1; ratio = 0.20; label = '1시간 선잠'; }
+    else if (arg === 'dawn') {
+      const h = this.state.time.hour;
+      hours = h < 5 ? (5 - h) : (24 - h + 5);
+      if (hours < 1) hours = 1;
+      ratio = 1.0;
+      label = '새벽까지 휴식';
+    }
+    const hpGain = ratio >= 1 ? (this.getHpMax() - this.state.hp) : Math.round(this.getHpMax() * ratio);
+    const mpGain = ratio >= 1 ? (this.getMpMax() - this.state.mp) : Math.round(this.getMpMax() * ratio);
     // 저택 보유 시 무료
     const myProp = Object.entries(this.state.properties || {}).find(([k]) => PROPERTIES[k].loc === this.state.location);
     if (myProp) {
-      this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
-      this.advanceTime(8);
-      this.out(`✦ 보유 저택(${PROPERTIES[myProp[0]].name})에서 휴식. 무료. HP/MP 완전회복.`);
+      this.state.hp = Math.min(this.getHpMax(), this.state.hp + hpGain);
+      this.state.mp = Math.min(this.getMpMax(), this.state.mp + mpGain);
+      this.advanceTime(hours);
+      this.out(`✦ 보유 저택(${PROPERTIES[myProp[0]].name})에서 ${label} (${hours}시간). 무료.`);
       this.out(`현재 ${this.timeStr()}`);
       return;
     }
     if (!loc.inn) { this.out('여관 없음'); return; }
-    let cost = 20 + this.state.lv * 5;
+    const baseCost = 20 + this.state.lv * 5;
+    let cost = Math.max(5, Math.round(baseCost * (hours / 8)));
     if (this.state.title) cost = Math.max(0, cost - 20);  // 작위 할인
     if (this.state.gold < cost) { this.out(`${cost}G 필요`); return; }
     this.state.gold -= cost;
-    this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
-    this.advanceTime(8);
-    this.out(`여관에서 8시간 휴식. (-${cost}G) HP/MP 완전회복`);
+    this.state.hp = Math.min(this.getHpMax(), this.state.hp + hpGain);
+    this.state.mp = Math.min(this.getMpMax(), this.state.mp + mpGain);
+    this.advanceTime(hours);
+    this.out(`여관에서 ${label} (${hours}시간, -${cost}G)`);
     this.out(`현재 ${this.timeStr()}`);
   }
 
