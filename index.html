@@ -705,7 +705,7 @@
       </div>
       <div class="s-block">
         <div class="s-row"><span class="k">💰 골드</span><span class="v">${s.gold.toLocaleString()}</span></div>
-        <div class="s-row"><span class="k">🕒 시간</span><span class="v">D${s.time.day} ${String(s.time.hour).padStart(2,'0')}:00</span></div>
+        <div class="s-row"><span class="k">🕒 시간</span><span class="v">D${s.time.day} ${String(s.time.hour).padStart(2,'0')}:00 ${game.timeBandEmoji()} ${game.timeBand()}</span></div>
         <div class="s-row"><span class="k">📍 위치</span><span class="v">${LOCATIONS[s.location].name}</span></div>
         <div class="s-row"><span class="k">⏱ 플레이</span><span class="v">${formatPlayTime(s.playTimeSec||0)}</span></div>
       </div>
@@ -862,6 +862,7 @@
     if (uiMode === 'pet')      return renderPet();
     if (uiMode === 'jobs')     return renderJobTree();
     if (uiMode === 'inv')      return renderInv();
+    if (uiMode === 'quests')   return renderQuests();
     if (uiMode === 'train')    return renderTrain();
 
     // 5) 기본 메뉴
@@ -1516,7 +1517,7 @@
     row1.appendChild(mkBtn('상태', 's', { hotkey: nextInfoKey() }));
     row1.appendChild(mkBtn('인벤토리', () => enterMode('inv', 'i'), { hotkey: nextInfoKey() }));
     row1.appendChild(mkBtn('스킬', 'skills', { hotkey: nextInfoKey() }));
-    row1.appendChild(mkBtn('퀘스트', 'q', { hotkey: nextInfoKey() }));
+    row1.appendChild(mkBtn('퀘스트', () => enterMode('quests', 'q'), { hotkey: nextInfoKey() }));
     row1.appendChild(mkBtn('직업트리', () => enterMode('jobs', 'jobs'), { hotkey: nextInfoKey() }));
     row1.appendChild(mkBtn('시간', 'time', { hotkey: nextInfoKey() }));
     row1.appendChild(mkBtn('저장', saveGame, { success: true, hotkey: nextInfoKey() }));
@@ -1950,6 +1951,66 @@
   }
 
   function renderJobTree() {
+    act.appendChild(backBtn());
+  }
+
+  function renderQuests() {
+    const qs = Object.entries(game.state.quests || {});
+    const header = mkSection('📜 수락한 퀘스트');
+    act.appendChild(header);
+    if (qs.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'color:#888;padding:6px 10px;font-size:12px;';
+      empty.textContent = '수락한 퀘스트가 없다. NPC와 대화해 퀘스트를 받아라.';
+      act.appendChild(empty);
+    } else {
+      const order = { main: 0, chain_step: 1, sub: 2, repeat: 3 };
+      qs.sort((a, b) => {
+        const ta = (QUESTS[a[0]] && QUESTS[a[0]].type) || 'sub';
+        const tb = (QUESTS[b[0]] && QUESTS[b[0]].type) || 'sub';
+        return (order[ta] ?? 9) - (order[tb] ?? 9);
+      });
+      const today = game.state.time.day;
+      qs.forEach(([qid, st]) => {
+        const info = QUESTS[qid]; if (!info) return;
+        const typeMark = { main: '★', chain_step: '▸', sub: '•', repeat: '↻' }[info.type || 'sub'] || '•';
+        const typeColor = { main: '#e5c24c', chain_step: '#7ec7ff', sub: '#b4b4b4', repeat: '#8fd88f' }[info.type || 'sub'] || '#b4b4b4';
+        let statusText, statusColor = '#888';
+        let canComplete = false, canReaccept = false;
+        if (st.failed) { statusText = '❌ 실패'; statusColor = '#d48a8a'; }
+        else if (st.done) {
+          if (info.type === 'repeat') {
+            const cd = (info.cooldown && info.cooldown.days) || 1;
+            const ready = (st.completedDay || 0) + cd;
+            const daysLeft = ready - today;
+            if (daysLeft > 0) { statusText = `✓ 완료 · 쿨다운 ${daysLeft}일`; statusColor = '#888'; }
+            else { statusText = '↻ 재수주 가능'; statusColor = '#8fd88f'; canReaccept = true; }
+          } else { statusText = '✓ 완료'; statusColor = '#8fd88f'; }
+        } else {
+          const prog = `${st.progress}/${info.target.count}`;
+          const extras = [];
+          if (st.expireDay) extras.push(`⏳${Math.max(0, st.expireDay - today)}일`);
+          if (info.timeBand) extras.push(`🕓${info.timeBand.join('/')}`);
+          statusText = prog + (extras.length ? ' · ' + extras.join(' · ') : '');
+          if (st.progress >= info.target.count) { statusColor = '#e5c24c'; canComplete = true; }
+        }
+        const card = document.createElement('div');
+        card.style.cssText = 'padding:6px 10px;margin:2px 0;border-left:2px solid ' + typeColor + ';background:#2a2a2a;';
+        card.innerHTML =
+          `<div style="display:flex;justify-content:space-between;align-items:center;">` +
+            `<span style="color:${typeColor};font-weight:bold;">${typeMark} [${qid}] ${info.name}</span>` +
+            `<span style="color:${statusColor};font-size:11px;">${statusText}</span>` +
+          `</div>` +
+          `<div style="color:#888;font-size:11px;margin-top:2px;">${info.desc}</div>`;
+        act.appendChild(card);
+        if (canComplete || canReaccept) {
+          const btnRow = mkSection();
+          if (canComplete) btnRow.appendChild(mkBtn('✅ 완료 제출', `complete ${qid}`, { success: true, mini: true }));
+          if (canReaccept) btnRow.appendChild(mkBtn('↻ 재수주', `accept ${qid}`, { primary: true, mini: true }));
+          act.appendChild(btnRow);
+        }
+      });
+    }
     act.appendChild(backBtn());
   }
 

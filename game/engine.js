@@ -255,10 +255,28 @@ class Game {
   }
 
   // ════════════════ 시간 ════════════════
+  // 시간대: 새벽(05~06), 낮(07~17), 황혼(18~19), 밤(20~04)
+  timeBand(hour) {
+    const h = (hour === undefined) ? this.state.time.hour : hour;
+    if (h >= 5 && h < 7)  return '새벽';
+    if (h >= 7 && h < 18) return '낮';
+    if (h >= 18 && h < 20) return '황혼';
+    return '밤';
+  }
+  timeBandEmoji(band) {
+    return { '새벽':'🌅', '낮':'☀️', '황혼':'🌆', '밤':'🌙' }[band || this.timeBand()] || '';
+  }
   advanceTime(hours) {
     const t = this.state.time;
+    const prevBand = this.timeBand();
+    const prevDay = t.day;
     t.hour += hours;
     while (t.hour >= 24) { t.hour -= 24; t.day++; }
+    const newBand = this.timeBand();
+    if (newBand !== prevBand) {
+      this.out(`  ${this.timeBandEmoji(newBand)} ${newBand}이 되었다. (${this.timeStr()})`);
+    }
+    if (t.day !== prevDay) this.checkQuestExpiry();
   }
   timeStr() {
     const t = this.state.time;
@@ -280,7 +298,7 @@ class Game {
       'skills': () => this.showSkills(),
       'quests': () => this.showQuests(), 'q': () => this.showQuests(),
       'jobs': () => this.showJobTree(),
-      'time': () => this.out(`\n${this.timeStr()} (${this.isNight() ? '밤' : '낮'})`),
+      'time': () => this.out(`\n${this.timeStr()} ${this.timeBandEmoji()} ${this.timeBand()}`),
       'go': () => this.travel(arg), 'move': () => this.travel(arg),
       'explore': () => this.explore(), 'e': () => this.explore(),
       'talk': () => this.talk(arg),
@@ -588,12 +606,32 @@ class Game {
   showQuests() {
     this.out('\n[퀘스트]');
     const qs = Object.entries(this.state.quests);
-    if (qs.length === 0) this.out('  (없음)');
+    if (qs.length === 0) { this.out('  (없음)'); return; }
+    const today = this.state.time.day;
+    const order = { main: 0, chain_step: 1, sub: 2, repeat: 3 };
+    qs.sort((a, b) => {
+      const ta = (QUESTS[a[0]] && QUESTS[a[0]].type) || 'sub';
+      const tb = (QUESTS[b[0]] && QUESTS[b[0]].type) || 'sub';
+      return (order[ta] ?? 9) - (order[tb] ?? 9);
+    });
     qs.forEach(([id, q]) => {
-      const info = QUESTS[id];
-      const status = q.done ? '✓ 완료' : `진행 ${q.progress}/${info.target.count}`;
-      this.out(`  ${id} [${info.name}] — ${status}`);
-      if (!q.done) this.out(`     ${info.desc}`);
+      const info = QUESTS[id]; if (!info) return;
+      const typeMark = { main: '★', chain_step: '▸', sub: '•', repeat: '↻' }[info.type || 'sub'] || '•';
+      let status;
+      if (q.failed) status = '❌ 실패';
+      else if (q.done) {
+        if (info.type === 'repeat') {
+          const cd = (info.cooldown && info.cooldown.days) || 1;
+          const ready = (q.completedDay || 0) + cd;
+          status = today >= ready ? '↻ 재수주 가능' : `✓ 쿨다운 D${ready - today}일`;
+        } else status = '✓ 완료';
+      } else {
+        status = `진행 ${q.progress}/${info.target.count}`;
+        if (q.expireDay) status += ` · ⏳D${Math.max(0, q.expireDay - today)}`;
+        if (info.timeBand) status += ` · 🕓${info.timeBand.join('/')}`;
+      }
+      this.out(`  ${typeMark} ${id.padEnd(4)} ${info.name.padEnd(18)} — ${status}`);
+      if (!q.done && !q.failed) this.out(`       ${info.desc}`);
     });
   }
 
@@ -1632,24 +1670,62 @@ class Game {
 
   acceptQuest(id) {
     const q = QUESTS[id]; if (!q) { this.out('없음'); return; }
-    if (this.state.quests[id]) { this.out('이미 수락'); return; }
+    const prev = this.state.quests[id];
+    // 반복 퀘스트: 쿨다운 체크
+    if (q.type === 'repeat' && prev) {
+      if (!prev.done) { this.out('진행 중'); return; }
+      const cd = q.cooldown && q.cooldown.days ? q.cooldown.days : 1;
+      const canAfter = (prev.completedDay || 0) + cd;
+      if (this.state.time.day < canAfter) {
+        this.out(`  🕓 쿨다운: Day ${canAfter}부터 다시 수주 가능`); return;
+      }
+      // 리셋
+    } else if (prev) { this.out('이미 수락'); return; }
     if (this.state.lv < q.requireLv) { this.out(`Lv.${q.requireLv} 필요`); return; }
-    this.state.quests[id] = { progress: 0, done: false };
-    this.out(`\n📜 [${q.name}] ${q.desc}`);
+    if (q.timeBand && !q.timeBand.includes(this.timeBand())) {
+      this.out(`  🕓 ${q.timeBand.join('/')} 시간대에만 수주 가능 (현재 ${this.timeBand()})`); return;
+    }
+    const rec = { progress: 0, done: false, acceptedDay: this.state.time.day };
+    if (q.expiresAt) rec.expireDay = this.state.time.day + q.expiresAt;
+    this.state.quests[id] = rec;
+    const typeTag = q.type && q.type !== 'sub' ? ` [${q.type}]` : '';
+    this.out(`\n📜${typeTag} [${q.name}] ${q.desc}`);
+    if (rec.expireDay) this.out(`  ⏳ Day ${rec.expireDay}까지 완료 필요`);
   }
 
   completeQuest(id) {
     const q = QUESTS[id], cur = this.state.quests[id];
     if (!q || !cur) { this.out('없음'); return; }
     if (cur.done) { this.out('완료됨'); return; }
+    if (cur.failed) { this.out('실패한 퀘스트'); return; }
     if (cur.progress < q.target.count) { this.out('미달성'); return; }
+    if (q.timeBand && !q.timeBand.includes(this.timeBand())) {
+      this.out(`  🕓 ${q.timeBand.join('/')} 시간대에만 완료 가능 (현재 ${this.timeBand()})`); return;
+    }
     cur.done = true;
+    cur.completedDay = this.state.time.day;
     this.state.exp += q.reward.exp; this.state.gold += q.reward.gold;
     if (q.reward.item) {
       this.state.inv[q.reward.item] = (this.state.inv[q.reward.item]||0) + 1;
       this.out(`  보상 EXP+${q.reward.exp} GOLD+${q.reward.gold} [${ITEMS[q.reward.item].name}]`);
     } else this.out(`  보상 EXP+${q.reward.exp} GOLD+${q.reward.gold}`);
     this.checkLevel();
+    // 체인: 다음 퀘스트 자동 제안
+    if (q.next && QUESTS[q.next]) {
+      this.out(`  ▶ 다음: [${QUESTS[q.next].name}] (accept ${q.next})`);
+    }
+  }
+
+  // 매일 호출: 만료된 퀘스트 실패 처리
+  checkQuestExpiry() {
+    Object.entries(this.state.quests).forEach(([qid, q]) => {
+      if (q.done || q.failed) return;
+      if (q.expireDay && this.state.time.day > q.expireDay) {
+        q.failed = true;
+        const qi = QUESTS[qid];
+        this.out(`  ❌ [${qi.name}] 기한 만료 — 실패 처리`);
+      }
+    });
   }
 
   // ════════════════ 상점 / 무역 / 장비 ════════════════

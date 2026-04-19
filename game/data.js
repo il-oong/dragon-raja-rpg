@@ -1945,20 +1945,26 @@ const TRADE_SKILLS = [
 ];
 
 // 퀘스트
+// 퀘스트 스키마:
+//   type: 'main' | 'chain_step' | 'sub' | 'repeat' (기본 'sub')
+//   next: 완료 시 자동 이어지는 다음 퀘스트 id (체인)
+//   timeBand: ['낮','밤',...] — 해당 시간대만 수주/완료 가능
+//   expiresAt: 수락 후 N일 이내 완료 실패 시 자동 실패
+//   cooldown: { days: N } — repeat 퀘스트 재수주 대기
 const QUESTS = {
-  q1: { id: 'q1', name: '늑대 퇴치', giver: '촌장', location: 'heltant',
+  q1: { id: 'q1', name: '늑대 퇴치', giver: '촌장', location: 'heltant', type: 'sub',
     desc: '마을 위협 늑대 3마리 처치.', target: { monster: 'wolf', count: 3 },
     reward: { exp: 50, gold: 100, item: 'potion_s' }, requireLv: 1 },
-  q2: { id: 'q2', name: '고블린 소굴', giver: '촌장', location: 'heltant',
+  q2: { id: 'q2', name: '고블린 소굴', giver: '촌장', location: 'heltant', type: 'sub',
     desc: '북쪽 숲 고블린 5마리.', target: { monster: 'goblin', count: 5 },
     reward: { exp: 200, gold: 300, item: 'leather' }, requireLv: 3 },
-  q3: { id: 'q3', name: '수도의 부름', giver: '기사단장 리프크네', location: 'capital',
+  q3: { id: 'q3', name: '수도의 부름', giver: '기사단장 리프크네', location: 'capital', type: 'sub',
     desc: '산적 3명 박멸.', target: { monster: 'bandit', count: 3 },
     reward: { exp: 500, gold: 800, item: 'sword' }, requireLv: 4 },
-  q4: { id: 'q4', name: '엘프의 전언', giver: '장로 엘리안', location: 'elf_village',
+  q4: { id: 'q4', name: '엘프의 전언', giver: '장로 엘리안', location: 'elf_village', type: 'sub',
     desc: '와이번 2마리 처치.', target: { monster: 'wyvern', count: 2 },
     reward: { exp: 2000, gold: 1500, item: 'amulet' }, requireLv: 10 },
-  q5: { id: 'q5', name: '드래곤 라자의 운명', giver: '국왕 다케온', location: 'palace',
+  q5: { id: 'q5', name: '드래곤 라자의 운명', giver: '국왕 다케온', location: 'palace', type: 'main',
     desc: '아무르타트를 쓰러뜨려라.', target: { monster: 'amurtat', count: 1 },
     reward: { exp: 20000, gold: 10000, item: 'excalibur' }, requireLv: 40 },
 };
