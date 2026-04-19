@@ -1313,6 +1313,13 @@ class Game {
       if (this.state.skills.includes(it.teaches)) {
         this.out(`이미 습득한 스킬: ${it.name}`); return;
       }
+      // 직업 호환성 가드 — 다른 직업 스킬 책이면 배워도 전투 메뉴에 안 떠서 쓸모없음.
+      // 현재 + 보유 직업 어디에도 속하지 않으면 거부.
+      const myJobs = this.state.jobs || [];
+      if (it.sourceJob && !myJobs.includes(it.sourceJob)) {
+        const jobName = (JOBS[it.sourceJob] && JOBS[it.sourceJob].name) || it.sourceJob;
+        this.out(`이 책은 ${jobName} 직업 전용이다. 지금은 배울 수 없다.`); return;
+      }
       const sk = findSkillByIdLocal(it.teaches);
       if (sk && sk.lv && this.state.lv < sk.lv) {
         this.out(`레벨 부족 — ${it.name} 은(는) Lv.${sk.lv} 이상 필요.`); return;

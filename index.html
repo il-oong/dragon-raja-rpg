@@ -772,10 +772,13 @@
     if (!pickedGrade) return null;
     // 후보 스킬: 미습득 + 해당 등급. favorLines 가 있으면 우선 시도.
     const myLine = JOBS[game.state.job].line;
+    const myJobs = game.state.jobs || [];
     const collect = (favorOnly) => {
       const out = [];
       for (const jk of Object.keys(JOBS)) {
         const job = JOBS[jk];
+        // 플레이어가 보유한 직업의 스킬만 발견 대상으로 삼는다.
+        if (!myJobs.includes(jk)) continue;
         if (favorOnly && lib.favorLines && !lib.favorLines.includes(job.line)) continue;
         for (const sk of (job.skills || [])) {
           if ((sk.grade || getSkillGrade(sk)) !== pickedGrade) continue;
@@ -2190,12 +2193,19 @@
       books.forEach(([k, v]) => {
         const it = ITEMS[k];
         const grade = SKILL_GRADES[it.grade] || { color: '#fff', name: '?' };
-        const btn = mkBtn(`${it.name} x${v}`, `use ${k}`, {
+        const compat = isBookCompatible(it);
+        const learned = s.skills.includes(it.teaches);
+        const jobName = (JOBS[it.sourceJob] && JOBS[it.sourceJob].name) || it.sourceJob;
+        const title = it.desc
+          + (learned ? '\n(이미 습득함)' : '')
+          + (!compat ? `\n⚠ 이 책은 [${jobName}] 직업 전용이라 배울 수 없다.` : '');
+        const btn = mkBtn(`${it.name} x${v}${!compat ? ' ⚠' : ''}`, `use ${k}`, {
           mini: true,
-          title: it.desc + (s.skills.includes(it.teaches) ? '\n(이미 습득함)' : ''),
-          disabled: s.skills.includes(it.teaches),
+          title,
+          disabled: learned || !compat,
         });
-        btn.style.borderLeft = `3px solid ${grade.color}`;
+        btn.style.borderLeft = `3px solid ${compat ? grade.color : '#555'}`;
+        if (!compat) btn.style.opacity = '0.5';
         row.appendChild(btn);
       });
       act.appendChild(row);
@@ -2317,10 +2327,21 @@
     });
   }
 
+  // 스킬북이 플레이어 직업과 호환되는지 — 내 보유 직업 배열 안에 sourceJob 이 있으면 OK.
+  // (같은 계열 허용까지 확장하지 않음 — 전사가 마법사 책 보는 건 원래 의도 아님.)
+  function isBookCompatible(it) {
+    if (!it || it.type !== 'skillbook') return true; // 일반 아이템은 필터 대상 아님
+    const myJobs = (game.state && game.state.jobs) || [];
+    if (myJobs.length === 0) return true;
+    return myJobs.includes(it.sourceJob);
+  }
+
   function renderShop() {
     const list = SHOP_ITEMS[game.state.location];
     if (list) {
-      list.forEach(k => {
+      // 스킬북은 플레이어 직업과 무관한 책을 숨김 (써도 전투 메뉴에 안 떠서 쓸모없기 때문).
+      const visible = list.filter(k => isBookCompatible(ITEMS[k]));
+      visible.forEach(k => {
         const it = ITEMS[k];
         const price = Math.round(it.price * (1 - game.getShopDisc()));
         const row = mkSection(it.name);
@@ -2840,11 +2861,13 @@
     act.appendChild(btnRow);
 
     // 오늘 이 도시의 책 카탈로그 미리보기 (미습득 중 랜덤 5개)
+    // 플레이어가 보유한 직업의 스킬만 — 다른 직업 책은 여기서도 노출하지 않는다.
     const preview = mkSection('발견 가능한 책 예시:');
     const candidates = [];
-    const myLine = JOBS[game.state.job].line;
-    for (const jk of Object.keys(JOBS)) {
+    const myLibJobs = game.state.jobs || [];
+    for (const jk of myLibJobs) {
       const job = JOBS[jk];
+      if (!job) continue;
       if (lib.favorLines && !lib.favorLines.includes(job.line)) continue;
       for (const sk of (job.skills || [])) {
         const g = sk.grade || getSkillGrade(sk);
