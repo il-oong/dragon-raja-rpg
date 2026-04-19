@@ -2197,6 +2197,85 @@ const TRAINING_HALLS = {
   },
 };
 
+// ═══════════ 스킬 등급 (5단계) ═══════════
+// Stage D 에서 스킬북 획득 경로:
+//   common      = 상점에서 구매 가능 (도시별 SHOP_ITEMS 에 배치)
+//   advanced 이상 = 도시 서재(LIBRARIES) 수련에서만 발견
+const SKILL_GRADES = {
+  common:    { name: '일반', color: '#cccccc', order: 1, shopBuyable: true  },
+  advanced:  { name: '고급', color: '#7ec77e', order: 2, shopBuyable: false },
+  rare:      { name: '희귀', color: '#7ec7ff', order: 3, shopBuyable: false },
+  epic:      { name: '영웅', color: '#cc88ff', order: 4, shopBuyable: false },
+  legendary: { name: '전설', color: '#f4c96b', order: 5, shopBuyable: false },
+};
+
+// Stage C 에서 각 스킬에 명시적 grade 가 부여되기 전까지의 임시 매핑.
+// 스킬의 lv 요구치로 등급 추정. sk.grade 가 명시돼 있으면 그것을 우선.
+function getSkillGrade(sk) {
+  if (sk && sk.grade && SKILL_GRADES[sk.grade]) return sk.grade;
+  const lv = (sk && sk.lv) || 1;
+  if (lv <= 10)  return 'common';
+  if (lv <= 25)  return 'advanced';
+  if (lv <= 50)  return 'rare';
+  if (lv <= 80)  return 'epic';
+  return 'legendary';
+}
+
+// ═══════════ 지역별 서재 (Library) ═══════════
+// 수련 종료 시 chancePerSession 확률로 발견 시도 → 등급은 pool 에서 가중 추첨
+// → 미습득 + 적합한 직업 스킬 중 1개 → state.skills 에 추가 (Stage D 에서 구현).
+//   chancePerSession: 한 번의 수련 종료 시 책 발견 시도 확률 (0~1)
+//   pool: { 등급키: 비중 }  (합계는 자동 정규화)
+//   favorLines: 이 계열 직업 스킬을 우선 탐색 (없으면 전 계열)
+//   titleBonus: 작위 보유 시 chance × 곱
+const LIBRARIES = {
+  heltant: {
+    name: '헬탄트 도서관',
+    desc: '먼지 쌓인 책장. 초심자용 입문서가 가득.',
+    chancePerSession: 0.30,
+    pool: { common: 0.85, advanced: 0.15 },
+  },
+  capital: {
+    name: '왕립 도서관',
+    desc: '바이서스 왕국의 지식 보고. 모든 계열 표준 교본.',
+    chancePerSession: 0.25,
+    pool: { common: 0.30, advanced: 0.50, rare: 0.20 },
+  },
+  elf_village: {
+    name: '대자연의 서재',
+    desc: '엘프 구전 마법서. 정령·치유·자연 마법.',
+    chancePerSession: 0.20,
+    pool: { advanced: 0.30, rare: 0.50, epic: 0.20 },
+    favorLines: ['mage', 'priest', 'spiritcaller', 'bard'],
+  },
+  carmilkar: {
+    name: '검투사의 비록',
+    desc: '카밀카 투기장의 실전 기록. 전사·도적·궁사.',
+    chancePerSession: 0.20,
+    pool: { advanced: 0.30, rare: 0.50, epic: 0.20 },
+    favorLines: ['warrior', 'thief', 'ranger', 'hero', 'titan'],
+  },
+  palace: {
+    name: '왕궁 서고',
+    desc: '왕실 비전. 작위 보유자 우대.',
+    chancePerSession: 0.18,
+    pool: { rare: 0.40, epic: 0.50, legendary: 0.10 },
+    titleBonus: 1.5,
+  },
+  dragon_lair: {
+    name: '용의 서고',
+    desc: '아무르타트의 보물 더미 속 고서. 전 계열 최상급.',
+    chancePerSession: 0.15,
+    pool: { epic: 0.60, legendary: 0.40 },
+  },
+  polaris_shrine: {
+    name: '신탁의 비전',
+    desc: '폴라리스의 공간. 신화급 비전.',
+    chancePerSession: 0.12,
+    pool: { legendary: 1.0 },
+  },
+};
+
 // 수련 옵션 — 실제 시간 + 게임 내 경과 일수 + 레벨 요구사항
 // name = 수련 이름, min = 실제 분, days = 게임 내 경과 일수, reqLv = 최소 레벨
 // 저레벨 캐릭터가 장시간 수련으로 레벨업을 너무 쉽게 얻는 것을 방지.
@@ -3108,6 +3187,6 @@ const THEMES = {
   cosmos_edge:        { accent: '#2a2a4a', tint: 'rgba(30,30,60,0.12)',    mood: '현실의 끝' },
 };
 
-const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES };
+const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES };
 if (typeof module !== 'undefined' && module.exports) module.exports = __DATA_EXPORTS__;
 if (typeof window !== 'undefined') window.__GAME_DATA__ = __DATA_EXPORTS__;

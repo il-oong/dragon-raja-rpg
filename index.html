@@ -270,7 +270,8 @@
   if (!ipcRenderer) ipcRenderer = ipc;
   const { LOCATIONS, JOBS, ITEMS, MONSTERS, RACES, SHOP_ITEMS, TRADE_PRICES, TRADE_GOODS, TRADE_SELL_TAX, TRADE_SKILLS,
           QUESTS, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
-          GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, THEMES } = D;
+          GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, THEMES,
+          SKILL_GRADES, getSkillGrade, LIBRARIES } = D;
 
   // ═══════ 지역 테마 적용 (소소하게) ═══════
   let _lastThemeKey = null;
@@ -1711,13 +1712,26 @@
     note.appendChild(n);
     act.appendChild(note);
 
+    // 등급별로 정렬 — 전설 → 일반 순. 같은 등급이면 직업/스킬명 순.
+    learned.sort((a, b) => {
+      const ga = SKILL_GRADES[getSkillGrade(a)] || { order: 0 };
+      const gb = SKILL_GRADES[getSkillGrade(b)] || { order: 0 };
+      return gb.order - ga.order;
+    });
+
     learned.forEach(sk => {
       const active = isSkillActive(sk.id);
+      const gradeKey = getSkillGrade(sk);
+      const grade = SKILL_GRADES[gradeKey] || { name: '?', color: '#888' };
       const row = mkSection();
       const info = document.createElement('div');
       info.style.cssText = `flex:1;color:${active ? '#cccccc' : '#707070'};font-size:12px;line-height:1.6;`;
       info.innerHTML = `
-        <div><b>${escHtml(sk.name)}</b> <span style="color:#858585;">[${escHtml(sk.src)}]</span> · MP ${sk.mp}</div>
+        <div>
+          <span style="color:${grade.color};font-size:10.5px;border:1px solid ${grade.color};padding:1px 5px;border-radius:3px;margin-right:6px;">${escHtml(grade.name)}</span>
+          <b>${escHtml(sk.name)}</b>
+          <span style="color:#858585;">[${escHtml(sk.src)}]</span> · MP ${sk.mp}
+        </div>
         <div style="color:${active ? '#858585' : '#5a5a5a'};font-size:11px;">${escHtml(sk.desc || '')}</div>
       `;
       row.appendChild(info);
