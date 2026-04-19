@@ -28,10 +28,17 @@
       --region-strip: #858585;
     }
 
-    /* ═══════ 위장 모드 ═══════ */
-    #disguise { display: none; height: 100vh; padding: 10px 14px; background: #0c0c0c; color: #ccc; overflow: auto; }
+    /* ═══════ 위장 모드 — 4가지 테마 ═══════ */
+    /* Ctrl+Shift+T 로 테마 순환: sysmon → excel → terminal → kakao */
+    #disguise { display: none; height: 100vh; overflow: hidden; }
     #disguise.active { display: block; }
-    #disguise h1 { font-size: 14px; color: #eee; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+    .theme { display: none; height: 100vh; overflow: auto; }
+    .theme.active { display: block; }
+
+    /* ── 테마 1: 시스템 모니터 (기본) ── */
+    .theme-sysmon { background: #0c0c0c; color: #ccc; padding: 10px 14px;
+      font-family: 'Malgun Gothic', 'Consolas', 'Courier New', monospace; font-size: 13px; }
+    .theme-sysmon h1 { font-size: 14px; color: #eee; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 6px; }
     .drow { display: flex; gap: 20px; margin: 4px 0; }
     .drow .k { color: #888; width: 160px; }
     .drow .v { color: #7ec7ff; }
@@ -41,6 +48,77 @@
     #procTable th, #procTable td { text-align: left; padding: 2px 8px; border-bottom: 1px dotted #222; }
     #procTable th { color: #888; font-weight: normal; border-bottom: 1px solid #444; }
     #hint { margin-top: 16px; color: #555; font-size: 11px; }
+
+    /* ── 테마 2: Excel ── */
+    .theme-excel { background: #fff; color: #000;
+      font-family: 'Malgun Gothic', 'Segoe UI', sans-serif; font-size: 11.5px; }
+    .xl-ribbon { background: #217346; color: #fff; padding: 0; }
+    .xl-tabs { display: flex; gap: 2px; font-size: 11px; padding: 4px 6px 0 6px; }
+    .xl-tab { padding: 4px 10px; cursor: default; }
+    .xl-tab.active { background: #fff; color: #217346; border-radius: 2px 2px 0 0; }
+    .xl-formulabar { display: flex; background: #fff; border-bottom: 1px solid #d4d4d4; padding: 3px 6px; color: #000; align-items: center; }
+    .xl-cellref { min-width: 60px; padding: 2px 6px; border: 1px solid #d4d4d4; margin-right: 8px; font-size: 11px; }
+    .xl-fx { color: #888; font-style: italic; margin-right: 10px; }
+    .xl-formula { color: #000; font-size: 11.5px; }
+    .xl-grid { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .xl-grid th, .xl-grid td { border: 1px solid #d4d4d4; padding: 2px 6px; min-width: 72px; height: 18px; }
+    .xl-grid th { background: #f3f3f3; font-weight: normal; color: #555; text-align: center; }
+    .xl-grid tr td:first-child { background: #f3f3f3; text-align: center; color: #555; width: 30px; min-width: 30px; font-size: 10.5px; }
+    .xl-grid td.num { text-align: right; }
+    .xl-grid td.hi { background: #fff4c2; }
+    .xl-grid td.neg { color: #c00; }
+    .xl-grid td.selected { outline: 2px solid #217346; outline-offset: -2px; }
+    .xl-sheets { background: #f0f0f0; border-top: 1px solid #ccc; padding: 3px 8px; display: flex; gap: 2px; font-size: 11px; }
+    .xl-sheets span { padding: 3px 12px; color: #555; }
+    .xl-sheets span.active { background: #fff; border: 1px solid #ccc; border-bottom: none; color: #000; }
+    .xl-status { background: #217346; color: #fff; padding: 3px 10px; font-size: 10.5px; display: flex; justify-content: space-between; }
+
+    /* ── 테마 3: 터미널 ── */
+    .theme-terminal { background: #000; color: #33ff33;
+      font-family: 'Consolas', 'Courier New', monospace; font-size: 12.5px; padding: 10px 14px; line-height: 1.55; }
+    .tm-header { color: #888; font-size: 11px; margin-bottom: 6px; }
+    .tm-prompt { color: #aaffaa; }
+    .tm-prompt::before { content: '$ '; color: #66ccff; }
+    .tm-log { white-space: pre-wrap; color: #99cc99; margin-top: 4px; }
+    .tm-log .ok { color: #77dd77; }
+    .tm-log .warn { color: #f4c96b; }
+    .tm-log .err { color: #ff6e6e; }
+    .tm-log .dim { color: #666; }
+    .tm-cursor { display: inline-block; background: #33ff33; width: 8px; height: 14px; vertical-align: middle;
+      animation: blink 1.1s infinite; }
+    @keyframes blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+
+    /* ── 테마 4: 카카오톡 채팅방 ── */
+    .theme-kakao { background: #abc1d1; color: #000;
+      font-family: 'Malgun Gothic', sans-serif; font-size: 13px; display: flex; flex-direction: column; }
+    .kk-header { background: #fff; padding: 10px 14px; border-bottom: 1px solid #ccc;
+      display: flex; align-items: center; gap: 10px; }
+    .kk-back { color: #333; font-size: 16px; cursor: default; }
+    .kk-title { flex: 1; font-weight: bold; font-size: 14px; color: #000; }
+    .kk-count { color: #888; font-size: 11px; }
+    .kk-pin { background: #fffbe6; border-top: 1px solid #eed; border-bottom: 1px solid #eed;
+      padding: 6px 14px; font-size: 11.5px; color: #755; }
+    .kk-messages { flex: 1; padding: 10px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+    .kk-day { text-align: center; color: #666; font-size: 11px; margin: 6px 0; }
+    .kk-msg-row { display: flex; gap: 6px; align-items: flex-end; }
+    .kk-msg-row.me { justify-content: flex-end; }
+    .kk-avatar { width: 28px; height: 28px; border-radius: 4px; background: #dde; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 14px; color: #555; }
+    .kk-msg-col { max-width: 70%; }
+    .kk-name { font-size: 11px; color: #555; margin-bottom: 2px; }
+    .kk-bubble { padding: 7px 10px; border-radius: 10px; font-size: 12px; word-wrap: break-word; line-height: 1.4; }
+    .kk-msg-row.other .kk-bubble { background: #fff; }
+    .kk-msg-row.me .kk-bubble { background: #fee500; color: #000; }
+    .kk-time { font-size: 10px; color: #777; margin: 0 4px; }
+    .kk-input { background: #fff; padding: 8px 12px; display: flex; gap: 6px;
+      border-top: 1px solid #ccc; align-items: center; }
+    .kk-input input { flex: 1; border: 1px solid #ddd; padding: 6px 10px; border-radius: 14px; font-family: inherit; font-size: 12px; }
+    .kk-input button { padding: 6px 12px; background: #fee500; border: none; border-radius: 14px; font-family: inherit; font-size: 11.5px; cursor: default; }
+
+    /* 테마 힌트 공통 — 각 테마 우하단 작게 */
+    .theme-hint { position: fixed; bottom: 4px; right: 8px; font-size: 10px; color: #888;
+      background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 3px; pointer-events: none; }
+    .theme-terminal .theme-hint, .theme-sysmon .theme-hint { color: #666; background: rgba(255,255,255,0.05); }
 
     /* ═══════ 게임 화면 (업무툴 위장 스타일) ═══════ */
     /* 전체적으로 IDE/로그뷰어 느낌. 색상 최소화. */
@@ -163,28 +241,93 @@
 </head>
 <body>
 
-<!-- 위장: 시스템 모니터 -->
+<!-- 위장 컨테이너 — 내부에 4개 테마. Ctrl+Shift+T 로 순환. -->
 <div id="disguise" class="active">
-  <h1>System Resource Monitor v2.14 &nbsp; — &nbsp; WIN-MONITOR-01</h1>
-  <div class="drow"><div class="k">CPU Usage</div>
-    <div class="bar"><div class="fill" id="cpuFill" style="width:32%"></div></div>
-    <div class="v" id="cpuVal">32%</div></div>
-  <div class="drow"><div class="k">Memory</div>
-    <div class="bar"><div class="fill" id="memFill" style="width:54%"></div></div>
-    <div class="v" id="memVal">8.7 / 16.0 GB</div></div>
-  <div class="drow"><div class="k">Disk I/O</div>
-    <div class="bar"><div class="fill" id="diskFill" style="width:12%"></div></div>
-    <div class="v" id="diskVal">24 MB/s</div></div>
-  <div class="drow"><div class="k">Network</div>
-    <div class="bar"><div class="fill" id="netFill" style="width:8%"></div></div>
-    <div class="v" id="netVal">↑ 1.2 MB/s   ↓ 3.8 MB/s</div></div>
-  <div class="drow"><div class="k">System Uptime</div><div class="v" id="uptime">0d 0h 0m</div></div>
-  <div class="drow"><div class="k">Active Processes</div><div class="v" id="procCount">142</div></div>
-  <table id="procTable">
-    <thead><tr><th>PID</th><th>Process</th><th>CPU%</th><th>Memory</th><th>Status</th></tr></thead>
-    <tbody id="procBody"></tbody>
-  </table>
-  <div id="hint">[ Ctrl+Shift+D: toggle view | Ctrl+Shift+B: hide | Ctrl+Shift+Q: quit ]</div>
+
+  <!-- 테마 1: 시스템 모니터 (기본) -->
+  <div class="theme theme-sysmon active">
+    <h1>System Resource Monitor v2.14 &nbsp; — &nbsp; WIN-MONITOR-01</h1>
+    <div class="drow"><div class="k">CPU Usage</div>
+      <div class="bar"><div class="fill" id="cpuFill" style="width:32%"></div></div>
+      <div class="v" id="cpuVal">32%</div></div>
+    <div class="drow"><div class="k">Memory</div>
+      <div class="bar"><div class="fill" id="memFill" style="width:54%"></div></div>
+      <div class="v" id="memVal">8.7 / 16.0 GB</div></div>
+    <div class="drow"><div class="k">Disk I/O</div>
+      <div class="bar"><div class="fill" id="diskFill" style="width:12%"></div></div>
+      <div class="v" id="diskVal">24 MB/s</div></div>
+    <div class="drow"><div class="k">Network</div>
+      <div class="bar"><div class="fill" id="netFill" style="width:8%"></div></div>
+      <div class="v" id="netVal">↑ 1.2 MB/s   ↓ 3.8 MB/s</div></div>
+    <div class="drow"><div class="k">System Uptime</div><div class="v" id="uptime">0d 0h 0m</div></div>
+    <div class="drow"><div class="k">Active Processes</div><div class="v" id="procCount">142</div></div>
+    <table id="procTable">
+      <thead><tr><th>PID</th><th>Process</th><th>CPU%</th><th>Memory</th><th>Status</th></tr></thead>
+      <tbody id="procBody"></tbody>
+    </table>
+    <div id="hint">[ Ctrl+Shift+D: toggle | Ctrl+Shift+B: hide | Ctrl+Shift+T: theme | Ctrl+Shift+Q: quit ]</div>
+  </div>
+
+  <!-- 테마 2: Excel -->
+  <div class="theme theme-excel">
+    <div class="xl-ribbon">
+      <div class="xl-tabs">
+        <span class="xl-tab">파일</span>
+        <span class="xl-tab active">홈</span>
+        <span class="xl-tab">삽입</span>
+        <span class="xl-tab">페이지 레이아웃</span>
+        <span class="xl-tab">수식</span>
+        <span class="xl-tab">데이터</span>
+        <span class="xl-tab">검토</span>
+        <span class="xl-tab">보기</span>
+      </div>
+    </div>
+    <div class="xl-formulabar">
+      <span class="xl-cellref" id="xlCellRef">B12</span>
+      <span class="xl-fx">fx</span>
+      <span class="xl-formula" id="xlFormula">=SUM(B2:B11)</span>
+    </div>
+    <table class="xl-grid">
+      <thead><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th></tr></thead>
+      <tbody id="xlBody"></tbody>
+    </table>
+    <div class="xl-sheets"><span class="active">Q4_실적</span><span>분기예산</span><span>원가분석</span><span>+</span></div>
+    <div class="xl-status">
+      <span>준비</span>
+      <span id="xlStatusSum">개수: 42 · 평균: 1,856,213 · 합계: 78,361,020</span>
+      <span>100%  Ⅰ Ⅲ</span>
+    </div>
+    <div class="theme-hint">[Ctrl+Shift+T: 테마]</div>
+  </div>
+
+  <!-- 테마 3: 터미널 -->
+  <div class="theme theme-terminal">
+    <div class="tm-header" id="tmHeader">Microsoft Windows [Version 10.0.26100.1234]
+(c) Microsoft Corporation. All rights reserved.</div>
+    <div><span class="tm-prompt">ssh deploy@prod-web-01.internal</span></div>
+    <div style="color:#888;">Last login: Mon Apr 18 14:02:31 2026 from 10.2.14.81</div>
+    <div><span class="tm-prompt">tail -f /var/log/nginx/access.log</span></div>
+    <div id="tmLog" class="tm-log"></div>
+    <div><span class="tm-cursor"></span></div>
+    <div class="theme-hint">[Ctrl+Shift+T: 테마]</div>
+  </div>
+
+  <!-- 테마 4: 카카오톡 채팅방 -->
+  <div class="theme theme-kakao">
+    <div class="kk-header">
+      <span class="kk-back">◀</span>
+      <span class="kk-title">📌 팀 업무 채팅방</span>
+      <span class="kk-count">7</span>
+    </div>
+    <div class="kk-pin">📌 내일 3시 회의실 306호 · 보고서 미리 업로드</div>
+    <div id="kkMessages" class="kk-messages"></div>
+    <div class="kk-input">
+      <input type="text" placeholder="메시지 입력" disabled>
+      <button>전송</button>
+    </div>
+    <div class="theme-hint">[Ctrl+Shift+T: 테마]</div>
+  </div>
+
 </div>
 
 <!-- 게임 -->
@@ -2450,10 +2593,42 @@
   ipcRenderer.on('toggle-disguise', () => setDisguise(!disguised));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setDisguise(true); });
 
-  // ═══════ 위장 애니메이션 ═══════
+  // ═══════ 위장 테마 — 4종 순환 (Ctrl+Shift+T) ═══════
+  const DISGUISE_THEMES = ['sysmon', 'excel', 'terminal', 'kakao'];
+  let disguiseTheme = (() => {
+    try { return localStorage.getItem('dr_disguise_theme') || 'sysmon'; } catch { return 'sysmon'; }
+  })();
+  if (!DISGUISE_THEMES.includes(disguiseTheme)) disguiseTheme = 'sysmon';
+
+  function setTheme(t) {
+    if (!DISGUISE_THEMES.includes(t)) t = 'sysmon';
+    disguiseTheme = t;
+    try { localStorage.setItem('dr_disguise_theme', t); } catch {}
+    document.querySelectorAll('#disguise .theme').forEach(el => el.classList.remove('active'));
+    const target = document.querySelector('#disguise .theme-' + t);
+    if (target) target.classList.add('active');
+  }
+  function cycleTheme() {
+    const i = THEMES.indexOf(disguiseTheme);
+    setTheme(THEMES[(i + 1) % THEMES.length]);
+  }
+  // Ctrl+Shift+T — 브라우저 기본 '새 탭 복원' 과 충돌 가능하니 preventDefault.
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'T' || e.key === 't')) {
+      e.preventDefault();
+      cycleTheme();
+    }
+  });
+  setTheme(disguiseTheme);
+
+  // ─── 공통 ───
+  const rndInt = (n) => Math.floor(Math.random() * n);
+  const pick = (arr) => arr[rndInt(arr.length)];
+
+  // ─── 테마 1: 시스템 모니터 ───
   const procNames = ['System','svchost.exe','explorer.exe','chrome.exe','Code.exe','Teams.exe','Outlook.exe','OneDrive.exe','msedge.exe','WINWORD.EXE','EXCEL.EXE','Slack.exe','node.exe','git.exe','powershell.exe','RuntimeBroker.exe','dwm.exe','conhost.exe'];
   const procBody = document.getElementById('procBody');
-  let procs = procNames.slice(0,14).map((n,i) => ({ pid: 1000+i*13+Math.floor(Math.random()*97), name: n, cpu: Math.random()*8, mem: Math.random()*400+30, status: 'Running' }));
+  let procs = procNames.slice(0,14).map((n,i) => ({ pid: 1000+i*13+rndInt(97), name: n, cpu: Math.random()*8, mem: Math.random()*400+30, status: 'Running' }));
   function renderProcs() {
     procBody.innerHTML = '';
     procs.forEach(p => {
@@ -2463,8 +2638,8 @@
     });
   }
   renderProcs();
-  const startTime = Date.now();
-  setInterval(() => {
+  const sysmonStart = Date.now();
+  function updateSysmon() {
     const cpu=20+Math.random()*40, mem=40+Math.random()*30, disk=Math.random()*60, net=Math.random()*30;
     document.getElementById('cpuFill').style.width=cpu+'%';
     document.getElementById('cpuVal').textContent=cpu.toFixed(0)+'%';
@@ -2474,12 +2649,146 @@
     document.getElementById('diskVal').textContent=disk.toFixed(0)+' MB/s';
     document.getElementById('netFill').style.width=net+'%';
     document.getElementById('netVal').textContent=`↑ ${(Math.random()*3).toFixed(1)} MB/s   ↓ ${(Math.random()*8).toFixed(1)} MB/s`;
-    const sec=Math.floor((Date.now()-startTime)/1000);
+    const sec=Math.floor((Date.now()-sysmonStart)/1000);
     const d=Math.floor(sec/86400), h=Math.floor((sec%86400)/3600), m=Math.floor((sec%3600)/60);
     document.getElementById('uptime').textContent=`${d}d ${h}h ${m}m`;
-    document.getElementById('procCount').textContent=140+Math.floor(Math.random()*10);
+    document.getElementById('procCount').textContent=140+rndInt(10);
     procs.forEach(p => { p.cpu=Math.max(0,p.cpu+(Math.random()-0.5)*2); p.mem=Math.max(10,p.mem+(Math.random()-0.5)*15); });
     renderProcs();
+  }
+
+  // ─── 테마 2: Excel ───
+  const xlBody = document.getElementById('xlBody');
+  const XL_LABELS = ['제품코드','품목','1월','2월','3월','4월','5월','6월','합계','증감'];
+  const XL_PROD_CODES = ['PR-A102','PR-A203','PR-B404','PR-B512','PR-C106','PR-C218','PR-D331','PR-D407','PR-E501','PR-E622','PR-F712','PR-F818','PR-G921','PR-H104','PR-J215'];
+  const XL_PROD_NAMES = ['디지털키보드','HD모니터','무선마우스','USB허브','노트북거치대','웹캠','헤드셋','도킹스테이션','외장SSD','라우터','프린터토너','A4용지','레이저포인터','멀티탭','키캡세트'];
+  let xlRows = XL_PROD_CODES.map((code, i) => ({
+    code, name: XL_PROD_NAMES[i],
+    m: Array.from({length:6}, () => rndInt(900000) + 50000),
+  }));
+  function renderXl() {
+    xlBody.innerHTML = '';
+    const headerTr = document.createElement('tr');
+    headerTr.innerHTML = `<td>1</td>` + XL_LABELS.slice(0,7).map(l => `<td class="hi" style="font-weight:bold;">${l}</td>`).join('');
+    xlBody.appendChild(headerTr);
+    xlRows.forEach((r, idx) => {
+      const row = idx + 2;
+      const sum = r.m.reduce((a,b) => a + b, 0);
+      const cells = r.m.map(v => `<td class="num">${v.toLocaleString()}</td>`).join('');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${row}</td><td>${r.code}</td><td>${r.name}</td>${cells}<td class="num hi">${sum.toLocaleString()}</td>`;
+      xlBody.appendChild(tr);
+    });
+    // 하단 빈 행들
+    for (let i = 0; i < 12; i++) {
+      const row = xlRows.length + 2 + i;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${row}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`;
+      xlBody.appendChild(tr);
+    }
+  }
+  const xlFormulas = ['=SUM(C2:C16)', '=AVERAGE(D2:D16)', '=VLOOKUP(A2,...)', '=IF(J2>0,"▲","▼")', '=SUMIF(B:B,"*모니터*",C:C)'];
+  function updateXl() {
+    // 한 셀만 소폭 변경 (살짝 깜빡이는 느낌)
+    const r = rndInt(xlRows.length), c = rndInt(6);
+    xlRows[r].m[c] = Math.max(10000, xlRows[r].m[c] + rndInt(40000) - 20000);
+    renderXl();
+    const ref = String.fromCharCode(65 + c + 2) + (r + 2);
+    const cellRef = document.getElementById('xlCellRef');
+    const formula = document.getElementById('xlFormula');
+    const status = document.getElementById('xlStatusSum');
+    if (cellRef) cellRef.textContent = ref;
+    if (formula) formula.textContent = pick(xlFormulas);
+    if (status) {
+      const allSum = xlRows.reduce((a, r) => a + r.m.reduce((x,y) => x+y, 0), 0);
+      const avg = Math.round(allSum / (xlRows.length * 6));
+      status.textContent = `개수: ${xlRows.length * 6} · 평균: ${avg.toLocaleString()} · 합계: ${allSum.toLocaleString()}`;
+    }
+  }
+  renderXl();
+  updateXl();
+
+  // ─── 테마 3: 터미널 ───
+  const tmLog = document.getElementById('tmLog');
+  const TM_IPS = ['10.2.14.81','10.2.14.92','10.0.0.15','192.168.1.42','192.168.1.105','54.23.102.7','172.31.8.204','172.31.12.55'];
+  const TM_PATHS = ['/api/v1/users','/api/v1/orders','/api/v1/orders/42','/api/v1/products?cat=7','/api/auth/refresh','/api/auth/login','/static/main.a3d2f.js','/static/css/app.2a9bc.css','/healthz','/metrics','/favicon.ico','/robots.txt','/api/v1/search?q=mouse'];
+  const TM_METHODS = ['GET','GET','GET','GET','GET','POST','POST','PUT'];
+  const TM_STATUSES = [['200','ok'],['200','ok'],['200','ok'],['200','ok'],['304','dim'],['404','err'],['500','err'],['401','warn']];
+  const TM_AGENTS = ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0','Mozilla/5.0 (Macintosh) Safari/605.1','curl/8.4.0','PostmanRuntime/7.36.0','Python-urllib/3.11','Go-http-client/1.1'];
+  function updateTerminal() {
+    const now = new Date();
+    const ts = now.toISOString().slice(0, 19).replace('T', ' ');
+    const method = pick(TM_METHODS);
+    const path = pick(TM_PATHS);
+    const [status, cls] = pick(TM_STATUSES);
+    const size = rndInt(5000) + 200;
+    const ip = pick(TM_IPS);
+    const agent = pick(TM_AGENTS);
+    const d = document.createElement('div');
+    d.innerHTML = `<span class="dim">${ip}</span> - - <span class="dim">[${ts}]</span> "${method} <span class="ok">${path}</span> HTTP/1.1" <span class="${cls}">${status}</span> ${size} "-" "${agent.slice(0, 30)}..."`;
+    tmLog.appendChild(d);
+    while (tmLog.children.length > 30) tmLog.removeChild(tmLog.firstChild);
+    tmLog.scrollTop = tmLog.scrollHeight;
+  }
+
+  // ─── 테마 4: 카카오톡 ───
+  const kkMessages = document.getElementById('kkMessages');
+  const KK_SCRIPT = [
+    { name: '김과장', avatar: '🧑‍💼', me: false, msg: '다들 고생 많으십니다' },
+    { name: '김과장', avatar: '🧑‍💼', me: false, msg: '내일 분기보고 자료 9시까지 공유 부탁드려요' },
+    { name: '박주임', avatar: '🧑', me: false, msg: '네 확인했습니다 👍' },
+    { name: '나', me: true, msg: '저도 확인했습니다' },
+    { name: '나', me: true, msg: '수치 정리해서 올리겠습니다' },
+    { name: '이대리', avatar: '👩', me: false, msg: '회의실은 306호 맞죠?' },
+    { name: '김과장', avatar: '🧑‍💼', me: false, msg: '네 306호 3시입니다' },
+    { name: '박주임', avatar: '🧑', me: false, msg: '프로젝터 예약해두었습니다' },
+    { name: '나', me: true, msg: '좋습니다' },
+    { name: '최차장', avatar: '👨‍💼', me: false, msg: '카피본 미리 출력해두면 좋겠네요' },
+    { name: '이대리', avatar: '👩', me: false, msg: '네 인쇄 준비하겠습니다' },
+    { name: '김과장', avatar: '🧑‍💼', me: false, msg: '오늘 점심 같이 드실 분?' },
+    { name: '박주임', avatar: '🧑', me: false, msg: '저요!' },
+    { name: '이대리', avatar: '👩', me: false, msg: '저도 같이 가요' },
+    { name: '최차장', avatar: '👨‍💼', me: false, msg: '1층 로비 12시 10분' },
+    { name: '나', me: true, msg: '알겠습니다' },
+    { name: '김과장', avatar: '🧑‍💼', me: false, msg: '지난주 실적 표 다시 한 번 검토 필요할 것 같아요' },
+    { name: '박주임', avatar: '🧑', me: false, msg: '제가 오후에 다시 돌려보겠습니다' },
+    { name: '최차장', avatar: '👨‍💼', me: false, msg: '수고하세요 다들' },
+  ];
+  let kkIdx = 0;
+  function addKkMessage() {
+    const m = KK_SCRIPT[kkIdx % KK_SCRIPT.length];
+    kkIdx++;
+    const row = document.createElement('div');
+    row.className = 'kk-msg-row ' + (m.me ? 'me' : 'other');
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    if (m.me) {
+      row.innerHTML = `
+        <span class="kk-time">${time}</span>
+        <div class="kk-msg-col"><div class="kk-bubble">${m.msg}</div></div>`;
+    } else {
+      row.innerHTML = `
+        <div class="kk-avatar">${m.avatar || '👤'}</div>
+        <div class="kk-msg-col">
+          <div class="kk-name">${m.name}</div>
+          <div class="kk-bubble">${m.msg}</div>
+        </div>
+        <span class="kk-time">${time}</span>`;
+    }
+    kkMessages.appendChild(row);
+    while (kkMessages.children.length > 20) kkMessages.removeChild(kkMessages.firstChild);
+    kkMessages.scrollTop = kkMessages.scrollHeight;
+  }
+  // 초기 5개 메시지
+  for (let i = 0; i < 5; i++) addKkMessage();
+
+  // ─── 마스터 인터벌 — 활성 테마 전용 업데이트 ───
+  setInterval(() => {
+    if (!disguised) return; // 게임 모드면 위장 업데이트 불필요
+    if (disguiseTheme === 'sysmon')        updateSysmon();
+    else if (disguiseTheme === 'excel')    updateXl();
+    else if (disguiseTheme === 'terminal') updateTerminal();
+    else if (disguiseTheme === 'kakao')    addKkMessage();
   }, 1500);
 
   init();
