@@ -1531,12 +1531,17 @@ class Game {
   }
 
   // C4: 보스 페이즈 전환 — foes.phases 기반
+  // 치명타/원샷으로 여러 임계를 한번에 넘기거나 사살되어도 지금까지 안 뜬 페이즈는
+  // 메시지를 뿌려준다 (heal/buff 효과는 hp>0 일 때만 적용 — 시체가 힐되면 이상).
   checkBossPhases() {
     if (!this.combat) return;
     this.combat.foes.forEach(f => {
-      if (!f.phases || f.hp <= 0) return;
+      if (!Array.isArray(f.phases) || f.phases.length === 0) return;
       f.triggeredPhases = f.triggeredPhases || [];
-      const ratio = f.hp / f.hpMax;
+      const hpMax = f.hpMax || 1;
+      // 사망 직전 ratio 기준. 0 까지 포함해 아래 임계들도 다 트리거.
+      const ratio = Math.max(0, f.hp) / hpMax;
+      const alive = f.hp > 0;
       for (const p of f.phases) {
         if (f.triggeredPhases.includes(p.at)) continue;
         if (ratio > p.at) continue;
@@ -1544,11 +1549,14 @@ class Game {
         this.out('');
         this.out(`⚠⚡ ${f.name}: ${p.msg}`, 'warn');
         const e = p.effect || {};
-        if (e.atk_mul) { f.atk = Math.round(f.atk * e.atk_mul); this.out(`  공격력 ×${e.atk_mul}`, 'warn'); }
-        if (e.def_mul) { f.def = Math.round((f.def || 0) * e.def_mul); this.out(`  방어력 ×${e.def_mul}`, 'warn'); }
-        if (e.heal)    { const h = Math.round(f.hpMax * e.heal); f.hp = Math.min(f.hpMax, f.hp + h); this.out(`  HP 회복 +${h}`, 'warn'); }
-        if (e.immune_dot) { f.immuneDot = true; this.out(`  독·화상 면역`, 'warn'); }
-        if (e.cleanse) { f.poison = 0; f.burn = 0; this.out(`  상태이상 해제`, 'warn'); }
+        // 전투적 버프는 살아있을 때만 의미있음.
+        if (alive) {
+          if (e.atk_mul) { f.atk = Math.round(f.atk * e.atk_mul); this.out(`  공격력 ×${e.atk_mul}`, 'warn'); }
+          if (e.def_mul) { f.def = Math.round((f.def || 0) * e.def_mul); this.out(`  방어력 ×${e.def_mul}`, 'warn'); }
+          if (e.heal)    { const h = Math.round(hpMax * e.heal); f.hp = Math.min(hpMax, f.hp + h); this.out(`  HP 회복 +${h}`, 'warn'); }
+          if (e.immune_dot) { f.immuneDot = true; this.out(`  독·화상 면역`, 'warn'); }
+          if (e.cleanse) { f.poison = 0; f.burn = 0; this.out(`  상태이상 해제`, 'warn'); }
+        }
         if (e.msg_after) this.out(`  ${e.msg_after}`, 'warn');
       }
     });
@@ -1981,9 +1989,15 @@ class Game {
       this.out(`  보상 EXP+${rExp} GOLD+${questGold} [${ITEMS[reward.item].name}]`);
     } else this.out(`  보상 EXP+${rExp} GOLD+${questGold}`);
     this.checkLevel();
-    // 체인: 다음 퀘스트 자동 제안
-    if (q.next && QUESTS[q.next]) {
-      this.out(`  ▶ 다음: [${QUESTS[q.next].name}] (accept ${q.next})`);
+    // 체인: 다음 퀘스트 자동 수락 — NPC 대화로 수락 불가능한 메인 퀘스트도 자연스럽게 진행.
+    if (q.next && QUESTS[q.next] && !this.state.quests[q.next]) {
+      const nextQ = QUESTS[q.next];
+      this.state.quests[q.next] = {
+        progress: 0, done: false, failed: false,
+        acceptedDay: this.state.time.day,
+      };
+      this.out(`  ▶ 다음 퀘스트 자동 수락: [${nextQ.name}]`);
+      if (nextQ.desc) this.out(`     ${nextQ.desc}`);
     }
   }
 
