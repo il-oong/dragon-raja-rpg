@@ -39,6 +39,9 @@ const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 console.log('[DB] Using', DB_PATH);
 
+// ─── 스키마: 테이블 ────────────────────────────
+// 인덱스는 마이그레이션 이후에 만들어야 함.
+// (기존 DB 에 새 컬럼이 추가되기 전에 그 컬럼 위 인덱스를 만들면 startup 크래시.)
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,7 +50,6 @@ db.exec(`
     token TEXT,
     created_at INTEGER DEFAULT (strftime('%s','now'))
   );
-  CREATE INDEX IF NOT EXISTS idx_users_token ON users(token);
 
   CREATE TABLE IF NOT EXISTS cloud_saves (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -67,12 +69,6 @@ db.exec(`
     play_time INTEGER DEFAULT 0,
     updated_at INTEGER DEFAULT (strftime('%s','now'))
   );
-  CREATE INDEX IF NOT EXISTS idx_lb_level ON leaderboard(level DESC);
-  CREATE INDEX IF NOT EXISTS idx_lb_gold  ON leaderboard(gold DESC);
-  CREATE INDEX IF NOT EXISTS idx_lb_boss  ON leaderboard(bosses_killed DESC);
-  CREATE INDEX IF NOT EXISTS idx_lb_trade ON leaderboard(total_trade_profit DESC);
-  CREATE INDEX IF NOT EXISTS idx_lb_mastery ON leaderboard(mastered_lines DESC);
-  CREATE INDEX IF NOT EXISTS idx_lb_playtime ON leaderboard(play_time DESC);
 
   CREATE TABLE IF NOT EXISTS mails (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,11 +82,30 @@ db.exec(`
     claimed INTEGER DEFAULT 0,
     created_at INTEGER DEFAULT (strftime('%s','now'))
   );
-  CREATE INDEX IF NOT EXISTS idx_mail_inbox ON mails(to_user, claimed);
 `);
 
-// 기존 DB 마이그레이션 (컬럼 없을 경우만 추가)
-try { db.exec("ALTER TABLE leaderboard ADD COLUMN play_time INTEGER DEFAULT 0"); } catch (e) { /* 이미 있음 */ }
+// ─── 스키마: 마이그레이션 (기존 DB 에 신규 컬럼 추가) ──────────
+// CREATE TABLE IF NOT EXISTS 는 이미 존재하는 테이블에는 컬럼을 안 더해주므로
+// 누락된 컬럼은 ALTER TABLE 로 보강. 인덱스 생성보다 먼저 수행해야 한다.
+function safeAddColumn(table, def) {
+  try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${def}`); }
+  catch (e) { /* 이미 있음 — duplicate column name 무시 */ }
+}
+safeAddColumn('leaderboard', 'play_time INTEGER DEFAULT 0');
+safeAddColumn('leaderboard', 'mastered_lines INTEGER DEFAULT 0');
+
+// ─── 스키마: 인덱스 ────────────────────────────
+// 컬럼 보강 후에 안전하게 생성.
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_users_token ON users(token);
+  CREATE INDEX IF NOT EXISTS idx_lb_level    ON leaderboard(level DESC);
+  CREATE INDEX IF NOT EXISTS idx_lb_gold     ON leaderboard(gold DESC);
+  CREATE INDEX IF NOT EXISTS idx_lb_boss     ON leaderboard(bosses_killed DESC);
+  CREATE INDEX IF NOT EXISTS idx_lb_trade    ON leaderboard(total_trade_profit DESC);
+  CREATE INDEX IF NOT EXISTS idx_lb_mastery  ON leaderboard(mastered_lines DESC);
+  CREATE INDEX IF NOT EXISTS idx_lb_playtime ON leaderboard(play_time DESC);
+  CREATE INDEX IF NOT EXISTS idx_mail_inbox  ON mails(to_user, claimed);
+`);
 
 // ─── Express ───────────────────────────────────
 const app = express();
