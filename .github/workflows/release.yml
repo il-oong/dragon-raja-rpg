@@ -67,3 +67,25 @@ jobs:
             }
           }
           exit 1
+
+      # electron-builder 는 기본적으로 Draft 로 릴리즈를 만든다 (안전 위해).
+      # 자동 업데이트가 동작하려면 Published + Latest 로 승격해야 하므로 마지막에
+      # gh CLI 로 draft=false, latest=true 전환. tag 가 없으면 스킵 (방어).
+      - name: Promote draft to Latest release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = (node -p "require('./package.json').version")
+          $tag = "v$version"
+          Write-Host "Promoting $tag to Latest..."
+          # 기존 tag 로 생성된 릴리즈를 찾는다. Draft 는 --drafts 필요.
+          $existing = gh release list --limit 20 --json tagName,isDraft | ConvertFrom-Json
+          $match = $existing | Where-Object { $_.tagName -eq $tag }
+          if (-not $match) {
+            Write-Error "릴리즈를 찾지 못함: $tag (electron-builder 가 publish 에 실패한 듯)"
+            exit 1
+          }
+          gh release edit $tag --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { Write-Error "릴리즈 승격 실패"; exit 1 }
+          Write-Host "✓ $tag 를 Latest 로 전환 완료"

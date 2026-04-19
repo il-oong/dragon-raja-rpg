@@ -1,5 +1,24 @@
 # 릴리즈 보드
 
+## v1.0.10 (2026-04-18)
+
+### 서버
+- **DB startup 크래시 해결** (PR #15) — `CREATE INDEX` 가 마이그레이션 전에
+  실행되어 `play_time` 컬럼이 없는 기존 DB 에서 SqliteError 발생.
+  순서를 `CREATE TABLE → ALTER TABLE → CREATE INDEX` 로 분리.
+
+### 게임 밸런스
+- **수련장 수련에 레벨 게이트 추가** (PR #16) — 저레벨에서 장시간 수련으로
+  레벨업이 너무 쉬워지던 문제 해결. 가벼운 명상(Lv.1) / 기초(Lv.10) /
+  심화(Lv.25) / 집중(Lv.50) / 극한(Lv.80). UI 잠금 표시 + 엔진 게이트.
+
+### CI
+- **release 워크플로우 하드닝** (PR #14) — electron / electron-builder
+  바이너리 캐시 + npm install / build 단계에 지수백오프 4회 재시도.
+  504 같은 일시 장애 자동 복구.
+
+---
+
 ## v1.0.9 (2026-04-18)
 
 ### 수정
