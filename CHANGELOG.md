@@ -1,5 +1,36 @@
 # 릴리즈 보드
 
+## v1.0.12 (2026-04-18) — 스킬 대개편 + 위장 테마 4종
+
+### 🎨 위장 테마 4종 (PR #24)
+Ctrl+Shift+T 로 순환, localStorage 저장:
+- **sysmon** (기본): 기존 System Resource Monitor
+- **excel**: 한국어 리본 + Q4 실적 시트 + 상태바. 무작위 셀 값 변동
+- **terminal**: 검은 배경 + tail -f nginx access.log. 무작위 IP/경로/상태
+- **kakao**: 팀 업무 채팅방 UI (말풍선/아바타/시간). 19개 메시지 순환
+
+### 🎮 스킬 시스템 전면 개편 (Stage A~E)
+- **Stage A** (PR #18) — 마이페이지 UI + 5개 탭 + 스킬 on/off 토글.
+  메인메뉴 정리 (정보 항목 [📋 마이페이지] 로 통합).
+- **Stage B** (PR #19) — 스킬 5등급 (일반/고급/희귀/영웅/전설) +
+  7개 도시 서재 (LIBRARIES) 데이터 모델 + 마이페이지 등급 뱃지.
+- **Stage C** (PR #20) — 77 직업 312 스킬 전체 grade/replaces 자동 정규화
+  (모듈 로드 시 1회). learnSkill 헬퍼로 상위 학습 시 하위 자동 비활성.
+  기존 세이브 reconcileDeactivations 1회 마이그레이션.
+- **Stage D** (PR #21) — 스킬북 아이템 312권 자동 생성. 일반 등급만
+  heltant + capital 상점 판매 (47권). 고급+ 는 서재 수련 종료 시
+  chancePerSession × pool 가중 확률로 발견. cUse 스킬북 처리.
+- **Stage E** (PR #22) — 이코노미 밸런스: 몬스터 골드 -40%, 퀘스트
+  보상 -30%, 판매가 50→35%, 장비 가격 ×2.5, 포션 ×1.5.
+
+### 🛠 서버 & CI
+- DB startup 크래시 해결 (PR #15) — CREATE TABLE → ALTER → INDEX 순서.
+- 수련장 레벨 게이트 (PR #16) — 집중/극한 수련 저레벨 제한.
+- Release 워크플로우 하드닝 (PR #14) — 바이너리 캐시 + 지수백오프 재시도.
+- 릴리즈 자동 publish (PR #17) — Draft → Latest 자동 승격.
+
+---
+
 ## v1.0.10 (2026-04-18)
 
 ### 서버
