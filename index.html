@@ -743,12 +743,7 @@
     print(`경과: 실시간 ${mins}분 / 게임 ${daysElapsed}일`, 'sys');
     print(`획득 XP: +${focusState.xpAwarded.toLocaleString()}${lvGain > 0 ? ` · 레벨업 ${lvGain}` : ''}`, 'good');
     if (focusState.eventLog.length) print(`깨달음 ${focusState.eventLog.length}회 발생.`, 'dim');
-    // ── 서재 발견 ── 이 도시에 LIBRARIES 가 있으면 확률로 스킬북 발견.
-    const found = tryLibraryDiscovery();
-    if (found) {
-      const grade = SKILL_GRADES[found.book.grade] || { name: '?', color: '#fff' };
-      print(`📚 [${grade.name}] 「${found.book.name}」 을 발견! 인벤에서 사용해 스킬을 습득하라.`, 'good');
-    }
+    // 서재 발견은 이제 전용 uiMode('library') 에서만 동작 — 수련 종료 시 자동 호출 제거.
     if (currentCharId) ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
     focusActive = false;
     focusState = null;
@@ -1110,6 +1105,7 @@
     if (uiMode === 'mail')         return renderMail();
     if (uiMode === 'mail_send')    return renderMailSend();
     if (uiMode === 'mypage')       return renderMyPage();
+    if (uiMode === 'library')      return renderLibrary();
 
     // 0) 수련 중 — 최우선 잠금
     if (focusActive) return renderFocusActive();
@@ -1815,6 +1811,10 @@
     // 수련장 (해당 지역에 수련장 있을 때만)
     if (TRAINING_HALLS[game.state.location]) {
       row2.appendChild(mkBtn('● 수련장', () => enterMode('train'), { primary: true, hotkey: nextActKey() }));
+    }
+    // 서재 (해당 지역에 서재 정의 있을 때만) — 수련장과는 별개. 스킬북 발견 전용.
+    if (LIBRARIES && LIBRARIES[game.state.location]) {
+      row2.appendChild(mkBtn('📚 서재', () => { uiMode = 'library'; render(); }, { hotkey: nextActKey() }));
     }
     act.appendChild(row2);
 
@@ -2768,6 +2768,110 @@
     act.appendChild(backBtn());
   }
 
+  // ─── 서재 (스킬북 발견 전용) ─────────────────────
+  // 수련장과 분리: 수련 = XP, 서재 = 스킬북. 각 세션에 게임 시간 2시간 + 골드 100G 소비.
+  function renderLibrary() {
+    const lib = LIBRARIES && LIBRARIES[game.state.location];
+    if (!lib) {
+      const r = mkSection();
+      const d = document.createElement('span');
+      d.style.color = '#858585';
+      d.textContent = '이 지역엔 서재가 없다.';
+      r.appendChild(d);
+      act.appendChild(r);
+      // 서재 위치 안내
+      const r2 = mkSection('서재 위치:');
+      const list = document.createElement('div');
+      list.style.cssText = 'color:#b4b4b4;font-size:12px;line-height:1.8;width:100%;';
+      Object.entries(LIBRARIES).forEach(([k, h]) => {
+        list.innerHTML += `<div>• ${escHtml(LOCATIONS[k] ? LOCATIONS[k].name : k)} — ${escHtml(h.name)}</div>`;
+      });
+      r2.appendChild(list);
+      act.appendChild(r2);
+      act.appendChild(backBtn());
+      return;
+    }
+    // 시간 게이트 — 밤엔 닫혀있음 (NPC 대화 시간 규칙과 동일 감성)
+    const band = typeof game.getTimeBand === 'function' ? game.getTimeBand() : '낮';
+    const openBands = ['새벽', '낮', '황혼'];
+    const libOpen = openBands.includes(band);
+
+    const intro = mkSection();
+    const i = document.createElement('div');
+    i.style.cssText = 'color:#cccccc;line-height:1.7;width:100%;';
+    const grades = Object.entries(lib.pool).map(([g, w]) => {
+      const gr = SKILL_GRADES[g] || { name: g, color: '#fff' };
+      return `<span style="color:${gr.color};">${escHtml(gr.name)}</span>`;
+    }).join(' / ');
+    i.innerHTML = `<b>📚 ${escHtml(lib.name)}</b> · 발견율 ${(lib.chancePerSession*100).toFixed(0)}% · 등급 ${grades}
+      <br><span style="color:#858585;font-size:11.5px;">${escHtml(lib.desc)}</span>
+      ${lib.titleBonus ? `<br><span style="color:#f4c96b;font-size:11px;">✦ 작위 보유 시 발견율 ×${lib.titleBonus}</span>` : ''}
+      ${!libOpen ? `<br><span style="color:#cc6666;font-size:11px;">🌙 밤에는 닫혀있다. 다음 낮을 기다려라.</span>` : ''}`;
+    intro.appendChild(i);
+    act.appendChild(intro);
+
+    // 세션 비용/조건
+    const COST_GOLD = 100;
+    const COST_HOURS = 2;
+    const cost = mkSection();
+    const cd = document.createElement('div');
+    cd.style.cssText = 'color:#a0a0a0;font-size:12px;width:100%;line-height:1.6;';
+    cd.innerHTML = `책을 뒤적이며 시간을 보낸다 — 비용 <b>${COST_GOLD}G</b> · 게임 시간 <b>${COST_HOURS}시간</b>`;
+    cost.appendChild(cd);
+    act.appendChild(cost);
+
+    const btnRow = mkSection();
+    const canPay = game.state.gold >= COST_GOLD;
+    btnRow.appendChild(mkBtn(libOpen ? '📖 책을 찾아본다' : '🌙 닫혀있음', () => {
+      if (!canPay) { print(`골드 ${COST_GOLD}G 이 필요하다.`, 'warn'); return; }
+      if (!libOpen) { print('서재는 밤에 닫혀있다.', 'warn'); return; }
+      game.state.gold -= COST_GOLD;
+      game.advanceTime(COST_HOURS);
+      const found = tryLibraryDiscovery();
+      if (found) {
+        const grade = SKILL_GRADES[found.book.grade] || { name: '?', color: '#fff' };
+        print(`📚 [${grade.name}] 「${escHtml(found.book.name)}」 을 발견! 인벤에서 사용해 스킬을 습득하라.`, 'good');
+      } else {
+        print('이번엔 별 수확이 없다. 다시 시도해볼 수 있다.', 'dim');
+      }
+      render();
+    }, { primary: libOpen && canPay, disabled: !libOpen || !canPay }));
+    btnRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'main'; render(); }, { danger: true }));
+    act.appendChild(btnRow);
+
+    // 오늘 이 도시의 책 카탈로그 미리보기 (미습득 중 랜덤 5개)
+    const preview = mkSection('발견 가능한 책 예시:');
+    const candidates = [];
+    const myLine = JOBS[game.state.job].line;
+    for (const jk of Object.keys(JOBS)) {
+      const job = JOBS[jk];
+      if (lib.favorLines && !lib.favorLines.includes(job.line)) continue;
+      for (const sk of (job.skills || [])) {
+        const g = sk.grade || getSkillGrade(sk);
+        if (!lib.pool[g]) continue;
+        if (game.state.skills.includes(sk.id)) continue;
+        if ((game.state.inv['book_' + sk.id] || 0) > 0) continue;
+        candidates.push({ sk, grade: g });
+      }
+    }
+    const sample = candidates.slice(0, 5);
+    if (sample.length) {
+      const listEl = document.createElement('div');
+      listEl.style.cssText = 'color:#a0a0a0;font-size:11px;line-height:1.7;width:100%;';
+      sample.forEach(({ sk, grade }) => {
+        const gr = SKILL_GRADES[grade] || { name: grade, color: '#fff' };
+        listEl.innerHTML += `<div><span style="color:${gr.color};font-size:10.5px;">[${escHtml(gr.name)}]</span> ${escHtml(sk.name)} <span style="color:#666;">— ${escHtml(sk.desc || '')}</span></div>`;
+      });
+      preview.appendChild(listEl);
+    } else {
+      const empty = document.createElement('span');
+      empty.style.color = '#858585';
+      empty.textContent = '이 서재의 책을 이미 다 알고 있거나 적합한 후보가 없다.';
+      preview.appendChild(empty);
+    }
+    act.appendChild(preview);
+  }
+
   function renderTrain() {
     // 현재 지역이 수련장인지 확인
     const hall = TRAINING_HALLS[game.state.location];
@@ -2808,18 +2912,12 @@
     notice.appendChild(n);
     act.appendChild(notice);
 
-    // 이 도시에 서재가 있으면 안내 — 수련 종료 시 스킬북 발견 가능.
-    const lib = LIBRARIES && LIBRARIES[game.state.location];
-    if (lib) {
+    // 서재 안내 — 수련장과 분리됐으므로 메인메뉴의 [📚 서재] 버튼 힌트만.
+    if (LIBRARIES && LIBRARIES[game.state.location]) {
       const libRow = mkSection();
       const ld = document.createElement('div');
-      ld.style.cssText = 'width:100%;color:#7ec7ff;font-size:11.5px;line-height:1.6;';
-      const grades = Object.entries(lib.pool).map(([g, w]) => {
-        const gr = SKILL_GRADES[g] || { name: g, color: '#fff' };
-        return `<span style="color:${gr.color};">${escHtml(gr.name)}</span>`;
-      }).join(' / ');
-      ld.innerHTML = `📚 <b>${escHtml(lib.name)}</b> · 발견율 ${(lib.chancePerSession*100).toFixed(0)}% · 등급: ${grades}<br>
-        <span style="color:#858585;font-size:11px;">${escHtml(lib.desc)}</span>`;
+      ld.style.cssText = 'width:100%;color:#858585;font-size:11px;line-height:1.6;';
+      ld.innerHTML = `📚 이 지역엔 별도 <b>서재</b> 가 있다 — 메인메뉴의 [📚 서재] 에서 스킬북을 찾을 수 있다.`;
       libRow.appendChild(ld);
       act.appendChild(libRow);
     }
