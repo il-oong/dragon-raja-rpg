@@ -3187,6 +3187,88 @@ const THEMES = {
   cosmos_edge:        { accent: '#2a2a4a', tint: 'rgba(30,30,60,0.12)',    mood: '현실의 끝' },
 };
 
-const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES };
+// ═══════════ 스킬 정규화 — Stage C ═══════════
+// 모든 JOBS[].skills 에 grade / replaces 를 자동 부여.
+//   grade: sk.grade 명시 우선, 없으면 getSkillGrade(sk) 로 lv 기반 추정.
+//   replaces: 같은 직업의 동일 type 더 낮은 lv 스킬 id 배열.
+//             상위 스킬 학습 시 learnSkill 이 이 목록을 state.skillsDeactivated 에 자동 추가.
+function normalizeJobs() {
+  for (const jk of Object.keys(JOBS)) {
+    const job = JOBS[jk];
+    if (!Array.isArray(job.skills)) continue;
+    for (const sk of job.skills) {
+      if (!sk.grade) sk.grade = getSkillGrade(sk);
+    }
+    for (const sk of job.skills) {
+      if (sk.replaces) continue; // 명시 우선
+      const lower = job.skills
+        .filter(s => s.id !== sk.id && s.type === sk.type && (s.lv || 1) < (sk.lv || 1))
+        .map(s => s.id);
+      if (lower.length) sk.replaces = lower;
+    }
+  }
+  // TRAIN_SKILLS / COMBO_SKILLS 의 .skill 객체에도 grade 부여 (있을 때).
+  if (Array.isArray(TRAIN_SKILLS)) {
+    for (const ts of TRAIN_SKILLS) {
+      if (ts.skill && !ts.skill.grade) ts.skill.grade = getSkillGrade(ts.skill);
+    }
+  }
+  if (Array.isArray(COMBO_SKILLS)) {
+    for (const cs of COMBO_SKILLS) {
+      if (cs && !cs.grade) cs.grade = getSkillGrade(cs);
+    }
+  }
+}
+normalizeJobs();
+
+// 스킬 ID 로 정의 객체 검색 (job + train + combo 전부 탐색).
+function findSkillById(sId) {
+  for (const jk of Object.keys(JOBS)) {
+    const sk = JOBS[jk].skills && JOBS[jk].skills.find(s => s.id === sId);
+    if (sk) return sk;
+  }
+  if (Array.isArray(TRAIN_SKILLS)) {
+    const ts = TRAIN_SKILLS.find(t => t.skill && t.skill.id === sId);
+    if (ts) return ts.skill;
+  }
+  if (Array.isArray(COMBO_SKILLS)) {
+    const cs = COMBO_SKILLS.find(c => c && c.id === sId);
+    if (cs) return cs;
+  }
+  return null;
+}
+
+// 스킬 습득 — state.skills 에 추가 + replaces 가 있으면 하위 스킬들을 자동 비활성.
+// 사용자가 마이페이지에서 다시 활성화 가능 (수동 토글).
+function learnSkill(state, sId) {
+  if (!state) return;
+  if (!Array.isArray(state.skills)) state.skills = [];
+  if (!state.skills.includes(sId)) state.skills.push(sId);
+  const sk = findSkillById(sId);
+  if (sk && Array.isArray(sk.replaces)) {
+    if (!Array.isArray(state.skillsDeactivated)) state.skillsDeactivated = [];
+    for (const rid of sk.replaces) {
+      if (!state.skillsDeactivated.includes(rid)) state.skillsDeactivated.push(rid);
+    }
+  }
+}
+
+// 기존 세이브용 — 보유 스킬 전체에 대해 replaces 를 다시 계산해 자동 비활성 적용.
+function reconcileDeactivations(state) {
+  if (!state || !Array.isArray(state.skills)) return;
+  if (!Array.isArray(state.skillsDeactivated)) state.skillsDeactivated = [];
+  for (const sId of state.skills) {
+    const sk = findSkillById(sId);
+    if (!sk || !Array.isArray(sk.replaces)) continue;
+    for (const rid of sk.replaces) {
+      // 사용자가 의도적으로 활성화시킨 것은 건드리지 않기 위해 원래 상태 보존.
+      // 단, 마이그레이션 1회만 자동 적용 (state.skillsReconciled 플래그).
+      if (!state.skillsDeactivated.includes(rid)) state.skillsDeactivated.push(rid);
+    }
+  }
+  state.skillsReconciled = true;
+}
+
+const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, learnSkill, reconcileDeactivations };
 if (typeof module !== 'undefined' && module.exports) module.exports = __DATA_EXPORTS__;
 if (typeof window !== 'undefined') window.__GAME_DATA__ = __DATA_EXPORTS__;

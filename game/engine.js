@@ -1,7 +1,8 @@
 const __DATA__ = (typeof require === 'function')
   ? require('./data.js')
   : (typeof window !== 'undefined' ? window.__GAME_DATA__ : globalThis.__GAME_DATA__);
-const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS } = __DATA__;
+const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS,
+        learnSkill } = __DATA__;
 
 const rnd = (n) => Math.floor(Math.random() * n);
 const chance = (p) => Math.random() < p;
@@ -100,7 +101,8 @@ class Game {
       equip: { weapon: null, armor: null, acc: null },
       inv: { potion_s: 3 },
       tradeInv: {},          // 무역 상품
-      skills: job.skills.filter(s => s.lv <= 1).map(s => s.id),
+      skills: [],
+      skillsDeactivated: [],
       quests: {}, killCount: {}, flags: {},
       buffsPersistent: {},
       time: { day: 1, hour: 6 },
@@ -119,6 +121,8 @@ class Game {
       masteredLines: [],
       playTimeSec: 0,
     };
+    // 초기 스킬 — learnSkill 통과 시 replaces 자동 비활성 적용 (1차 스킬엔 영향 없음).
+    job.skills.filter(s => s.lv <= 1).forEach(s => learnSkill(this.state, s.id));
     this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
     this.awaiting = null;   // 🐛 fix: 생성 후 입력 대기 해제
     this.out(`\n★ ${name} (${race.name} ${job.name}) 탄생!`);
@@ -183,7 +187,7 @@ class Game {
         this.state.trainedSkills.push(ts.id);
         unlocked.push(ts);
         // 액티브 스킬이면 state.skills에도 추가
-        if (ts.type === 'active') this.state.skills.push(ts.skill.id);
+        if (ts.type === 'active') learnSkill(this.state, ts.skill.id);
       }
     });
     if (unlocked.length) {
@@ -982,7 +986,7 @@ class Game {
     // 새 직업의 현재 레벨 이하 스킬 즉시 습득
     (next.skills || []).forEach(sk => {
       if ((sk.lv || 1) <= this.state.lv && !this.state.skills.includes(sk.id)) {
-        this.state.skills.push(sk.id);
+        learnSkill(this.state, sk.id);
       }
     });
     this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
@@ -1434,7 +1438,7 @@ class Game {
       this.out(`\n★ Lv.${this.state.lv}! 분배 +3 (총 ${this.state.pendingPoints})`);
       this.state.jobs.forEach(jk => JOBS[jk].skills.forEach(sk => {
         if (sk.lv === this.state.lv && !this.state.skills.includes(sk.id)) {
-          this.state.skills.push(sk.id);
+          learnSkill(this.state, sk.id);
           this.out(`  ✦ 스킬: [${JOBS[jk].name}] ${sk.name}`);
         }
       }));
@@ -1578,7 +1582,7 @@ class Game {
     this.state.pendingPoints += 5;
     next.skills.forEach(sk => {
       if (sk.lv <= this.state.lv && !this.state.skills.includes(sk.id)) {
-        this.state.skills.push(sk.id);
+        learnSkill(this.state, sk.id);
         this.out(`  ✦ 스킬: ${sk.name}`);
       }
     });
