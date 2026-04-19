@@ -788,7 +788,7 @@
 
   function mkBtn(label, cb, opts = {}) {
     const b = document.createElement('button');
-    b.textContent = label;
+    b.textContent = opts.hotkey ? `[${opts.hotkey.toUpperCase()}] ${label}` : label;
     if (opts.primary) b.className = 'primary';
     if (opts.danger) b.className = 'danger';
     if (opts.success) b.className = 'success';
@@ -796,6 +796,7 @@
     if (opts.mini) b.className = (b.className + ' mini').trim();
     if (opts.disabled) b.disabled = true;
     if (opts.title) b.title = opts.title;
+    if (opts.hotkey) b.dataset.hotkey = String(opts.hotkey).toLowerCase();
     b.onclick = () => {
       if (typeof cb === 'function') cb();
       else if (typeof cb === 'string') game.handleInput(cb);
@@ -1455,16 +1456,21 @@
   }
 
   // ─── 전투 ───
+  const TOP_ROW_KEYS = ['q','w','e','r','t','y','u','i','o','p'];
+  const BOTTOM_ROW_KEYS = ['a','s','d','f','g','h','j','k','l'];
+  const NUM_ROW_KEYS = ['1','2','3','4','5','6','7','8','9','0'];
+  const COMBAT_SKILL_KEYS = TOP_ROW_KEYS;
   function renderCombat() {
     const row1 = mkSection('행동:');
-    row1.appendChild(mkBtn('⚔ 공격', 'attack', { primary: true }));
+    let actNum = 1;
+    row1.appendChild(mkBtn('⚔ 공격', 'attack', { primary: true, hotkey: String(actNum++) }));
     if (!game.combat.trialMode) {
-      row1.appendChild(mkBtn('🏃 도주', 'run', { danger: true }));
+      row1.appendChild(mkBtn('🏃 도주', 'run', { danger: true, hotkey: String(actNum++) }));
       // 상인 계열 & 무역품 보유 시: 희생 도주
       const isMerchant = JOBS[game.state.job].line === 'merchant';
       const hasGoods = Object.values(game.state.tradeInv || {}).some(v => v > 0);
       if (isMerchant && hasGoods) {
-        row1.appendChild(mkBtn('💰 희생 도주 (무역품 20% 버리고 +50%)', 'runsac', { danger: true, mini: true, title: '상인 전용: 무역품 20%를 버려 도주 성공률을 대폭 올린다.' }));
+        row1.appendChild(mkBtn('💰 희생 도주 (무역품 20% 버리고 +50%)', 'runsac', { danger: true, mini: true, hotkey: String(actNum++), title: '상인 전용: 무역품 20%를 버려 도주 성공률을 대폭 올린다.' }));
       }
     }
     act.appendChild(row1);
@@ -1472,13 +1478,15 @@
     // 스킬
     const skillRow = mkSection('스킬:');
     let hasSkill = false;
+    let skillIdx = 0;
     game.state.jobs.forEach(jk => JOBS[jk].skills.forEach(sk => {
       if (game.state.skills.includes(sk.id)) {
         hasSkill = true;
         const mpCost = game.combat.buffs.mag_mastery ? Math.round(sk.mp * 0.5) : sk.mp;
         const can = game.state.mp >= mpCost;
+        const hk = COMBAT_SKILL_KEYS[skillIdx++];
         skillRow.appendChild(mkBtn(`${sk.name}(${mpCost})`, `skill ${sk.id}`,
-          { disabled: !can, title: sk.desc }));
+          { disabled: !can, title: sk.desc, hotkey: hk }));
       }
     }));
     if (hasSkill) act.appendChild(skillRow);
@@ -1486,10 +1494,12 @@
     // 소비 아이템
     const itemRow = mkSection('아이템:');
     let hasItem = false;
+    let itemIdx = 0;
     Object.entries(game.state.inv).forEach(([k, v]) => {
       if (v > 0 && ITEMS[k] && ITEMS[k].type === 'use') {
         hasItem = true;
-        itemRow.appendChild(mkBtn(`${ITEMS[k].name}x${v}`, `use ${k}`, { mini: true }));
+        const hk = BOTTOM_ROW_KEYS[itemIdx++];
+        itemRow.appendChild(mkBtn(`${ITEMS[k].name}x${v}`, `use ${k}`, { mini: true, hotkey: hk }));
       }
     });
     if (hasItem) act.appendChild(itemRow);
@@ -1501,35 +1511,39 @@
 
     // 상태/정보
     const row1 = mkSection('정보:');
-    row1.appendChild(mkBtn('상태', 's'));
-    row1.appendChild(mkBtn('인벤토리', () => enterMode('inv', 'i')));
-    row1.appendChild(mkBtn('스킬', 'skills'));
-    row1.appendChild(mkBtn('퀘스트', 'q'));
-    row1.appendChild(mkBtn('직업트리', () => enterMode('jobs', 'jobs')));
-    row1.appendChild(mkBtn('시간', 'time'));
-    row1.appendChild(mkBtn('저장', saveGame, { success: true }));
-    row1.appendChild(mkBtn('캐릭터 선택', backToSelect, { danger: true, mini: true }));
+    let infoIdx = 0;
+    const nextInfoKey = () => NUM_ROW_KEYS[infoIdx++];
+    row1.appendChild(mkBtn('상태', 's', { hotkey: nextInfoKey() }));
+    row1.appendChild(mkBtn('인벤토리', () => enterMode('inv', 'i'), { hotkey: nextInfoKey() }));
+    row1.appendChild(mkBtn('스킬', 'skills', { hotkey: nextInfoKey() }));
+    row1.appendChild(mkBtn('퀘스트', 'q', { hotkey: nextInfoKey() }));
+    row1.appendChild(mkBtn('직업트리', () => enterMode('jobs', 'jobs'), { hotkey: nextInfoKey() }));
+    row1.appendChild(mkBtn('시간', 'time', { hotkey: nextInfoKey() }));
+    row1.appendChild(mkBtn('저장', saveGame, { success: true, hotkey: nextInfoKey() }));
+    row1.appendChild(mkBtn('캐릭터 선택', backToSelect, { danger: true, mini: true, hotkey: nextInfoKey() }));
     if (game.state.pendingPoints > 0) {
-      row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; }, { gold: true }));
+      row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; }, { gold: true, hotkey: nextInfoKey() }));
     }
     // 마스터리 / 재전직 — 4차 직업 마스터 1개 이상일 때만 노출.
     if ((game.state.masteredLines || []).length > 0) {
-      row1.appendChild(mkBtn('마스터리', 'mastery', { mini: true }));
-      row1.appendChild(mkBtn('재전직', 'respec', { mini: true, gold: true, title: '레벨/스탯/스킬 유지하고 1차 직업 변경' }));
+      row1.appendChild(mkBtn('마스터리', 'mastery', { mini: true, hotkey: nextInfoKey() }));
+      row1.appendChild(mkBtn('재전직', 'respec', { mini: true, gold: true, hotkey: nextInfoKey(), title: '레벨/스탯/스킬 유지하고 1차 직업 변경' }));
     }
     act.appendChild(row1);
 
     // 주 활동
     const row2 = mkSection('행동:');
-    row2.appendChild(mkBtn('탐험', 'explore', { primary: true }));
+    let actIdx = 0;
+    const nextActKey = () => TOP_ROW_KEYS[actIdx++];
+    row2.appendChild(mkBtn('탐험', 'explore', { primary: true, hotkey: nextActKey() }));
     if (loc.inn || Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location)) {
-      row2.appendChild(mkBtn(Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location) ? '저택 휴식' : '여관', 'rest'));
+      row2.appendChild(mkBtn(Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location) ? '저택 휴식' : '여관', 'rest', { hotkey: nextActKey() }));
     }
-    if (loc.shop) row2.appendChild(mkBtn('상점', () => enterMode('shop', 'shop')));
-    if (TRADE_PRICES[game.state.location]) row2.appendChild(mkBtn('무역', () => enterMode('trade', 'trade')));
+    if (loc.shop) row2.appendChild(mkBtn('상점', () => enterMode('shop', 'shop'), { hotkey: nextActKey() }));
+    if (TRADE_PRICES[game.state.location]) row2.appendChild(mkBtn('무역', () => enterMode('trade', 'trade'), { hotkey: nextActKey() }));
     // 수련장 (해당 지역에 수련장 있을 때만)
     if (TRAINING_HALLS[game.state.location]) {
-      row2.appendChild(mkBtn('● 수련장', () => enterMode('train'), { primary: true }));
+      row2.appendChild(mkBtn('● 수련장', () => enterMode('train'), { primary: true, hotkey: nextActKey() }));
     }
     act.appendChild(row2);
 
@@ -1537,6 +1551,7 @@
     if (loc.exits) {
       const row3 = mkSection('이동:');
       const isMerchant = JOBS[game.state.job].line === 'merchant';
+      let moveIdx = 0;
       Object.entries(loc.exits).forEach(([dst, info]) => {
         const h = (typeof info === 'object') ? info.hours : '?';
         const toKey = (typeof info === 'object') ? info.to : info;
@@ -1545,7 +1560,8 @@
         const can = game.state.lv >= effReq;
         let label = `${dst} (${h}h)${effReq ? ` Lv${effReq}+` : ''}`;
         if (isMerchant && rawReq && effReq < rawReq) label += ' 🎫';
-        row3.appendChild(mkBtn(label, `go ${dst}`, { disabled: !can, title: isMerchant && rawReq ? `상인 완화 (원래 Lv.${rawReq}, -4)` : undefined }));
+        const hk = BOTTOM_ROW_KEYS[moveIdx++];
+        row3.appendChild(mkBtn(label, `go ${dst}`, { disabled: !can, hotkey: hk, title: isMerchant && rawReq ? `상인 완화 (원래 Lv.${rawReq}, -4)` : undefined }));
       });
       act.appendChild(row3);
     }
@@ -2108,6 +2124,19 @@
   setDisguise(true);
   ipcRenderer.on('toggle-disguise', () => setDisguise(!disguised));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setDisguise(true); });
+
+  // ═══════ 단축키 (전투·이동) ═══════
+  document.addEventListener('keydown', (e) => {
+    if (disguised) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const key = e.key.toLowerCase();
+    const btn = act.querySelector(`button[data-hotkey="${key}"]:not([disabled])`);
+    if (!btn) return;
+    e.preventDefault();
+    btn.click();
+  });
 
   // ═══════ 위장 애니메이션 ═══════
   const procNames = ['System','svchost.exe','explorer.exe','chrome.exe','Code.exe','Teams.exe','Outlook.exe','OneDrive.exe','msedge.exe','WINWORD.EXE','EXCEL.EXE','Slack.exe','node.exe','git.exe','powershell.exe','RuntimeBroker.exe','dwm.exe','conhost.exe'];
