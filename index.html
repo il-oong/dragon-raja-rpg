@@ -1833,6 +1833,7 @@
       { k: 'inv',       label: '🎒 인벤' },
       { k: 'quest',     label: '📜 퀘스트' },
       { k: 'jobs',      label: '⚔ 직업·마스터리' },
+      { k: 'version',   label: '🔖 버전' },
     ];
     const tabRow = mkSection();
     tabs.forEach(t => {
@@ -1848,6 +1849,126 @@
     if (mypageTab === 'inv')       return renderMyPageInv();
     if (mypageTab === 'quest')     return renderMyPageQuest();
     if (mypageTab === 'jobs')      return renderMyPageJobs();
+    if (mypageTab === 'version')   return renderMyPageVersion();
+  }
+
+  // ─── 버전 정보 탭 ───
+  // 현재 앱 버전 + CHANGELOG 를 파싱해 버전별 카드로 노출.
+  // 각 카드 헤더 클릭 시 본문 토글. '업데이트 확인' 버튼으로 수동 체크 가능.
+  let _versionCache = null;
+  let _versionExpanded = null; // 어느 버전이 펼쳐져 있는지 (최신만 기본 펼침)
+  async function renderMyPageVersion() {
+    // 로딩
+    if (!_versionCache) {
+      const loading = mkSection();
+      const l = document.createElement('span');
+      l.style.color = '#858585';
+      l.textContent = '버전 정보 불러오는 중...';
+      loading.appendChild(l);
+      act.appendChild(loading);
+      try {
+        _versionCache = await ipcRenderer.invoke('get-app-info');
+        render();
+      } catch (e) {
+        _versionCache = { ok: false, error: e.message };
+        render();
+      }
+      return;
+    }
+    const info = _versionCache;
+
+    // 헤더: 현재 버전 + 업데이트 체크 버튼
+    const hd = mkSection();
+    const d = document.createElement('div');
+    d.style.cssText = 'width:100%;color:#cccccc;font-size:13px;line-height:1.8;';
+    d.innerHTML = `
+      <div>현재 버전 <b style="color:#f4c96b;">v${escHtml(info.version || '?')}</b>
+        ${info.packaged ? '' : '<span style="color:#858585;font-size:11px;">(dev)</span>'}
+      </div>
+      ${info.updatePending ? `<div style="color:#7ec77e;">🆕 업데이트 다운로드 완료 — 다음 종료 시 자동 설치</div>` : ''}
+    `;
+    hd.appendChild(d);
+    act.appendChild(hd);
+
+    const actions = mkSection();
+    actions.appendChild(mkBtn('🔄 업데이트 확인', async () => {
+      print('업데이트 확인 중...', 'dim');
+      const r = await ipcRenderer.invoke('check-for-updates');
+      if (!r.ok) print('업데이트 확인 실패: ' + (r.error || '알 수 없음'), 'warn');
+      else if (r.version) print(`서버 최신 버전: v${r.version}`, 'good');
+      else print('최신 상태입니다.', 'good');
+    }, { primary: true, mini: true }));
+    actions.appendChild(mkBtn('⟳ 새로고침', () => { _versionCache = null; render(); }, { mini: true }));
+    act.appendChild(actions);
+
+    // CHANGELOG 파싱
+    const cl = info.changelog || '';
+    if (!cl) {
+      const r = mkSection();
+      const e = document.createElement('span');
+      e.style.color = '#858585';
+      e.textContent = '업데이트 내역 파일이 없다 (패키지에 CHANGELOG.md 미포함).';
+      r.appendChild(e);
+      act.appendChild(r);
+      return;
+    }
+    const entries = parseChangelog(cl);
+    if (entries.length === 0) {
+      const r = mkSection();
+      const e = document.createElement('span');
+      e.style.color = '#858585';
+      e.textContent = '파싱된 버전 항목이 없다.';
+      r.appendChild(e);
+      act.appendChild(r);
+      return;
+    }
+    // 최신 항목이 펼쳐져 있지 않으면 최신을 기본으로
+    if (_versionExpanded == null) _versionExpanded = entries[0].title;
+
+    entries.forEach(ent => {
+      const open = _versionExpanded === ent.title;
+      const isCurrent = info.version && ent.title.includes(`v${info.version}`);
+      const row = mkSection();
+      const head = document.createElement('div');
+      head.style.cssText = `width:100%;cursor:pointer;padding:6px 8px;border:1px solid ${isCurrent?'#f4c96b':'#333'};background:${open?'#2a2a2a':'#1a1a1a'};border-radius:3px;`;
+      head.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="color:${isCurrent?'#f4c96b':'#e0e6ed'};font-size:13px;">
+            ${open ? '▼' : '▶'} ${escHtml(ent.title)} ${isCurrent ? '<span style="color:#7ec77e;font-size:10.5px;">· 현재</span>' : ''}
+          </div>
+        </div>
+      `;
+      head.onclick = () => { _versionExpanded = open ? null : ent.title; render(); };
+      row.appendChild(head);
+      if (open) {
+        const body = document.createElement('div');
+        body.style.cssText = 'width:100%;color:#b4b4b4;font-size:11.5px;line-height:1.7;padding:8px 12px;background:#151515;border:1px solid #333;border-top:none;border-radius:0 0 3px 3px;white-space:pre-wrap;word-wrap:break-word;';
+        body.textContent = ent.body; // 원문 그대로 (마크다운 렌더는 스코프 밖)
+        row.appendChild(body);
+      }
+      act.appendChild(row);
+    });
+  }
+
+  // CHANGELOG.md 를 간단 파싱: ## 헤더 기준으로 섹션 분리.
+  function parseChangelog(md) {
+    const lines = md.split(/\r?\n/);
+    const out = [];
+    let cur = null;
+    for (const line of lines) {
+      const m = /^##\s+(.+)$/.exec(line);
+      if (m) {
+        if (cur) out.push(cur);
+        cur = { title: m[1].trim(), body: '' };
+      } else if (cur) {
+        // 구분선(---) 은 버리기
+        if (line.trim() === '---') continue;
+        cur.body += line + '\n';
+      }
+    }
+    if (cur) out.push(cur);
+    // 빈 body 정리
+    return out.map(e => ({ title: e.title, body: e.body.trim() }));
   }
 
   function renderMyPageCharacter() {
