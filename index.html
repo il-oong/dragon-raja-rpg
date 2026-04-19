@@ -681,7 +681,30 @@
     if (!s.tradeBook) s.tradeBook = {};
     if (!Array.isArray(s.masteredLines)) s.masteredLines = [];
     if (typeof s.playTimeSec !== 'number') s.playTimeSec = 0;
+    if (!Array.isArray(s.skillsDeactivated)) s.skillsDeactivated = [];
     return s;
+  }
+
+  // ═══════ 마이페이지 (모든 캐릭터 정보 통합) ═══════
+  let mypageTab = 'character';
+
+  function enterMyPage(tab) {
+    if (tab) mypageTab = tab;
+    uiMode = 'mypage';
+    render();
+  }
+
+  // 스킬 활성/비활성 — 마이페이지에서 사용자가 토글. 비활성 스킬은 전투 메뉴에서 숨김.
+  // (Stage C 에서 상위 스킬 획득 시 자동 비활성화 로직 추가 예정.)
+  function isSkillActive(sId) {
+    const arr = game.state && game.state.skillsDeactivated || [];
+    return !arr.includes(sId);
+  }
+  function toggleSkillActive(sId) {
+    if (!Array.isArray(game.state.skillsDeactivated)) game.state.skillsDeactivated = [];
+    const i = game.state.skillsDeactivated.indexOf(sId);
+    if (i >= 0) game.state.skillsDeactivated.splice(i, 1);
+    else game.state.skillsDeactivated.push(sId);
   }
 
   // ═══════ 상태 사이드바 ═══════
@@ -838,6 +861,7 @@
     if (uiMode === 'leaderboard')  return renderLeaderboard();
     if (uiMode === 'mail')         return renderMail();
     if (uiMode === 'mail_send')    return renderMailSend();
+    if (uiMode === 'mypage')       return renderMyPage();
 
     // 0) 수련 중 — 최우선 잠금
     if (focusActive) return renderFocusActive();
@@ -1475,11 +1499,11 @@
     }
     act.appendChild(row1);
 
-    // 스킬
+    // 스킬 — 마이페이지에서 비활성화한 스킬은 전투 메뉴에서 숨김.
     const skillRow = mkSection('스킬:');
     let hasSkill = false;
     game.state.jobs.forEach(jk => JOBS[jk].skills.forEach(sk => {
-      if (game.state.skills.includes(sk.id)) {
+      if (game.state.skills.includes(sk.id) && isSkillActive(sk.id)) {
         hasSkill = true;
         const mpCost = game.combat.buffs.mag_mastery ? Math.round(sk.mp * 0.5) : sk.mp;
         const can = game.state.mp >= mpCost;
@@ -1505,23 +1529,14 @@
   function renderMain() {
     const loc = LOCATIONS[game.state.location];
 
-    // 상태/정보
+    // 상태/정보 — 상세 항목들은 마이페이지로 통합. 메인메뉴는 세션 액션만.
     const row1 = mkSection('정보:');
-    row1.appendChild(mkBtn('상태', 's'));
-    row1.appendChild(mkBtn('인벤토리', () => enterMode('inv', 'i')));
-    row1.appendChild(mkBtn('스킬', 'skills'));
-    row1.appendChild(mkBtn('퀘스트', 'q'));
-    row1.appendChild(mkBtn('직업트리', () => enterMode('jobs', 'jobs')));
-    row1.appendChild(mkBtn('시간', 'time'));
-    row1.appendChild(mkBtn('저장', saveGame, { success: true }));
+    row1.appendChild(mkBtn('📋 마이페이지', () => enterMyPage(), { primary: true }));
+    row1.appendChild(mkBtn('시간', 'time', { mini: true }));
+    row1.appendChild(mkBtn('저장', saveGame, { success: true, mini: true }));
     row1.appendChild(mkBtn('캐릭터 선택', backToSelect, { danger: true, mini: true }));
     if (game.state.pendingPoints > 0) {
-      row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; }, { gold: true }));
-    }
-    // 마스터리 / 재전직 — 4차 직업 마스터 1개 이상일 때만 노출.
-    if ((game.state.masteredLines || []).length > 0) {
-      row1.appendChild(mkBtn('마스터리', 'mastery', { mini: true }));
-      row1.appendChild(mkBtn('재전직', 'respec', { mini: true, gold: true, title: '레벨/스탯/스킬 유지하고 1차 직업 변경' }));
+      row1.appendChild(mkBtn(`★ 분배 +${game.state.pendingPoints}`, () => { uiMode = 'allocate'; render(); }, { gold: true }));
     }
     act.appendChild(row1);
 
@@ -1608,6 +1623,216 @@
     const r = mkSection();
     r.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'main'; uiCtx = {}; }, { danger: true }));
     return r;
+  }
+
+  // ═══════════════════════ 마이페이지 렌더러 ═══════════════════════
+  function renderMyPage() {
+    const tabs = [
+      { k: 'character', label: '👤 캐릭터' },
+      { k: 'skills',    label: '✨ 스킬' },
+      { k: 'inv',       label: '🎒 인벤' },
+      { k: 'quest',     label: '📜 퀘스트' },
+      { k: 'jobs',      label: '⚔ 직업·마스터리' },
+    ];
+    const tabRow = mkSection();
+    tabs.forEach(t => {
+      tabRow.appendChild(mkBtn(t.label, () => { mypageTab = t.k; render(); }, {
+        primary: mypageTab === t.k, mini: true,
+      }));
+    });
+    tabRow.appendChild(mkBtn('◀ 메인', () => { uiMode = 'main'; render(); }, { danger: true, mini: true }));
+    act.appendChild(tabRow);
+
+    if (mypageTab === 'character') return renderMyPageCharacter();
+    if (mypageTab === 'skills')    return renderMyPageSkills();
+    if (mypageTab === 'inv')       return renderMyPageInv();
+    if (mypageTab === 'quest')     return renderMyPageQuest();
+    if (mypageTab === 'jobs')      return renderMyPageJobs();
+  }
+
+  function renderMyPageCharacter() {
+    const s = game.state;
+    const race = RACES[s.race], job = JOBS[s.job];
+    const titleStr = s.title && TITLES.ranks[s.title] ? `👑 ${escHtml(TITLES.ranks[s.title].name)} ` : '';
+    const eqW = s.equip.weapon ? ITEMS[s.equip.weapon].name : '없음';
+    const eqA = s.equip.armor ? ITEMS[s.equip.armor].name : '없음';
+    const eqAcc = s.equip.acc ? ITEMS[s.equip.acc].name : '없음';
+    const sec = mkSection();
+    const d = document.createElement('div');
+    d.style.cssText = 'width:100%;color:#cccccc;line-height:1.9;font-size:12.5px;';
+    d.innerHTML = `
+      <div style="font-size:14px;color:#e0e6ed;margin-bottom:6px;">
+        ${titleStr}<b>${escHtml(s.name)}</b> · ${escHtml(race.name)} ${escHtml(job.name)} <span style="color:#858585;">(${job.tier}차)</span>
+      </div>
+      <div>레벨 <b style="color:#f4c96b;">${s.lv}</b> · EXP ${s.exp}/${game.expForNext(s.lv)}</div>
+      <div>HP <b>${s.hp}/${game.getHpMax()}</b> · MP <b>${s.mp}/${game.getMpMax()}</b></div>
+      <div>골드 <b>${s.gold.toLocaleString()}</b> · 위치 ${escHtml(LOCATIONS[s.location].name)}</div>
+      <hr style="border:none;border-top:1px solid #333;margin:8px 0;">
+      <div style="color:#a0a0a0;font-size:11.5px;">전투 능력치</div>
+      <div>ATK ${game.getAtk()} · DEF ${game.getDef()} · MAG ${game.getMag()} · 치명 ${(game.getCritRate()*100).toFixed(0)}% · 회피 ${(game.getEvaRate()*100).toFixed(0)}%</div>
+      <hr style="border:none;border-top:1px solid #333;margin:8px 0;">
+      <div style="color:#a0a0a0;font-size:11.5px;">기본 스탯 ${s.pendingPoints > 0 ? `<span style="color:#f4c96b;">(분배 +${s.pendingPoints})</span>` : ''}</div>
+      <div>STR ${s.stats.str} · DEX ${s.stats.dex} · INT ${s.stats.int} · VIT ${s.stats.vit} · WIS ${s.stats.wis} · LUK ${s.stats.luk} · CHA ${s.stats.cha}</div>
+      <hr style="border:none;border-top:1px solid #333;margin:8px 0;">
+      <div style="color:#a0a0a0;font-size:11.5px;">장비</div>
+      <div>무기 ${escHtml(eqW)} · 방어구 ${escHtml(eqA)} · 악세 ${escHtml(eqAcc)}</div>
+      <hr style="border:none;border-top:1px solid #333;margin:8px 0;">
+      <div style="color:#858585;font-size:11px;">플레이타임 ${formatPlayTime(s.playTimeSec || 0)}</div>
+    `;
+    sec.appendChild(d);
+    act.appendChild(sec);
+    if (s.pendingPoints > 0) {
+      const r = mkSection();
+      r.appendChild(mkBtn(`★ 스탯 분배 (+${s.pendingPoints})`, () => { uiMode = 'allocate'; render(); }, { gold: true }));
+      act.appendChild(r);
+    }
+  }
+
+  function renderMyPageSkills() {
+    const s = game.state;
+    // 습득한 모든 스킬 수집 (job + train + trade + combo)
+    const learned = [];
+    s.jobs.forEach(jk => JOBS[jk].skills.forEach(sk => {
+      if (s.skills.includes(sk.id)) learned.push({ src: JOBS[jk].name, ...sk });
+    }));
+    if (learned.length === 0) {
+      const r = mkSection();
+      const d = document.createElement('span');
+      d.style.color = '#858585';
+      d.textContent = '습득한 스킬이 없다.';
+      r.appendChild(d);
+      act.appendChild(r);
+      return;
+    }
+    const note = mkSection();
+    const n = document.createElement('div');
+    n.style.cssText = 'color:#a0a0a0;font-size:11.5px;width:100%;';
+    n.innerHTML = `비활성화한 스킬은 전투 메뉴에서 숨겨진다. 다시 클릭하면 활성화.`;
+    note.appendChild(n);
+    act.appendChild(note);
+
+    learned.forEach(sk => {
+      const active = isSkillActive(sk.id);
+      const row = mkSection();
+      const info = document.createElement('div');
+      info.style.cssText = `flex:1;color:${active ? '#cccccc' : '#707070'};font-size:12px;line-height:1.6;`;
+      info.innerHTML = `
+        <div><b>${escHtml(sk.name)}</b> <span style="color:#858585;">[${escHtml(sk.src)}]</span> · MP ${sk.mp}</div>
+        <div style="color:${active ? '#858585' : '#5a5a5a'};font-size:11px;">${escHtml(sk.desc || '')}</div>
+      `;
+      row.appendChild(info);
+      row.appendChild(mkBtn(active ? '✓ 활성' : '✗ 비활성', () => {
+        toggleSkillActive(sk.id);
+        render();
+      }, { mini: true, success: active, danger: !active }));
+      act.appendChild(row);
+    });
+  }
+
+  function renderMyPageInv() {
+    const s = game.state;
+    // 장비 — 장착 가능
+    const gear = Object.entries(s.inv).filter(([k,v]) => v > 0 && ITEMS[k] && ['weapon','armor','acc'].includes(ITEMS[k].type));
+    if (gear.length) {
+      const row = mkSection('장착:');
+      gear.forEach(([k]) => row.appendChild(mkBtn(`${ITEMS[k].name}`, `equip ${k}`, { mini: true, title: ITEMS[k].desc })));
+      act.appendChild(row);
+    }
+    // 해제
+    if (s.equip.weapon || s.equip.armor || s.equip.acc) {
+      const row = mkSection('해제:');
+      ['weapon','armor','acc'].forEach(slot => {
+        if (s.equip[slot]) row.appendChild(mkBtn(`${slot} 해제`, `unequip ${slot}`, { mini: true }));
+      });
+      act.appendChild(row);
+    }
+    // 소비
+    const useables = Object.entries(s.inv).filter(([k,v]) => v > 0 && ITEMS[k] && ITEMS[k].type === 'use');
+    if (useables.length) {
+      const row = mkSection('사용:');
+      useables.forEach(([k, v]) => row.appendChild(mkBtn(`${ITEMS[k].name} x${v}`, `use ${k}`, { mini: true })));
+      act.appendChild(row);
+    }
+    if (!gear.length && !useables.length) {
+      const r = mkSection();
+      const d = document.createElement('span');
+      d.style.color = '#858585';
+      d.textContent = '인벤토리가 비어 있다.';
+      r.appendChild(d);
+      act.appendChild(r);
+    }
+  }
+
+  function renderMyPageQuest() {
+    const s = game.state;
+    const qs = Object.entries(s.quests || {});
+    if (qs.length === 0) {
+      const r = mkSection();
+      const d = document.createElement('span');
+      d.style.color = '#858585';
+      d.textContent = '진행 중인 퀘스트가 없다. 도시 NPC 와 대화해 수락.';
+      r.appendChild(d);
+      act.appendChild(r);
+      return;
+    }
+    qs.forEach(([id, q]) => {
+      const info = QUESTS[id];
+      if (!info) return;
+      const row = mkSection();
+      const d = document.createElement('div');
+      d.style.cssText = 'width:100%;color:#cccccc;font-size:12px;line-height:1.7;';
+      const status = q.done ? '<span style="color:#7ec77e;">✓ 완료</span>' : `진행 ${q.progress}/${info.target.count}`;
+      d.innerHTML = `
+        <div><b>${escHtml(info.name)}</b> — ${status}</div>
+        <div style="color:#858585;font-size:11px;">${escHtml(info.desc || '')}</div>
+        ${info.reward ? `<div style="color:#a0a0a0;font-size:11px;">보상: ${info.reward.gold || 0}G · ${info.reward.exp || 0} XP</div>` : ''}
+      `;
+      row.appendChild(d);
+      act.appendChild(row);
+    });
+  }
+
+  function renderMyPageJobs() {
+    const s = game.state;
+    const cur = JOBS[s.job];
+    // 현재 직업 / 보유 직업 목록
+    const intro = mkSection();
+    const id = document.createElement('div');
+    id.style.cssText = 'width:100%;color:#cccccc;font-size:12.5px;line-height:1.8;';
+    id.innerHTML = `
+      <div><b>현재 직업</b>: ${escHtml(cur.name)} <span style="color:#858585;">(${cur.tier}차, ${escHtml(cur.line)} 계열)</span></div>
+      <div><b>보유 직업</b>: ${(s.jobs || []).map(jk => escHtml(JOBS[jk].name)).join(', ')}</div>
+      <div><b>마스터한 계열</b>: ${(s.masteredLines || []).length}개 ${(s.masteredLines || []).length > 0 ? `(${(s.masteredLines||[]).map(escHtml).join(', ')})` : ''}</div>
+    `;
+    intro.appendChild(id);
+    act.appendChild(intro);
+
+    // 액션 — 마스터리/재전직 (4차 마스터 1개 이상일 때만)
+    if ((s.masteredLines || []).length > 0) {
+      const r = mkSection('액션:');
+      r.appendChild(mkBtn('마스터리 상세', 'mastery', { mini: true }));
+      r.appendChild(mkBtn('재전직', 'respec', { mini: true, gold: true,
+        title: '레벨/스탯/스킬 유지하고 1차 직업 변경' }));
+      act.appendChild(r);
+    }
+
+    // 같은 계열 직업 트리
+    const sameLine = Object.entries(JOBS).filter(([, j]) => j.line === cur.line);
+    [1, 2, 3, 4, 5].forEach(t => {
+      const tier = sameLine.filter(([, j]) => j.tier === t);
+      if (!tier.length) return;
+      const r = mkSection(`${t}차:`);
+      const d = document.createElement('div');
+      d.style.cssText = 'width:100%;color:#b4b4b4;font-size:11.5px;line-height:1.7;';
+      d.innerHTML = tier.map(([k, j]) => {
+        const own = (s.jobs || []).includes(k);
+        const trial = s.completedTrials && s.completedTrials[k];
+        const mark = own ? '<span style="color:#7ec77e;">✓</span>' : (trial ? '<span style="color:#f4c96b;">✦</span>' : '·');
+        return `<div>${mark} <b>${escHtml(j.name)}</b> ${j.reqLv ? `<span style="color:#858585;">Lv.${j.reqLv}+</span>` : ''}</div>`;
+      }).join('');
+      r.appendChild(d);
+      act.appendChild(r);
+    });
   }
 
   function renderShop() {
