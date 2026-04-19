@@ -389,6 +389,24 @@ ipcMain.handle('check-for-updates', async () => {
   } catch (e) { return { ok: false, error: e.message }; }
 });
 
+// 현재 버전 + 업데이트 준비 상태 + CHANGELOG 내용 반환 — 마이페이지 "버전 정보" 탭용.
+ipcMain.handle('get-app-info', async () => {
+  let changelog = '';
+  try {
+    const clPath = path.join(__dirname, 'CHANGELOG.md');
+    if (require('fs').existsSync(clPath)) {
+      changelog = require('fs').readFileSync(clPath, 'utf-8');
+    }
+  } catch (e) { /* 패키지에서 제외됐거나 읽기 실패 */ }
+  return {
+    ok: true,
+    version: app.getVersion(),
+    packaged: app.isPackaged,
+    updatePending: updateRestartScheduled,
+    changelog,
+  };
+});
+
 // 게임 저장/로드 — 다중 캐릭터 지원
 const fs = require('fs');
 const savePath  = path.join(app.getPath('userData'), 'save.json');    // 구버전 단일 슬롯
