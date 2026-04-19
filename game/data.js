@@ -3221,6 +3221,39 @@ function normalizeJobs() {
 }
 normalizeJobs();
 
+// ═══════════ 스킬북 자동 생성 ═══════════
+// 모든 직업 스킬마다 1종의 스킬북 아이템을 ITEMS 에 등록.
+// id 규칙: book_<skillId>
+//   common:    상점 구매 가능 (heltant + capital 에 자동 노출)
+//   advanced+: 서재(LIBRARIES) 수련에서만 발견
+const BOOK_PRICES = { common: 200, advanced: 800, rare: 3000, epic: 12000, legendary: 60000 };
+const SKILL_BOOKS = {};
+for (const jk of Object.keys(JOBS)) {
+  for (const sk of (JOBS[jk].skills || [])) {
+    const bookId = `book_${sk.id}`;
+    if (SKILL_BOOKS[bookId]) continue;
+    const grade = sk.grade || getSkillGrade(sk);
+    const gradeLabel = (SKILL_GRADES[grade] && SKILL_GRADES[grade].name) || grade;
+    SKILL_BOOKS[bookId] = {
+      type: 'skillbook',
+      teaches: sk.id,
+      grade,
+      sourceJob: jk,
+      name: `[${gradeLabel}] ${sk.name} 비술서`,
+      price: BOOK_PRICES[grade] || 1000,
+      desc: `${sk.desc || sk.name} (사용 시 스킬 습득)`,
+    };
+  }
+}
+// ITEMS 에 병합 — equip/inv/buy/sell 시스템이 자연스럽게 동작하도록.
+Object.assign(ITEMS, SKILL_BOOKS);
+
+// 상점에 일반(common) 등급 스킬북 자동 노출 — heltant + capital 만.
+// 그 외 도시는 일반 책도 서재에서만 발견하게 두어 지역 다양성 강조.
+const _commonBookIds = Object.keys(SKILL_BOOKS).filter(id => SKILL_BOOKS[id].grade === 'common');
+if (Array.isArray(SHOP_ITEMS.heltant)) SHOP_ITEMS.heltant.push(..._commonBookIds);
+if (Array.isArray(SHOP_ITEMS.capital)) SHOP_ITEMS.capital.push(..._commonBookIds);
+
 // 스킬 ID 로 정의 객체 검색 (job + train + combo 전부 탐색).
 function findSkillById(sId) {
   for (const jk of Object.keys(JOBS)) {
@@ -3269,6 +3302,6 @@ function reconcileDeactivations(state) {
   state.skillsReconciled = true;
 }
 
-const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, learnSkill, reconcileDeactivations };
+const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, learnSkill, reconcileDeactivations, SKILL_BOOKS };
 if (typeof module !== 'undefined' && module.exports) module.exports = __DATA_EXPORTS__;
 if (typeof window !== 'undefined') window.__GAME_DATA__ = __DATA_EXPORTS__;

@@ -559,10 +559,62 @@
     print(`경과: 실시간 ${mins}분 / 게임 ${daysElapsed}일`, 'sys');
     print(`획득 XP: +${focusState.xpAwarded.toLocaleString()}${lvGain > 0 ? ` · 레벨업 ${lvGain}` : ''}`, 'good');
     if (focusState.eventLog.length) print(`깨달음 ${focusState.eventLog.length}회 발생.`, 'dim');
+    // ── 서재 발견 ── 이 도시에 LIBRARIES 가 있으면 확률로 스킬북 발견.
+    const found = tryLibraryDiscovery();
+    if (found) {
+      const grade = SKILL_GRADES[found.book.grade] || { name: '?', color: '#fff' };
+      print(`📚 [${grade.name}] 「${found.book.name}」 을 발견! 인벤에서 사용해 스킬을 습득하라.`, 'good');
+    }
     if (currentCharId) ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
     focusActive = false;
     focusState = null;
     render();
+  }
+
+  // ─── 서재 스킬북 발견 ──────────────────────────
+  // 수련 종료 시 호출. LIBRARIES 정의가 있는 도시에서만 동작.
+  function tryLibraryDiscovery() {
+    const loc = game.state.location;
+    const lib = LIBRARIES && LIBRARIES[loc];
+    if (!lib) return null;
+    let chance = lib.chancePerSession || 0;
+    if (lib.titleBonus && game.state.title) chance *= lib.titleBonus;
+    if (Math.random() > chance) return null;
+    // 등급 가중 추첨
+    const pool = lib.pool || {};
+    const total = Object.values(pool).reduce((a, b) => a + b, 0);
+    if (total <= 0) return null;
+    let r = Math.random() * total;
+    let pickedGrade = null;
+    for (const [g, w] of Object.entries(pool)) {
+      r -= w;
+      if (r <= 0) { pickedGrade = g; break; }
+    }
+    if (!pickedGrade) return null;
+    // 후보 스킬: 미습득 + 해당 등급. favorLines 가 있으면 우선 시도.
+    const myLine = JOBS[game.state.job].line;
+    const collect = (favorOnly) => {
+      const out = [];
+      for (const jk of Object.keys(JOBS)) {
+        const job = JOBS[jk];
+        if (favorOnly && lib.favorLines && !lib.favorLines.includes(job.line)) continue;
+        for (const sk of (job.skills || [])) {
+          if ((sk.grade || getSkillGrade(sk)) !== pickedGrade) continue;
+          if (game.state.skills.includes(sk.id)) continue;
+          // 이미 같은 책을 인벤에 갖고 있으면 스킵 (중복 누적 방지)
+          if ((game.state.inv['book_' + sk.id] || 0) > 0) continue;
+          out.push(sk);
+        }
+      }
+      return out;
+    };
+    let candidates = lib.favorLines ? collect(true) : collect(false);
+    if (candidates.length === 0) candidates = collect(false); // fallback
+    if (candidates.length === 0) return null;
+    const sk = candidates[Math.floor(Math.random() * candidates.length)];
+    const bookId = 'book_' + sk.id;
+    game.state.inv[bookId] = (game.state.inv[bookId] || 0) + 1;
+    return { skill: sk, book: ITEMS[bookId] };
   }
 
   async function init() {
@@ -1771,7 +1823,24 @@
       useables.forEach(([k, v]) => row.appendChild(mkBtn(`${ITEMS[k].name} x${v}`, `use ${k}`, { mini: true })));
       act.appendChild(row);
     }
-    if (!gear.length && !useables.length) {
+    // 스킬북 — 사용 시 해당 스킬 습득.
+    const books = Object.entries(s.inv).filter(([k,v]) => v > 0 && ITEMS[k] && ITEMS[k].type === 'skillbook');
+    if (books.length) {
+      const row = mkSection('스킬북:');
+      books.forEach(([k, v]) => {
+        const it = ITEMS[k];
+        const grade = SKILL_GRADES[it.grade] || { color: '#fff', name: '?' };
+        const btn = mkBtn(`${it.name} x${v}`, `use ${k}`, {
+          mini: true,
+          title: it.desc + (s.skills.includes(it.teaches) ? '\n(이미 습득함)' : ''),
+          disabled: s.skills.includes(it.teaches),
+        });
+        btn.style.borderLeft = `3px solid ${grade.color}`;
+        row.appendChild(btn);
+      });
+      act.appendChild(row);
+    }
+    if (!gear.length && !useables.length && !books.length) {
       const r = mkSection();
       const d = document.createElement('span');
       d.style.color = '#858585';
@@ -2225,6 +2294,22 @@
     n.innerHTML = `수련 시작 시 <b>실제 시간이 흐르며 다른 행동 불가</b>. 중단은 언제든 가능 (경과 비례 XP 획득).<br>중간에 깨달음 이벤트가 발생해 보너스 XP를 받을 수 있다.`;
     notice.appendChild(n);
     act.appendChild(notice);
+
+    // 이 도시에 서재가 있으면 안내 — 수련 종료 시 스킬북 발견 가능.
+    const lib = LIBRARIES && LIBRARIES[game.state.location];
+    if (lib) {
+      const libRow = mkSection();
+      const ld = document.createElement('div');
+      ld.style.cssText = 'width:100%;color:#7ec7ff;font-size:11.5px;line-height:1.6;';
+      const grades = Object.entries(lib.pool).map(([g, w]) => {
+        const gr = SKILL_GRADES[g] || { name: g, color: '#fff' };
+        return `<span style="color:${gr.color};">${escHtml(gr.name)}</span>`;
+      }).join(' / ');
+      ld.innerHTML = `📚 <b>${escHtml(lib.name)}</b> · 발견율 ${(lib.chancePerSession*100).toFixed(0)}% · 등급: ${grades}<br>
+        <span style="color:#858585;font-size:11px;">${escHtml(lib.desc)}</span>`;
+      libRow.appendChild(ld);
+      act.appendChild(libRow);
+    }
 
     // 수련 선택 — 레벨 미달이면 버튼 disabled + 사유 표시.
     TRAIN_DURATIONS.forEach(d => {
