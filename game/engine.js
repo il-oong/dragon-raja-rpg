@@ -9,6 +9,14 @@ const findSkillByIdLocal = findSkillById;
 const rnd = (n) => Math.floor(Math.random() * n);
 const chance = (p) => Math.random() < p;
 
+// ═══════ Stage E: 이코노미 밸런스 상수 ═══════
+// 변경 시 한 곳만 건드리면 전체 체감 튜닝 가능.
+const ECONOMY = {
+  monsterGoldMul: 0.60,  // 몬스터 골드 드랍 -40%
+  questGoldMul:   0.70,  // 퀘스트 골드 보상 -30%
+  sellRatio:      0.35,  // 판매가 = 아이템 가격 × 이 비율 (기존 0.5)
+};
+
 class Game {
   constructor(out) {
     this.out = out;
@@ -1356,7 +1364,8 @@ class Game {
     if (!this.combat.foes.every(f => f.hp <= 0)) return false;
     let exp = 0, gold = 0, drops = [];
     this.combat.foes.forEach(f => {
-      exp += f.exp; gold += f.gold;
+      // Stage E: 몬스터 골드 기본 -40%. 나머지 배율(종족/proc/작위/수련/무역)은 그대로 적용.
+      exp += f.exp; gold += Math.round(f.gold * ECONOMY.monsterGoldMul);
       this.state.killCount[f.key] = (this.state.killCount[f.key]||0) + 1;
       if (f.boss) this.state.flags['boss_'+f.key+'_dead'] = true;
       // 드랍 (proc/종족 배율 적용, 엘리트 2배)
@@ -1666,11 +1675,13 @@ class Game {
     if (cur.done) { this.out('완료됨'); return; }
     if (cur.progress < q.target.count) { this.out('미달성'); return; }
     cur.done = true;
-    this.state.exp += q.reward.exp; this.state.gold += q.reward.gold;
+    // Stage E: 퀘스트 골드 보상 -30%. EXP 는 유지.
+    const questGold = Math.round(q.reward.gold * ECONOMY.questGoldMul);
+    this.state.exp += q.reward.exp; this.state.gold += questGold;
     if (q.reward.item) {
       this.state.inv[q.reward.item] = (this.state.inv[q.reward.item]||0) + 1;
-      this.out(`  보상 EXP+${q.reward.exp} GOLD+${q.reward.gold} [${ITEMS[q.reward.item].name}]`);
-    } else this.out(`  보상 EXP+${q.reward.exp} GOLD+${q.reward.gold}`);
+      this.out(`  보상 EXP+${q.reward.exp} GOLD+${questGold} [${ITEMS[q.reward.item].name}]`);
+    } else this.out(`  보상 EXP+${q.reward.exp} GOLD+${questGold}`);
     this.checkLevel();
   }
 
@@ -1704,7 +1715,7 @@ class Game {
   sell(key) {
     if (!this.state.inv[key] || this.state.inv[key]<=0) { this.out('없음'); return; }
     const it = ITEMS[key];
-    const price = Math.round((it.price||10)*0.5);
+    const price = Math.round((it.price||10) * ECONOMY.sellRatio);
     this.state.inv[key]--;
     this.state.gold += price;
     this.out(`${it.name} 판매 (+${price}G)`);

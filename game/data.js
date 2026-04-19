@@ -3248,6 +3248,22 @@ for (const jk of Object.keys(JOBS)) {
 // ITEMS 에 병합 — equip/inv/buy/sell 시스템이 자연스럽게 동작하도록.
 Object.assign(ITEMS, SKILL_BOOKS);
 
+// ═══════════ Stage E: 아이템 가치 인상 ═══════════
+// 장비는 ×2.5, 포션류는 ×1.5. 스킬북/퀘스트템/전설템(price=0) 은 유지.
+// 모듈 로드 시 1회만 수행 — ITEMS 자체를 변형. SHOP 에서도 자동 반영.
+(function boostItemPrices() {
+  for (const k of Object.keys(ITEMS)) {
+    const it = ITEMS[k];
+    if (!it || !it.price) continue;
+    if (it.type === 'skillbook') continue;     // 등급별로 이미 balanced
+    if (['weapon', 'armor', 'acc'].includes(it.type)) {
+      it.price = Math.round(it.price * 2.5);
+    } else if (it.type === 'use') {
+      it.price = Math.round(it.price * 1.5);
+    }
+  }
+})();
+
 // 상점에 일반(common) 등급 스킬북 자동 노출 — heltant + capital 만.
 // 그 외 도시는 일반 책도 서재에서만 발견하게 두어 지역 다양성 강조.
 const _commonBookIds = Object.keys(SKILL_BOOKS).filter(id => SKILL_BOOKS[id].grade === 'common');
