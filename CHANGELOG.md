@@ -1,5 +1,48 @@
 # 릴리즈 보드
 
+## v1.0.11 (2026-04-18) — 스킬 시스템 전면 개편 (Stage A~E)
+
+### 🎨 Stage A — 마이페이지 (PR #18)
+- 새 uiMode 'mypage' + 5개 탭: 캐릭터 / 스킬 / 인벤 / 퀘스트 / 직업·마스터리.
+- 메인 메뉴의 7개 작은 버튼 → 한 개의 **[📋 마이페이지]** 로 통합.
+- 스킬 on/off 토글: 비활성 스킬은 전투 메뉴에서 자동 숨김.
+
+### 🏷 Stage B — 등급 & 서재 데이터 (PR #19)
+- SKILL_GRADES 5단계: 일반 / 고급 / 희귀 / 영웅 / 전설.
+- LIBRARIES 7개 도시별 서재 (heltant / capital / elf_village / carmilkar /
+  palace / dragon_lair / polaris_shrine) — 발견율, 등급 풀, favorLines, 작위 보너스.
+- getSkillGrade 헬퍼, 마이페이지 스킬 탭에 등급 컬러 뱃지.
+
+### 🧬 Stage C — 스킬 자동 정규화 (PR #20)
+- 77 직업 312 스킬에 grade / replaces 자동 부여 (모듈 로드 시 1회).
+- learnSkill(state, sId) — 상위 스킬 학습 시 같은 계열 하위 스킬 자동 비활성화.
+- reconcileDeactivations — 기존 세이브 1회 마이그레이션.
+- 모든 스킬 습득 경로 (createChar / train / checkLevel / advance / respec) 를
+  learnSkill 로 라우팅.
+
+### 📚 Stage D — 스킬북 시스템 (PR #21)
+- 312 스킬에 대응하는 스킬북 아이템 자동 생성 (book_<skillId>).
+- 가격: common 200G / advanced 800 / rare 3000 / epic 12000 / legendary 60000.
+- 일반(common) 등급만 heltant + capital 상점 자동 노출 (47권).
+- 고급 이상은 서재 수련 종료 시 확률 발견 (등급 풀·favorLines·작위 보너스 적용).
+- cUse 스킬북 처리 — 전투 중 금지, 이미 습득/레벨 부족 거부.
+- 마이페이지 인벤에 스킬북 섹션 (등급 색 보더).
+
+### 💰 Stage E — 이코노미 밸런스 (PR #22)
+- 몬스터 골드 드랍 -40% (ECONOMY.monsterGoldMul 0.60)
+- 퀘스트 골드 보상 -30% (ECONOMY.questGoldMul 0.70)
+- 판매가 비율 0.50 → 0.35 (ECONOMY.sellRatio 0.35)
+- 장비 가격 ×2.5 (weapon/armor/acc)
+- 포션 가격 ×1.5
+- 스킬북 / 퀘스트템 / 전설템 유지.
+
+### 체감 변화 (신규 캐릭터)
+- 시작 50G 상태에서 shortsword 450G → 의미있는 허들
+- 초중반 골드 누적 속도 약 -50%
+- 상위 스킬 학습하면 구형 스킬 자동으로 사라져 전투 UI 깔끔
+
+---
+
 ## v1.0.10 (2026-04-18)
 
 ### 서버
