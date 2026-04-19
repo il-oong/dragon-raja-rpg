@@ -2520,14 +2520,94 @@ const TRAINING_HALLS = {
   },
 };
 
-// 수련 옵션 — 실제 시간 + 게임 내 경과 일수
-// name = 수련 이름, min = 실제 분, days = 게임 내 경과 일수
+// ═══════════ 스킬 등급 (5단계) ═══════════
+// Stage D 에서 스킬북 획득 경로:
+//   common      = 상점에서 구매 가능 (도시별 SHOP_ITEMS 에 배치)
+//   advanced 이상 = 도시 서재(LIBRARIES) 수련에서만 발견
+const SKILL_GRADES = {
+  common:    { name: '일반', color: '#cccccc', order: 1, shopBuyable: true  },
+  advanced:  { name: '고급', color: '#7ec77e', order: 2, shopBuyable: false },
+  rare:      { name: '희귀', color: '#7ec7ff', order: 3, shopBuyable: false },
+  epic:      { name: '영웅', color: '#cc88ff', order: 4, shopBuyable: false },
+  legendary: { name: '전설', color: '#f4c96b', order: 5, shopBuyable: false },
+};
+
+// Stage C 에서 각 스킬에 명시적 grade 가 부여되기 전까지의 임시 매핑.
+// 스킬의 lv 요구치로 등급 추정. sk.grade 가 명시돼 있으면 그것을 우선.
+function getSkillGrade(sk) {
+  if (sk && sk.grade && SKILL_GRADES[sk.grade]) return sk.grade;
+  const lv = (sk && sk.lv) || 1;
+  if (lv <= 10)  return 'common';
+  if (lv <= 25)  return 'advanced';
+  if (lv <= 50)  return 'rare';
+  if (lv <= 80)  return 'epic';
+  return 'legendary';
+}
+
+// ═══════════ 지역별 서재 (Library) ═══════════
+// 수련 종료 시 chancePerSession 확률로 발견 시도 → 등급은 pool 에서 가중 추첨
+// → 미습득 + 적합한 직업 스킬 중 1개 → state.skills 에 추가 (Stage D 에서 구현).
+//   chancePerSession: 한 번의 수련 종료 시 책 발견 시도 확률 (0~1)
+//   pool: { 등급키: 비중 }  (합계는 자동 정규화)
+//   favorLines: 이 계열 직업 스킬을 우선 탐색 (없으면 전 계열)
+//   titleBonus: 작위 보유 시 chance × 곱
+const LIBRARIES = {
+  heltant: {
+    name: '헬탄트 도서관',
+    desc: '먼지 쌓인 책장. 초심자용 입문서가 가득.',
+    chancePerSession: 0.30,
+    pool: { common: 0.85, advanced: 0.15 },
+  },
+  capital: {
+    name: '왕립 도서관',
+    desc: '바이서스 왕국의 지식 보고. 모든 계열 표준 교본.',
+    chancePerSession: 0.25,
+    pool: { common: 0.30, advanced: 0.50, rare: 0.20 },
+  },
+  elf_village: {
+    name: '대자연의 서재',
+    desc: '엘프 구전 마법서. 정령·치유·자연 마법.',
+    chancePerSession: 0.20,
+    pool: { advanced: 0.30, rare: 0.50, epic: 0.20 },
+    favorLines: ['mage', 'priest', 'spiritcaller', 'bard'],
+  },
+  carmilkar: {
+    name: '검투사의 비록',
+    desc: '카밀카 투기장의 실전 기록. 전사·도적·궁사.',
+    chancePerSession: 0.20,
+    pool: { advanced: 0.30, rare: 0.50, epic: 0.20 },
+    favorLines: ['warrior', 'thief', 'ranger', 'hero', 'titan'],
+  },
+  palace: {
+    name: '왕궁 서고',
+    desc: '왕실 비전. 작위 보유자 우대.',
+    chancePerSession: 0.18,
+    pool: { rare: 0.40, epic: 0.50, legendary: 0.10 },
+    titleBonus: 1.5,
+  },
+  dragon_lair: {
+    name: '용의 서고',
+    desc: '아무르타트의 보물 더미 속 고서. 전 계열 최상급.',
+    chancePerSession: 0.15,
+    pool: { epic: 0.60, legendary: 0.40 },
+  },
+  polaris_shrine: {
+    name: '신탁의 비전',
+    desc: '폴라리스의 공간. 신화급 비전.',
+    chancePerSession: 0.12,
+    pool: { legendary: 1.0 },
+  },
+};
+
+// 수련 옵션 — 실제 시간 + 게임 내 경과 일수 + 레벨 요구사항
+// name = 수련 이름, min = 실제 분, days = 게임 내 경과 일수, reqLv = 최소 레벨
+// 저레벨 캐릭터가 장시간 수련으로 레벨업을 너무 쉽게 얻는 것을 방지.
 const TRAIN_DURATIONS = [
-  { min: 5,   name: '가벼운 명상',   days: 2   },
-  { min: 15,  name: '기초 수련',     days: 5   },
-  { min: 30,  name: '심화 수련',     days: 10  },
-  { min: 60,  name: '집중 수련',     days: 20  },
-  { min: 120, name: '극한 수련',     days: 40  },
+  { min: 5,   name: '가벼운 명상',   days: 2,   reqLv: 1   },
+  { min: 15,  name: '기초 수련',     days: 5,   reqLv: 10  },
+  { min: 30,  name: '심화 수련',     days: 10,  reqLv: 25  },
+  { min: 60,  name: '집중 수련',     days: 20,  reqLv: 50  },
+  { min: 120, name: '극한 수련',     days: 40,  reqLv: 80  },
 ];
 
 // ═══════════ 탐험 랜덤 이벤트 ═══════════
@@ -3430,6 +3510,137 @@ const THEMES = {
   cosmos_edge:        { accent: '#2a2a4a', tint: 'rgba(30,30,60,0.12)',    mood: '현실의 끝' },
 };
 
-const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES };
+// ═══════════ 스킬 정규화 — Stage C ═══════════
+// 모든 JOBS[].skills 에 grade / replaces 를 자동 부여.
+//   grade: sk.grade 명시 우선, 없으면 getSkillGrade(sk) 로 lv 기반 추정.
+//   replaces: 같은 직업의 동일 type 더 낮은 lv 스킬 id 배열.
+//             상위 스킬 학습 시 learnSkill 이 이 목록을 state.skillsDeactivated 에 자동 추가.
+function normalizeJobs() {
+  for (const jk of Object.keys(JOBS)) {
+    const job = JOBS[jk];
+    if (!Array.isArray(job.skills)) continue;
+    for (const sk of job.skills) {
+      if (!sk.grade) sk.grade = getSkillGrade(sk);
+    }
+    for (const sk of job.skills) {
+      if (sk.replaces) continue; // 명시 우선
+      const lower = job.skills
+        .filter(s => s.id !== sk.id && s.type === sk.type && (s.lv || 1) < (sk.lv || 1))
+        .map(s => s.id);
+      if (lower.length) sk.replaces = lower;
+    }
+  }
+  // TRAIN_SKILLS / COMBO_SKILLS 의 .skill 객체에도 grade 부여 (있을 때).
+  if (Array.isArray(TRAIN_SKILLS)) {
+    for (const ts of TRAIN_SKILLS) {
+      if (ts.skill && !ts.skill.grade) ts.skill.grade = getSkillGrade(ts.skill);
+    }
+  }
+  if (Array.isArray(COMBO_SKILLS)) {
+    for (const cs of COMBO_SKILLS) {
+      if (cs && !cs.grade) cs.grade = getSkillGrade(cs);
+    }
+  }
+}
+normalizeJobs();
+
+// ═══════════ 스킬북 자동 생성 ═══════════
+// 모든 직업 스킬마다 1종의 스킬북 아이템을 ITEMS 에 등록.
+// id 규칙: book_<skillId>
+//   common:    상점 구매 가능 (heltant + capital 에 자동 노출)
+//   advanced+: 서재(LIBRARIES) 수련에서만 발견
+const BOOK_PRICES = { common: 200, advanced: 800, rare: 3000, epic: 12000, legendary: 60000 };
+const SKILL_BOOKS = {};
+for (const jk of Object.keys(JOBS)) {
+  for (const sk of (JOBS[jk].skills || [])) {
+    const bookId = `book_${sk.id}`;
+    if (SKILL_BOOKS[bookId]) continue;
+    const grade = sk.grade || getSkillGrade(sk);
+    const gradeLabel = (SKILL_GRADES[grade] && SKILL_GRADES[grade].name) || grade;
+    SKILL_BOOKS[bookId] = {
+      type: 'skillbook',
+      teaches: sk.id,
+      grade,
+      sourceJob: jk,
+      name: `[${gradeLabel}] ${sk.name} 비술서`,
+      price: BOOK_PRICES[grade] || 1000,
+      desc: `${sk.desc || sk.name} (사용 시 스킬 습득)`,
+    };
+  }
+}
+// ITEMS 에 병합 — equip/inv/buy/sell 시스템이 자연스럽게 동작하도록.
+Object.assign(ITEMS, SKILL_BOOKS);
+
+// ═══════════ Stage E: 아이템 가치 인상 ═══════════
+// 장비는 ×2.5, 포션류는 ×1.5. 스킬북/퀘스트템/전설템(price=0) 은 유지.
+// 모듈 로드 시 1회만 수행 — ITEMS 자체를 변형. SHOP 에서도 자동 반영.
+(function boostItemPrices() {
+  for (const k of Object.keys(ITEMS)) {
+    const it = ITEMS[k];
+    if (!it || !it.price) continue;
+    if (it.type === 'skillbook') continue;     // 등급별로 이미 balanced
+    if (['weapon', 'armor', 'acc'].includes(it.type)) {
+      it.price = Math.round(it.price * 2.5);
+    } else if (it.type === 'use') {
+      it.price = Math.round(it.price * 1.5);
+    }
+  }
+})();
+
+// 상점에 일반(common) 등급 스킬북 자동 노출 — heltant + capital 만.
+// 그 외 도시는 일반 책도 서재에서만 발견하게 두어 지역 다양성 강조.
+const _commonBookIds = Object.keys(SKILL_BOOKS).filter(id => SKILL_BOOKS[id].grade === 'common');
+if (Array.isArray(SHOP_ITEMS.heltant)) SHOP_ITEMS.heltant.push(..._commonBookIds);
+if (Array.isArray(SHOP_ITEMS.capital)) SHOP_ITEMS.capital.push(..._commonBookIds);
+
+// 스킬 ID 로 정의 객체 검색 (job + train + combo 전부 탐색).
+function findSkillById(sId) {
+  for (const jk of Object.keys(JOBS)) {
+    const sk = JOBS[jk].skills && JOBS[jk].skills.find(s => s.id === sId);
+    if (sk) return sk;
+  }
+  if (Array.isArray(TRAIN_SKILLS)) {
+    const ts = TRAIN_SKILLS.find(t => t.skill && t.skill.id === sId);
+    if (ts) return ts.skill;
+  }
+  if (Array.isArray(COMBO_SKILLS)) {
+    const cs = COMBO_SKILLS.find(c => c && c.id === sId);
+    if (cs) return cs;
+  }
+  return null;
+}
+
+// 스킬 습득 — state.skills 에 추가 + replaces 가 있으면 하위 스킬들을 자동 비활성.
+// 사용자가 마이페이지에서 다시 활성화 가능 (수동 토글).
+function learnSkill(state, sId) {
+  if (!state) return;
+  if (!Array.isArray(state.skills)) state.skills = [];
+  if (!state.skills.includes(sId)) state.skills.push(sId);
+  const sk = findSkillById(sId);
+  if (sk && Array.isArray(sk.replaces)) {
+    if (!Array.isArray(state.skillsDeactivated)) state.skillsDeactivated = [];
+    for (const rid of sk.replaces) {
+      if (!state.skillsDeactivated.includes(rid)) state.skillsDeactivated.push(rid);
+    }
+  }
+}
+
+// 기존 세이브용 — 보유 스킬 전체에 대해 replaces 를 다시 계산해 자동 비활성 적용.
+function reconcileDeactivations(state) {
+  if (!state || !Array.isArray(state.skills)) return;
+  if (!Array.isArray(state.skillsDeactivated)) state.skillsDeactivated = [];
+  for (const sId of state.skills) {
+    const sk = findSkillById(sId);
+    if (!sk || !Array.isArray(sk.replaces)) continue;
+    for (const rid of sk.replaces) {
+      // 사용자가 의도적으로 활성화시킨 것은 건드리지 않기 위해 원래 상태 보존.
+      // 단, 마이그레이션 1회만 자동 적용 (state.skillsReconciled 플래그).
+      if (!state.skillsDeactivated.includes(rid)) state.skillsDeactivated.push(rid);
+    }
+  }
+  state.skillsReconciled = true;
+}
+
+const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, learnSkill, reconcileDeactivations, SKILL_BOOKS };
 if (typeof module !== 'undefined' && module.exports) module.exports = __DATA_EXPORTS__;
 if (typeof window !== 'undefined') window.__GAME_DATA__ = __DATA_EXPORTS__;

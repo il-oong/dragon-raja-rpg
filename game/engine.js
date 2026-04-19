@@ -1,7 +1,10 @@
 const __DATA__ = (typeof require === 'function')
   ? require('./data.js')
   : (typeof window !== 'undefined' ? window.__GAME_DATA__ : globalThis.__GAME_DATA__);
-const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS } = __DATA__;
+const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS,
+        learnSkill, findSkillById, LIBRARIES, SKILL_GRADES } = __DATA__;
+// 별칭 — cUse 등 메서드 내부에서 짧게 호출.
+const findSkillByIdLocal = findSkillById;
 
 // ═══════ 시간 한정 보스 (C3) ═══════
 // bands: 등장 시간대 · dayMod: day가 N의 배수일 때만 · cooldownDays: 처치 후 N일 재등장 불가 · rate: 조건 일치 시 조우 확률
@@ -36,6 +39,14 @@ const EXPLORE_FLAVORS = {
 
 const rnd = (n) => Math.floor(Math.random() * n);
 const chance = (p) => Math.random() < p;
+
+// ═══════ Stage E: 이코노미 밸런스 상수 ═══════
+// 변경 시 한 곳만 건드리면 전체 체감 튜닝 가능.
+const ECONOMY = {
+  monsterGoldMul: 0.60,  // 몬스터 골드 드랍 -40%
+  questGoldMul:   0.70,  // 퀘스트 골드 보상 -30%
+  sellRatio:      0.35,  // 판매가 = 아이템 가격 × 이 비율 (기존 0.5)
+};
 
 class Game {
   constructor(out) {
@@ -131,7 +142,8 @@ class Game {
       equip: { weapon: null, armor: null, acc: null },
       inv: { potion_s: 3 },
       tradeInv: {},          // 무역 상품
-      skills: job.skills.filter(s => s.lv <= 1).map(s => s.id),
+      skills: [],
+      skillsDeactivated: [],
       quests: {}, killCount: {}, flags: {},
       activeHunt: null,        // 주간 사냥감 { monster, locationKey, day }
       bossCooldowns: {},       // 시간한정 보스 { bossKey: nextAvailableDay }
@@ -152,6 +164,8 @@ class Game {
       masteredLines: [],
       playTimeSec: 0,
     };
+    // 초기 스킬 — learnSkill 통과 시 replaces 자동 비활성 적용 (1차 스킬엔 영향 없음).
+    job.skills.filter(s => s.lv <= 1).forEach(s => learnSkill(this.state, s.id));
     this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
     this.awaiting = null;   // 🐛 fix: 생성 후 입력 대기 해제
     this.out(`\n★ ${name} (${race.name} ${job.name}) 탄생!`);
@@ -216,7 +230,7 @@ class Game {
         this.state.trainedSkills.push(ts.id);
         unlocked.push(ts);
         // 액티브 스킬이면 state.skills에도 추가
-        if (ts.type === 'active') this.state.skills.push(ts.skill.id);
+        if (ts.type === 'active') learnSkill(this.state, ts.skill.id);
       }
     });
     if (unlocked.length) {
@@ -1150,7 +1164,7 @@ class Game {
     // 새 직업의 현재 레벨 이하 스킬 즉시 습득
     (next.skills || []).forEach(sk => {
       if ((sk.lv || 1) <= this.state.lv && !this.state.skills.includes(sk.id)) {
-        this.state.skills.push(sk.id);
+        learnSkill(this.state, sk.id);
       }
     });
     this.state.hp = this.getHpMax(); this.state.mp = this.getMpMax();
@@ -1292,6 +1306,22 @@ class Game {
   cUse(arg) {
     if (!arg || !this.state.inv[arg] || this.state.inv[arg]<=0) { this.out('없음.'); return; }
     const it = ITEMS[arg];
+    // 스킬북 — 사용 시 해당 스킬 습득.
+    if (it.type === 'skillbook') {
+      if (this.combat) { this.out('전투 중에는 책을 읽을 수 없다.'); return; }
+      if (!it.teaches) { this.out('손상된 책.'); return; }
+      if (this.state.skills.includes(it.teaches)) {
+        this.out(`이미 습득한 스킬: ${it.name}`); return;
+      }
+      const sk = findSkillByIdLocal(it.teaches);
+      if (sk && sk.lv && this.state.lv < sk.lv) {
+        this.out(`레벨 부족 — ${it.name} 은(는) Lv.${sk.lv} 이상 필요.`); return;
+      }
+      learnSkill(this.state, it.teaches);
+      this.state.inv[arg]--;
+      this.out(`▶ ${it.name} — 새 스킬 습득!`);
+      return;
+    }
     if (it.type !== 'use') { this.out('소비 아이템 아님.'); return; }
     if (it.effect === 'heal') { this.state.hp = Math.min(this.getHpMax(), this.state.hp + it.amount); this.out(`▶ ${it.name} HP+${it.amount}`); }
     else if (it.effect === 'mp') { this.state.mp = Math.min(this.getMpMax(), this.state.mp + it.amount); this.out(`▶ ${it.name} MP+${it.amount}`); }
@@ -1528,7 +1558,8 @@ class Game {
     if (!this.combat.foes.every(f => f.hp <= 0)) return false;
     let exp = 0, gold = 0, drops = [];
     this.combat.foes.forEach(f => {
-      exp += f.exp; gold += f.gold;
+      // Stage E: 몬스터 골드 기본 -40%. 나머지 배율(종족/proc/작위/수련/무역)은 그대로 적용.
+      exp += f.exp; gold += Math.round(f.gold * ECONOMY.monsterGoldMul);
       this.state.killCount[f.key] = (this.state.killCount[f.key]||0) + 1;
       if (f.boss) this.state.flags['boss_'+f.key+'_dead'] = true;
       // 드랍 (proc/종족 배율 적용, 엘리트 2배)
@@ -1652,7 +1683,7 @@ class Game {
       this.out(`\n★ Lv.${this.state.lv}! 분배 +3 (총 ${this.state.pendingPoints})`);
       this.state.jobs.forEach(jk => JOBS[jk].skills.forEach(sk => {
         if (sk.lv === this.state.lv && !this.state.skills.includes(sk.id)) {
-          this.state.skills.push(sk.id);
+          learnSkill(this.state, sk.id);
           this.out(`  ✦ 스킬: [${JOBS[jk].name}] ${sk.name}`);
         }
       }));
@@ -1796,7 +1827,7 @@ class Game {
     this.state.pendingPoints += 5;
     next.skills.forEach(sk => {
       if (sk.lv <= this.state.lv && !this.state.skills.includes(sk.id)) {
-        this.state.skills.push(sk.id);
+        learnSkill(this.state, sk.id);
         this.out(`  ✦ 스킬: ${sk.name}`);
       }
     });
@@ -1934,11 +1965,13 @@ class Game {
     }
     cur.done = true;
     cur.completedDay = this.state.time.day;
-    this.state.exp += q.reward.exp; this.state.gold += q.reward.gold;
+    // Stage E: 퀘스트 골드 보상 -30%. EXP 는 유지.
+    const questGold = Math.round(q.reward.gold * ECONOMY.questGoldMul);
+    this.state.exp += q.reward.exp; this.state.gold += questGold;
     if (q.reward.item) {
       this.state.inv[q.reward.item] = (this.state.inv[q.reward.item]||0) + 1;
-      this.out(`  보상 EXP+${q.reward.exp} GOLD+${q.reward.gold} [${ITEMS[q.reward.item].name}]`);
-    } else this.out(`  보상 EXP+${q.reward.exp} GOLD+${q.reward.gold}`);
+      this.out(`  보상 EXP+${q.reward.exp} GOLD+${questGold} [${ITEMS[q.reward.item].name}]`);
+    } else this.out(`  보상 EXP+${q.reward.exp} GOLD+${questGold}`);
     this.checkLevel();
     // 체인: 다음 퀘스트 자동 제안
     if (q.next && QUESTS[q.next]) {
@@ -1992,7 +2025,7 @@ class Game {
   sell(key) {
     if (!this.state.inv[key] || this.state.inv[key]<=0) { this.out('없음'); return; }
     const it = ITEMS[key];
-    const price = Math.round((it.price||10)*0.5);
+    const price = Math.round((it.price||10) * ECONOMY.sellRatio);
     this.state.inv[key]--;
     this.state.gold += price;
     this.out(`${it.name} 판매 (+${price}G)`);
