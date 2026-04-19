@@ -1346,6 +1346,7 @@ class Game {
   endPlayerTurn() {
     this.combat.foes.forEach(f => {
       if (f.hp <= 0) return;
+      if (f.immuneDot) { f.poison = 0; f.burn = 0; return; }
       if (f.poison) {
         let d = 10 + rnd(12);
         if (this.combat.buffs.poison_plus) d *= 3;
@@ -1493,8 +1494,33 @@ class Game {
       else { this.defeat(); return; }
     }
     this.combat.turn++;
+    this.checkBossPhases();
     this.renderCombat();
     this.out('[명령: attack / skill / use / run]');
+  }
+
+  // C4: 보스 페이즈 전환 — foes.phases 기반
+  checkBossPhases() {
+    if (!this.combat) return;
+    this.combat.foes.forEach(f => {
+      if (!f.phases || f.hp <= 0) return;
+      f.triggeredPhases = f.triggeredPhases || [];
+      const ratio = f.hp / f.hpMax;
+      for (const p of f.phases) {
+        if (f.triggeredPhases.includes(p.at)) continue;
+        if (ratio > p.at) continue;
+        f.triggeredPhases.push(p.at);
+        this.out('');
+        this.out(`⚠⚡ ${f.name}: ${p.msg}`, 'warn');
+        const e = p.effect || {};
+        if (e.atk_mul) { f.atk = Math.round(f.atk * e.atk_mul); this.out(`  공격력 ×${e.atk_mul}`, 'warn'); }
+        if (e.def_mul) { f.def = Math.round((f.def || 0) * e.def_mul); this.out(`  방어력 ×${e.def_mul}`, 'warn'); }
+        if (e.heal)    { const h = Math.round(f.hpMax * e.heal); f.hp = Math.min(f.hpMax, f.hp + h); this.out(`  HP 회복 +${h}`, 'warn'); }
+        if (e.immune_dot) { f.immuneDot = true; this.out(`  독·화상 면역`, 'warn'); }
+        if (e.cleanse) { f.poison = 0; f.burn = 0; this.out(`  상태이상 해제`, 'warn'); }
+        if (e.msg_after) this.out(`  ${e.msg_after}`, 'warn');
+      }
+    });
   }
 
   checkVictory() {

@@ -1534,50 +1534,82 @@ const MONSTERS = {
   thug:      { name: '깡패',       hp: 110, atk: 22, def: 12, exp: 80, gold: 70, tags: [], drops: [['mace', 0.10], ['potion_m', 0.15]] },
   rogue_mage:{ name: '도적 마법사', hp: 95, atk: 14, def: 8, exp: 90, gold: 90, tags: ['mag'], drops: [['ether_m', 0.20], ['wand', 0.08]] },
   gold_chain_boss: { name: '두목 지스카', hp: 600, atk: 45, def: 22, exp: 500, gold: 800, tags: [], boss: true,
-    drops: [['cutlass', 0.40], ['gold_chain_amulet', 0.25], ['potion_l', 0.5]] },
+    drops: [['cutlass', 0.40], ['gold_chain_amulet', 0.25], ['potion_l', 0.5]],
+    phases: [
+      { at: 0.5, msg: '지스카가 부하를 부른다 — "모두 덤벼!"', effect: { atk_mul: 1.3 } },
+      { at: 0.25, msg: '지스카가 광기에 빠진다 — 최후의 발악!', effect: { atk_mul: 1.5 } },
+    ] },
   // ─── 폐허된 성당 (Lv 18~25) ───
   zombie:    { name: '좀비',       hp: 150, atk: 25, def: 12, exp: 100, gold: 30, tags: ['undead'], drops: [['potion_m', 0.20]] },
   skeleton:  { name: '스켈레톤',   hp: 130, atk: 28, def: 14, exp: 110, gold: 40, tags: ['undead'], drops: [['rusty_blade', 0.10], ['bonebow', 0.08]] },
   wraith:    { name: '망령',       hp: 180, atk: 35, def: 18, exp: 180, gold: 60, tags: ['undead', 'mag'], drops: [['ether_m', 0.25]] },
   dark_priest_lord: { name: '흑사제장 칼릭스', hp: 1100, atk: 75, def: 35, exp: 1200, gold: 1500, tags: ['undead', 'mag'], boss: true,
-    drops: [['cursed_staff', 0.40], ['shadow_robe', 0.30], ['potion_l', 0.5]] },
+    drops: [['cursed_staff', 0.40], ['shadow_robe', 0.30], ['potion_l', 0.5]],
+    phases: [
+      { at: 0.5, msg: '칼릭스가 사령(死靈)을 불러낸다 — 상태이상 해제', effect: { cleanse: true, atk_mul: 1.25 } },
+      { at: 0.25, msg: '칼릭스의 눈이 붉게 타오른다 — 암흑 각성!', effect: { atk_mul: 1.6 } },
+    ] },
   // ─── 드워프 광산 (Lv 18~25) ───
   kobold:    { name: '코볼트',     hp: 100, atk: 22, def: 10, exp: 75, gold: 50, tags: [], drops: [['shortsword', 0.10]] },
   cave_spider:{ name: '동굴거미',  hp: 140, atk: 30, def: 14, exp: 120, gold: 60, tags: ['beast'], drops: [['ether_m', 0.20]] },
   rock_golem:{ name: '록 골렘',    hp: 350, atk: 40, def: 35, exp: 350, gold: 150, tags: [], drops: [['warhammer', 0.15], ['plate', 0.10]] },
   mine_golem:{ name: '광산 골렘 군주', hp: 1500, atk: 80, def: 60, exp: 1800, gold: 2000, tags: [], boss: true,
-    drops: [['mithril_axe', 0.40], ['mithril', 0.30], ['ring_def', 0.6]] },
+    drops: [['mithril_axe', 0.40], ['mithril', 0.30], ['ring_def', 0.6]],
+    phases: [
+      { at: 0.5, msg: '광산 골렘이 미스릴 갑옷을 두른다 — 방어 강화', effect: { def_mul: 1.6 } },
+      { at: 0.25, msg: '골렘이 지진을 일으킨다!', effect: { atk_mul: 1.5 } },
+    ] },
   // ─── 핸드레이크의 탑 (Lv 25~30) ───
   arcane_construct: { name: '비전 골렘', hp: 280, atk: 35, def: 25, exp: 320, gold: 200, tags: ['mag'], drops: [['archstaff', 0.05], ['ether_l', 0.15]] },
   mage_apprentice:  { name: '수련생', hp: 200, atk: 30, def: 20, exp: 280, gold: 180, tags: ['mag'], drops: [['ether_m', 0.30], ['robe', 0.10]] },
   mirror_image:     { name: '거울상', hp: 240, atk: 38, def: 22, exp: 300, gold: 100, tags: ['mag'], drops: [['ether_l', 0.20]] },
   tower_guardian:   { name: '탑의 수호자', hp: 2200, atk: 110, def: 60, exp: 4000, gold: 5000, tags: ['mag'], boss: true,
-    drops: [['handrake_staff', 0.30], ['dragon_wisdom_1', 1.0], ['ether_l', 0.5]] },
+    drops: [['handrake_staff', 0.30], ['dragon_wisdom_1', 1.0], ['ether_l', 0.5]],
+    phases: [
+      { at: 0.5, msg: '수호자가 비전 진법을 전개한다 — 마법 증폭', effect: { atk_mul: 1.4 } },
+      { at: 0.25, msg: '수호자가 남은 마나로 자가 회복', effect: { heal: 0.20, atk_mul: 1.2 } },
+    ] },
   // ─── 비스럴 사막 (Lv 30~40) ───
   sand_lizard:    { name: '모래 도마뱀', hp: 250, atk: 42, def: 22, exp: 300, gold: 150, tags: ['beast'], drops: [['scimitar', 0.10]] },
   sand_worm:      { name: '사막 벌레',   hp: 400, atk: 55, def: 30, exp: 500, gold: 250, tags: ['beast'], drops: [['potion_l', 0.25]] },
   mummy:          { name: '미라',         hp: 320, atk: 48, def: 28, exp: 420, gold: 400, tags: ['undead'], drops: [['ether_l', 0.20], ['ring_atk', 0.15]] },
   darim_warrior:  { name: '다림 전사',   hp: 380, atk: 60, def: 32, exp: 480, gold: 350, tags: [], drops: [['scimitar', 0.20], ['darim_robe', 0.10]] },
   sand_pharaoh:   { name: '사막의 파라오', hp: 3000, atk: 130, def: 70, exp: 6000, gold: 8000, tags: ['undead', 'mag'], boss: true,
-    drops: [['pharaoh_blade', 0.40], ['dragonring', 0.30], ['potion_x', 0.6]] },
+    drops: [['pharaoh_blade', 0.40], ['dragonring', 0.30], ['potion_x', 0.6]],
+    phases: [
+      { at: 0.5, msg: '파라오가 사자(死者)의 가호를 두른다 — 독·화상 면역', effect: { immune_dot: true, cleanse: true } },
+      { at: 0.25, msg: '파라오가 모래폭풍을 일으킨다!', effect: { atk_mul: 1.6 } },
+    ] },
   // ─── 자이펀 지하감옥 (Lv 35~45) ───
   imp:        { name: '임프',     hp: 280, atk: 50, def: 25, exp: 350, gold: 200, tags: [], drops: [['ether_l', 0.20]] },
   demon:      { name: '데몬',     hp: 600, atk: 75, def: 40, exp: 850, gold: 600, tags: [], drops: [['demonsword', 0.15], ['potion_l', 0.30]] },
   hellhound:  { name: '지옥견',   hp: 450, atk: 70, def: 35, exp: 700, gold: 400, tags: ['beast'], drops: [['potion_l', 0.30]] },
   demon_lord: { name: '데몬 영주', hp: 4000, atk: 150, def: 80, exp: 8000, gold: 10000, tags: [], boss: true,
-    drops: [['demonblade_lord', 0.40], ['demon_armor', 0.30], ['elixir', 0.6]] },
+    drops: [['demonblade_lord', 0.40], ['demon_armor', 0.30], ['elixir', 0.6]],
+    phases: [
+      { at: 0.5, msg: '데몬 영주가 지옥불을 소환한다!', effect: { atk_mul: 1.5 } },
+      { at: 0.25, msg: '데몬 영주가 혈광(血光)에 물든다 — 광란!', effect: { atk_mul: 1.8, def_mul: 0.8 } },
+    ] },
   // ─── 얼음 황무지 (Lv 40~50) ───
   ice_wolf:      { name: '빙폭',         hp: 500, atk: 80, def: 40, exp: 800, gold: 350, tags: ['beast'], drops: [['potion_l', 0.30]] },
   frost_giant:   { name: '서리 거인',   hp: 900, atk: 110, def: 55, exp: 1500, gold: 700, tags: [], drops: [['frost_hammer', 0.20], ['mithril', 0.15]] },
   white_wyrmling:{ name: '백룡 새끼',   hp: 700, atk: 100, def: 50, exp: 1300, gold: 800, tags: ['dragon'], drops: [['ice_lance', 0.25]] },
   frost_dragon:  { name: '프로스트 드래곤', hp: 5500, atk: 170, def: 90, exp: 12000, gold: 15000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_2', 1.0], ['elixir', 1.0]] },
+    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_2', 1.0], ['elixir', 1.0]],
+    phases: [
+      { at: 0.5, msg: '프로스트 드래곤이 빙갑을 두른다 — 방어 강화', effect: { def_mul: 1.5 } },
+      { at: 0.25, msg: '프로스트 드래곤의 브레스가 하늘을 얼린다!', effect: { atk_mul: 1.8 } },
+    ] },
   // ─── 활화산 칼라일 (Lv 45~55) ───
   lava_slime:     { name: '용암 슬라임', hp: 600, atk: 90, def: 50, exp: 900, gold: 400, tags: [], drops: [['potion_l', 0.30]] },
   fire_elemental: { name: '화염 정령',   hp: 800, atk: 120, def: 55, exp: 1500, gold: 800, tags: ['mag'], drops: [['flameblade', 0.20], ['ether_l', 0.30]] },
   salamander:     { name: '샐러맨더',     hp: 1000, atk: 130, def: 60, exp: 1800, gold: 900, tags: ['beast'], drops: [['flame_robe', 0.15]] },
   volcanic_drake: { name: '화산 드레이크', hp: 6500, atk: 180, def: 95, exp: 15000, gold: 18000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['flameblade_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_3', 1.0], ['elixir', 1.0]] },
+    drops: [['flameblade_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_3', 1.0], ['elixir', 1.0]],
+    phases: [
+      { at: 0.5, msg: '화산 드레이크가 용암을 들이마신다 — HP 회복', effect: { heal: 0.20 } },
+      { at: 0.25, msg: '화산 드레이크의 비늘에 용암이 맺힌다 — 광포!', effect: { atk_mul: 1.8 } },
+    ] },
   // ─── 신규 다수 (레벨별 다양화) ───
   // 초반 (Lv 1~8)
   hare:           { name: '산토끼',    hp: 15, atk: 3, def: 0, exp: 5, gold: 3, tags: ['beast'], drops: [['potion_s', 0.15]] },
@@ -1633,7 +1665,12 @@ const MONSTERS = {
   lich_boss: { name: '고대 리치', hp: 1500, atk: 100, def: 50, exp: 2000, gold: 1200, tags: ['undead', 'mag'], boss: true,
     drops: [['cursed_staff', 0.40], ['amulet', 0.30]] },
   amurtat:   { name: '아무르타트', hp: 8000, atk: 250, def: 120, exp: 30000, gold: 15000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['scale_of_amurtat', 1.0], ['dragonring', 1.0], ['excalibur', 0.3]] },
+    drops: [['scale_of_amurtat', 1.0], ['dragonring', 1.0], ['excalibur', 0.3]],
+    phases: [
+      { at: 0.75, msg: '아무르타트가 처음으로 눈을 뜬다 — 용의 기백', effect: { atk_mul: 1.2 } },
+      { at: 0.5,  msg: '아무르타트가 비늘을 세운다 — 방어 강화', effect: { def_mul: 1.5, cleanse: true } },
+      { at: 0.25, msg: '아무르타트가 포효한다 — 드래곤 라자의 운명을 건 일격!', effect: { atk_mul: 2.0, heal: 0.10, immune_dot: true } },
+    ] },
 
   // ═══ 4대 드래곤 (최종 컨텐츠) ═══
   // 능력치 차이 압도적. Lv 80~150+ 대상.
