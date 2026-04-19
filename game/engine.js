@@ -2,7 +2,9 @@ const __DATA__ = (typeof require === 'function')
   ? require('./data.js')
   : (typeof window !== 'undefined' ? window.__GAME_DATA__ : globalThis.__GAME_DATA__);
 const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS,
-        learnSkill } = __DATA__;
+        learnSkill, findSkillById, LIBRARIES, SKILL_GRADES } = __DATA__;
+// 별칭 — cUse 등 메서드 내부에서 짧게 호출.
+const findSkillByIdLocal = findSkillById;
 
 const rnd = (n) => Math.floor(Math.random() * n);
 const chance = (p) => Math.random() < p;
@@ -1128,6 +1130,22 @@ class Game {
   cUse(arg) {
     if (!arg || !this.state.inv[arg] || this.state.inv[arg]<=0) { this.out('없음.'); return; }
     const it = ITEMS[arg];
+    // 스킬북 — 사용 시 해당 스킬 습득.
+    if (it.type === 'skillbook') {
+      if (this.combat) { this.out('전투 중에는 책을 읽을 수 없다.'); return; }
+      if (!it.teaches) { this.out('손상된 책.'); return; }
+      if (this.state.skills.includes(it.teaches)) {
+        this.out(`이미 습득한 스킬: ${it.name}`); return;
+      }
+      const sk = findSkillByIdLocal(it.teaches);
+      if (sk && sk.lv && this.state.lv < sk.lv) {
+        this.out(`레벨 부족 — ${it.name} 은(는) Lv.${sk.lv} 이상 필요.`); return;
+      }
+      learnSkill(this.state, it.teaches);
+      this.state.inv[arg]--;
+      this.out(`▶ ${it.name} — 새 스킬 습득!`);
+      return;
+    }
     if (it.type !== 'use') { this.out('소비 아이템 아님.'); return; }
     if (it.effect === 'heal') { this.state.hp = Math.min(this.getHpMax(), this.state.hp + it.amount); this.out(`▶ ${it.name} HP+${it.amount}`); }
     else if (it.effect === 'mp') { this.state.mp = Math.min(this.getMpMax(), this.state.mp + it.amount); this.out(`▶ ${it.name} MP+${it.amount}`); }
