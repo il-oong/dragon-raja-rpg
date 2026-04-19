@@ -271,7 +271,7 @@
   const { LOCATIONS, JOBS, ITEMS, MONSTERS, RACES, SHOP_ITEMS, TRADE_PRICES, TRADE_GOODS, TRADE_SELL_TAX, TRADE_SKILLS,
           QUESTS, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
           GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, THEMES,
-          SKILL_GRADES, getSkillGrade, LIBRARIES } = D;
+          SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, reconcileDeactivations } = D;
 
   // ═══════ 지역 테마 적용 (소소하게) ═══════
   let _lastThemeKey = null;
@@ -683,6 +683,10 @@
     if (!Array.isArray(s.masteredLines)) s.masteredLines = [];
     if (typeof s.playTimeSec !== 'number') s.playTimeSec = 0;
     if (!Array.isArray(s.skillsDeactivated)) s.skillsDeactivated = [];
+    // Stage C: 기존 세이브에 replaces 자동 비활성 1회 적용 (skillsReconciled 플래그로 한번만).
+    if (!s.skillsReconciled && typeof reconcileDeactivations === 'function') {
+      reconcileDeactivations(s);
+    }
     return s;
   }
 
