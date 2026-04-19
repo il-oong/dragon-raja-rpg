@@ -2197,14 +2197,15 @@ const TRAINING_HALLS = {
   },
 };
 
-// 수련 옵션 — 실제 시간 + 게임 내 경과 일수
-// name = 수련 이름, min = 실제 분, days = 게임 내 경과 일수
+// 수련 옵션 — 실제 시간 + 게임 내 경과 일수 + 레벨 요구사항
+// name = 수련 이름, min = 실제 분, days = 게임 내 경과 일수, reqLv = 최소 레벨
+// 저레벨 캐릭터가 장시간 수련으로 레벨업을 너무 쉽게 얻는 것을 방지.
 const TRAIN_DURATIONS = [
-  { min: 5,   name: '가벼운 명상',   days: 2   },
-  { min: 15,  name: '기초 수련',     days: 5   },
-  { min: 30,  name: '심화 수련',     days: 10  },
-  { min: 60,  name: '집중 수련',     days: 20  },
-  { min: 120, name: '극한 수련',     days: 40  },
+  { min: 5,   name: '가벼운 명상',   days: 2,   reqLv: 1   },
+  { min: 15,  name: '기초 수련',     days: 5,   reqLv: 10  },
+  { min: 30,  name: '심화 수련',     days: 10,  reqLv: 25  },
+  { min: 60,  name: '집중 수련',     days: 20,  reqLv: 50  },
+  { min: 120, name: '극한 수련',     days: 40,  reqLv: 80  },
 ];
 
 // ═══════════ 탐험 랜덤 이벤트 ═══════════

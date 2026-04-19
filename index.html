@@ -421,6 +421,12 @@
   function startFocus(durationMin, gameDays) {
     if (focusActive || !canStartFocus()) return;
     const s = game.state;
+    // 레벨 게이트 — UI 우회 방지를 위한 엔진 측 검증.
+    const tier = TRAIN_DURATIONS.find(d => d.min === durationMin);
+    if (tier && tier.reqLv && s.lv < tier.reqLv) {
+      print(`${tier.name} 은(는) Lv.${tier.reqLv} 이상부터 가능 (현재 Lv.${s.lv}).`, 'warn');
+      return;
+    }
     const hall = TRAINING_HALLS[s.location];
     const eff = hall.effects || {};
     const durationMs = durationMin * 60 * 1000;
@@ -1977,16 +1983,23 @@
     notice.appendChild(n);
     act.appendChild(notice);
 
-    // 수련 선택 — 수련 이름을 크게, 실시간/게임일수를 작게
+    // 수련 선택 — 레벨 미달이면 버튼 disabled + 사유 표시.
     TRAIN_DURATIONS.forEach(d => {
+      const reqLv = d.reqLv || 1;
+      const meets = game.state.lv >= reqLv;
       const expectXp = Math.round(game.state.lv * d.min * 20 * hall.mul);
       const row = mkSection();
-      const btn = mkBtn(d.name, () => startFocus(d.min, d.days), { primary: true });
-      btn.style.minWidth = '140px';
+      const label = meets ? d.name : `🔒 ${d.name} (Lv.${reqLv}+)`;
+      const btn = mkBtn(label, () => startFocus(d.min, d.days), {
+        primary: meets, disabled: !meets,
+        title: meets ? '' : `이 수련은 Lv.${reqLv} 이상부터 가능. 현재 Lv.${game.state.lv}.`,
+      });
+      btn.style.minWidth = '160px';
       row.appendChild(btn);
       const info = document.createElement('span');
       info.style.cssText = 'color:#858585;font-size:11px;margin-left:10px;line-height:1.5;';
-      info.innerHTML = `<span style="color:#a0a0a0;">실시간 ${d.min}분</span> · <span style="color:#a0a0a0;">게임 ${d.days}일 경과</span> · 예상 +${expectXp.toLocaleString()} XP`;
+      const xpStr = meets ? `예상 +${expectXp.toLocaleString()} XP` : `<span style="color:#9a6b6b;">레벨 미달</span>`;
+      info.innerHTML = `<span style="color:#a0a0a0;">실시간 ${d.min}분</span> · <span style="color:#a0a0a0;">게임 ${d.days}일 경과</span> · ${xpStr}`;
       row.appendChild(info);
       act.appendChild(row);
     });
