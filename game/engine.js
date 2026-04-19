@@ -1597,7 +1597,9 @@ class Game {
     if (trb.goldMul) gold = Math.round(gold * trb.goldMul);
     // 상인 계열은 전투 특화 직업이 아니므로 전투 XP -20% (거래 XP로 보상 받음)
     if (JOBS[this.state.job].line === 'merchant') exp = Math.round(exp * 0.8);
-    // 드랍 proc 효과는 위에서 체크 필요하나 간단히 로그만
+    // NaN 방어 — 위 배율 체인 중 하나라도 NaN 을 만들면 state 전체가 망가진다.
+    exp  = Number.isFinite(exp)  ? Math.max(0, Math.round(exp))  : 0;
+    gold = Number.isFinite(gold) ? Math.max(0, Math.round(gold)) : 0;
     this.state.exp += exp; this.state.gold += gold;
     this.out(`\n승리! EXP +${exp}, GOLD +${gold}`);
     if (drops.length) this.out(`  📦 드랍: ${drops.join(', ')}`);
@@ -1667,7 +1669,10 @@ class Game {
   }
 
   checkLevel() {
-    while (this.state.exp >= this.expForNext(this.state.lv)) {
+    const MAX_LV = 200;
+    // NaN 방어 + 레벨 상한 — exp 가 NaN 이면 무한 루프 회피.
+    if (!Number.isFinite(this.state.exp)) this.state.exp = 0;
+    while (this.state.lv < MAX_LV && this.state.exp >= this.expForNext(this.state.lv)) {
       this.state.exp -= this.expForNext(this.state.lv);
       this.state.lv++;
       const job = JOBS[this.state.job];
@@ -1965,13 +1970,16 @@ class Game {
     }
     cur.done = true;
     cur.completedDay = this.state.time.day;
-    // Stage E: 퀘스트 골드 보상 -30%. EXP 는 유지.
-    const questGold = Math.round(q.reward.gold * ECONOMY.questGoldMul);
-    this.state.exp += q.reward.exp; this.state.gold += questGold;
-    if (q.reward.item) {
-      this.state.inv[q.reward.item] = (this.state.inv[q.reward.item]||0) + 1;
-      this.out(`  보상 EXP+${q.reward.exp} GOLD+${questGold} [${ITEMS[q.reward.item].name}]`);
-    } else this.out(`  보상 EXP+${q.reward.exp} GOLD+${questGold}`);
+    // Stage E: 퀘스트 골드 보상 -30%. EXP 는 유지. 누락 필드는 0 처리 — NaN 전파 방지.
+    const reward = q.reward || {};
+    const rExp  = Number.isFinite(reward.exp)  ? reward.exp  : 0;
+    const rGold = Number.isFinite(reward.gold) ? reward.gold : 0;
+    const questGold = Math.round(rGold * ECONOMY.questGoldMul);
+    this.state.exp += rExp; this.state.gold += questGold;
+    if (reward.item && ITEMS[reward.item]) {
+      this.state.inv[reward.item] = (this.state.inv[reward.item]||0) + 1;
+      this.out(`  보상 EXP+${rExp} GOLD+${questGold} [${ITEMS[reward.item].name}]`);
+    } else this.out(`  보상 EXP+${rExp} GOLD+${questGold}`);
     this.checkLevel();
     // 체인: 다음 퀘스트 자동 제안
     if (q.next && QUESTS[q.next]) {
