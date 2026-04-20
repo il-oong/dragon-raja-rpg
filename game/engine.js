@@ -791,14 +791,23 @@ class Game {
       this.out(`🐎 마차로 빠르게 이동.`);
     }
     this.out(`\n[${next.name}으로 이동 시작 — ${hours}시간 거리]`);
+    // 이동 도중 조우 → 전투 → 승리 시 남은 거리 재개 (state.pendingTravel 추적)
+    this.state.pendingTravel = { toKey, hoursLeft: hours, destName: next.name };
+    this._continueTravel();
+  }
 
-    // 이동 도중 시간별 인카운트
-    for (let h = 0; h < hours; h++) {
+  // 이동 진행/재개. state.pendingTravel 이 있는 동안만 동작.
+  // 인카운트 발생 시 startCombat 후 return — 전투 승리 시 checkVictory 가 다시 호출.
+  _continueTravel() {
+    const pt = this.state.pendingTravel;
+    if (!pt) return;
+    while (pt.hoursLeft > 0) {
       this.advanceTime(1);
+      pt.hoursLeft--;
       // 인카운트 굴림 (상인 캐러밴 스킬로 감소 가능)
       const encRate = 0.20 * (1 - this.tradeBonus().safeTravel);
       if (chance(encRate)) {
-        const pool = this.locationEncounters(this.state.location).concat(this.locationEncounters(toKey));
+        const pool = this.locationEncounters(this.state.location).concat(this.locationEncounters(pt.toKey));
         if (pool.length) {
           const roll = Math.random();
           let num, elite = false;
@@ -810,7 +819,7 @@ class Game {
           for (let i = 0; i < num; i++) foes.push(pool[rnd(pool.length)]);
           this.out(`  [${this.timeStr()}] 길에서 ${elite ? '엘리트 ' : ''}${foes.map(f => MONSTERS[f].name).join(', ')} 조우!`);
           this.startCombat(foes, false, { elite });
-          return;
+          return; // 전투 승리 시 checkVictory() 에서 _continueTravel 재호출
         }
       } else if (chance(0.05)) {
         const g = 5 + rnd(15);
@@ -818,10 +827,14 @@ class Game {
         this.out(`  [${this.timeStr()}] 길가에 떨어진 ${g}G 발견.`);
       }
     }
-    this.state.location = toKey;
-    this.out(`[${this.timeStr()}] ${next.name} 도착.`);
+    // 도착
+    const dest = pt.toKey;
+    const destName = pt.destName;
+    this.state.pendingTravel = null;
+    this.state.location = dest;
+    this.out(`[${this.timeStr()}] ${destName} 도착.`);
     // C2: 지역을 벗어나면 사냥감 추적을 잃는다
-    if (this.state.activeHunt && this.state.activeHunt.locationKey !== toKey && !this.state.activeHunt.slain) {
+    if (this.state.activeHunt && this.state.activeHunt.locationKey !== dest && !this.state.activeHunt.slain) {
       this.out(`  🌑 사냥감의 흔적을 놓쳤다.`, 'dim');
       this.state.activeHunt = null;
     }
@@ -1377,7 +1390,16 @@ class Game {
       }
     }
     runChance = Math.min(0.95, runChance);
-    if (chance(runChance)) { this.out(`도주 성공! (${Math.round(runChance*100)}%)`); this.combat = null; }
+    if (chance(runChance)) {
+      this.out(`도주 성공! (${Math.round(runChance*100)}%)`);
+      this.combat = null;
+      // 이동 중 조우에서 도망 → 여정 포기, 출발지에 머묾
+      if (this.state.pendingTravel) {
+        const loc = LOCATIONS[this.state.location];
+        this.out(`  🏃 여정을 포기하고 ${loc ? loc.name : '현 위치'}에 남았다.`, 'dim');
+        this.state.pendingTravel = null;
+      }
+    }
     else { this.out(`도주 실패! (${Math.round(runChance*100)}%)`); this.foesTurn(); }
   }
 
@@ -1648,6 +1670,11 @@ class Game {
     const wasTrialMode = this.combat.trialMode;
     this.combat = null;
     if (wasTrialMode) this.trialFinishBattle();
+    else if (this.state.pendingTravel) {
+      // 이동 중 조우 → 승리. 남은 거리 재개.
+      this.out(`  🚶 여정을 계속한다... (남은 ${this.state.pendingTravel.hoursLeft}시간)`, 'dim');
+      this._continueTravel();
+    }
     return true;
   }
 
@@ -1669,6 +1696,8 @@ class Game {
     this.advanceTime(12);
     this.out(`골드 ${lost} 소실. 12시간 후 헬턴트에서 깨어났다.`);
     this.combat = null;
+    // 이동 중 패배 시 여정은 중단
+    this.state.pendingTravel = null;
   }
 
   // ════════════════ 레벨/분배/전직 ════════════════

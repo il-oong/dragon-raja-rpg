@@ -1,5 +1,34 @@
 # 릴리즈 보드
 
+## v1.0.19 (2026-04-20) — 이동 중 조우 후 여정 재개
+
+### 🚶 이동 중 전투 승리 시 남은 거리 자동 이어감
+- **문제 (사용자 제보)**: `go <목적지>` 로 이동하다가 몬스터 조우 → 전투 →
+  승리해도 **목적지에 도착하지 못하고 출발지에 그대로 남아있던** 버그.
+  `engine.js` `go()` 루프가 `startCombat` 후 `return` 하면서 `state.location
+  = toKey` 줄이 실행되지 않았고, 전투 종료 후에도 루프를 재개하는 로직이
+  아예 부재했음. (설계 의도 메시지도 없어 단순 미완성으로 판단.)
+- **수정**: `state.pendingTravel = { toKey, hoursLeft, destName }` 상태로
+  여정을 추적. `go` 는 이 상태를 세팅하고 `_continueTravel()` 헬퍼 호출.
+  조우 발생 시 `startCombat` + return, **`checkVictory()` 말미에서
+  `pendingTravel` 이 있으면 `_continueTravel()` 재호출** 하여 남은 시간만큼
+  이어간다. 도착 시 `state.location` 갱신 + `lookAround()`.
+- 여러 번 연쇄 조우가 터져도 각 승리마다 재개 → 결국 도착.
+
+### 🏃 이동 중 도주 / 패배 처리
+- 도주 성공 시: `🏃 여정을 포기하고 <출발지>에 남았다` 로그 +
+  `pendingTravel = null` — 플레이어는 출발지에 머묾 (자연스러운 후퇴 컨셉).
+- 패배 시: `pendingTravel = null` — 헬턴트 부활 동작 그대로, 여정만 취소.
+
+### QA
+- qa-harness 전 시나리오 green 유지.
+- 추가 인라인 테스트 3종 통과:
+  * 승리 후 `location` 이 `toKey` 로 갱신, `pendingTravel=null`
+  * 도주 성공 시 출발지 유지, `pendingTravel=null`
+  * 패배 시 헬턴트로, `pendingTravel=null`
+
+---
+
 ## v1.0.18 (2026-04-20) — 로그 레이아웃 리사이즈 + NPC 시간대 정합성
 
 ### 🖱 로그 레이아웃 세로 리사이즈 (사용자 로컬 저장)
