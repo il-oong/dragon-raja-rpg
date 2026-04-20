@@ -1874,9 +1874,9 @@ class Game {
     const npc = present.find(n => n.includes(npcName));
     // 암거래상 특수 처리: 밤에만 등장, 대화 시 암시장 플래그 on
     if (npc === '암거래상') {
-      this.out('\n"...조용히. 내 물건은 낮엔 팔지 않아."');
+      this.out('\n"...조용히. 어둠 아래서만 거래한다. 동이 트기 전까지만 내 물건을 볼 수 있어."');
       this.state.flags.black_market = true;
-      this.out('  [🗝 암시장 개방 — shop 명령으로 특수 상품 확인]');
+      this.out('  [🗝 암시장 개방 — 이 지역의 상점을 열면 특수 상품이 진열된다]');
       return;
     }
     // B1: 대화 트리 데이터가 있으면 다이얼로그 모드로 진입

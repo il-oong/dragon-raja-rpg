@@ -126,10 +126,27 @@
     #game {
       display: none; height: 100vh; background: #1e1e1e;
       grid-template-columns: 1fr 320px;
-      grid-template-rows: auto 2fr 3fr;
-      grid-template-areas: "top top" "output side" "actions side";
+      grid-template-rows: auto var(--output-h, 2fr) 6px 3fr;
+      grid-template-areas: "top top" "output side" "splitter side" "actions side";
     }
     #game.active { display: grid; }
+
+    #splitter {
+      grid-area: splitter;
+      background: #252526;
+      border-top: 1px solid #3a3a3a;
+      border-bottom: 1px solid #3a3a3a;
+      cursor: ns-resize;
+      position: relative;
+      transition: background 0.15s;
+    }
+    #splitter:hover, #splitter.dragging { background: #3a3a4a; }
+    #splitter::after {
+      content: ''; position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px; height: 2px; background: #555; border-radius: 1px;
+    }
+    body.splitter-dragging { cursor: ns-resize; user-select: none; }
 
     #topbar {
       grid-area: top;
@@ -340,6 +357,7 @@
   </div>
   <div id="output"></div>
   <div id="side"></div>
+  <div id="splitter" title="드래그로 로그 영역 크기 조절"></div>
   <div id="actions"></div>
 </div>
 
@@ -3203,6 +3221,74 @@
   setDisguise(true);
   ipcRenderer.on('toggle-disguise', () => setDisguise(!disguised));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setDisguise(true); });
+
+  // ═══════ 레이아웃 스플리터 (로그 영역 세로 리사이즈 + localStorage) ═══════
+  (() => {
+    const LAYOUT_KEY = 'dr_layout_output_h';
+    const splitter = document.getElementById('splitter');
+    const outputEl = document.getElementById('output');
+    const topbarEl = document.getElementById('topbar');
+    if (!splitter || !outputEl) return;
+
+    const SPLITTER_H = 6;
+    const MIN_OUTPUT = 80;
+    const MIN_ACTIONS = 80;
+
+    const clampH = (h) => {
+      const topH = topbarEl ? topbarEl.getBoundingClientRect().height : 0;
+      const avail = window.innerHeight - topH - SPLITTER_H;
+      const maxH = Math.max(MIN_OUTPUT, avail - MIN_ACTIONS);
+      return Math.max(MIN_OUTPUT, Math.min(maxH, h));
+    };
+
+    try {
+      const saved = parseFloat(localStorage.getItem(LAYOUT_KEY));
+      if (!isNaN(saved) && saved > 0) {
+        gameView.style.setProperty('--output-h', clampH(saved) + 'px');
+      }
+    } catch {}
+
+    let dragging = false, startY = 0, startH = 0;
+
+    splitter.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      dragging = true;
+      startY = e.clientY;
+      startH = outputEl.getBoundingClientRect().height;
+      splitter.classList.add('dragging');
+      document.body.classList.add('splitter-dragging');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const newH = clampH(startH + (e.clientY - startY));
+      gameView.style.setProperty('--output-h', newH + 'px');
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      splitter.classList.remove('dragging');
+      document.body.classList.remove('splitter-dragging');
+      const cur = parseFloat(gameView.style.getPropertyValue('--output-h'));
+      if (!isNaN(cur) && cur > 0) {
+        try { localStorage.setItem(LAYOUT_KEY, String(Math.round(cur))); } catch {}
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      const cur = parseFloat(gameView.style.getPropertyValue('--output-h'));
+      if (!isNaN(cur) && cur > 0) {
+        gameView.style.setProperty('--output-h', clampH(cur) + 'px');
+      }
+    });
+
+    splitter.addEventListener('dblclick', () => {
+      gameView.style.removeProperty('--output-h');
+      try { localStorage.removeItem(LAYOUT_KEY); } catch {}
+    });
+  })();
 
   // ═══════ 단축키 (전투·메인·이동) ═══════
   document.addEventListener('keydown', (e) => {
