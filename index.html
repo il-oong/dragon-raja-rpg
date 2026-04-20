@@ -2606,22 +2606,39 @@
       }
       act.appendChild(row);
     });
-    // 퀘스트
+    // 퀘스트 — 시간대 제한이 있으면 버튼에 표시하고 현재 시간대가 아니면 비활성화.
     const q = Object.values(QUESTS).find(q => q.location === game.state.location && q.giver === npc &&
       game.state.lv >= q.requireLv && !game.state.quests[q.id]);
     if (q) {
       const qr = mkSection('퀘스트:');
-      qr.appendChild(mkBtn(`📜 ${q.name} 수락`, `accept ${q.id}`, { success: true, title: q.desc }));
+      const band = game.timeBand();
+      const bandOk = !q.timeBand || q.timeBand.includes(band);
+      const bandTag = q.timeBand ? ` 🕓${q.timeBand.join('/')}` : '';
+      const label = bandOk ? `📜 ${q.name} 수락${bandTag}` : `🔒 ${q.name}${bandTag}`;
+      qr.appendChild(mkBtn(label, `accept ${q.id}`, {
+        success: bandOk, disabled: !bandOk,
+        title: bandOk ? q.desc : `${q.timeBand.join('/')} 시간대에만 수주 가능 (현재 ${band})`
+      }));
       act.appendChild(qr);
     }
-    // 수락한 퀘스트 완료
+    // 수락한 퀘스트 완료 — 시간대 제한이 있으면 동일하게 표시.
     const completeable = Object.entries(game.state.quests).filter(([id, q]) => {
       const qi = QUESTS[id];
       return qi.giver === npc && !q.done && q.progress >= qi.target.count;
     });
     if (completeable.length) {
       const cr = mkSection('완료:');
-      completeable.forEach(([id]) => cr.appendChild(mkBtn(`✓ ${QUESTS[id].name} 보고`, `complete ${id}`, { success: true })));
+      const band = game.timeBand();
+      completeable.forEach(([id]) => {
+        const qi = QUESTS[id];
+        const bandOk = !qi.timeBand || qi.timeBand.includes(band);
+        const bandTag = qi.timeBand ? ` 🕓${qi.timeBand.join('/')}` : '';
+        const label = bandOk ? `✓ ${qi.name} 보고${bandTag}` : `🔒 ${qi.name}${bandTag}`;
+        cr.appendChild(mkBtn(label, `complete ${id}`, {
+          success: bandOk, disabled: !bandOk,
+          title: bandOk ? '' : `${qi.timeBand.join('/')} 시간대에만 완료 가능 (현재 ${band})`
+        }));
+      });
       act.appendChild(cr);
     }
     act.appendChild(backBtn());
