@@ -598,14 +598,23 @@
     return !!TRAINING_HALLS[game.state.location];
   }
 
-  function startFocus(durationMin, gameDays) {
+  function startFocus(durationMin, gameDays, opts) {
     if (focusActive || !canStartFocus()) return;
     const s = game.state;
     // 레벨 게이트 — UI 우회 방지를 위한 엔진 측 검증.
-    const tier = TRAIN_DURATIONS.find(d => d.min === durationMin);
-    if (tier && tier.reqLv && s.lv < tier.reqLv) {
-      print(`${tier.name} 은(는) Lv.${tier.reqLv} 이상부터 가능 (현재 Lv.${s.lv}).`, 'warn');
-      return;
+    // 커스텀(opts.custom) 수련은 60분 이하로만 허용되며 레벨 제한 없음.
+    if (opts && opts.custom) {
+      const clamped = Math.max(1, Math.min(60, Math.round(durationMin)));
+      if (clamped !== durationMin) {
+        print(`커스텀 수련은 1~60분 범위. ${clamped}분으로 조정.`, 'dim');
+        durationMin = clamped;
+      }
+    } else {
+      const tier = TRAIN_DURATIONS.find(d => d.min === durationMin);
+      if (tier && tier.reqLv && s.lv < tier.reqLv) {
+        print(`${tier.name} 은(는) Lv.${tier.reqLv} 이상부터 가능 (현재 Lv.${s.lv}).`, 'warn');
+        return;
+      }
     }
     const hall = TRAINING_HALLS[s.location];
     const eff = hall.effects || {};
@@ -3027,6 +3036,39 @@
       act.appendChild(row);
     });
 
+    // 커스텀 수련 — 레벨 제한 없음, 1~60분 자유 선택.
+    const customRow = mkSection('맞춤 수련:');
+    const customInp = document.createElement('input');
+    customInp.type = 'number';
+    customInp.min = '1'; customInp.max = '60'; customInp.step = '1';
+    customInp.value = '10';
+    customInp.style.cssText = 'width:70px;';
+    customInp.title = '1 ~ 60 분 (레벨 제한 없음)';
+    const minLabel = document.createElement('span');
+    minLabel.style.cssText = 'color:#a0a0a0;font-size:12px;margin:0 6px;';
+    minLabel.textContent = '분';
+    const customPreview = document.createElement('span');
+    customPreview.style.cssText = 'color:#858585;font-size:11px;margin-left:10px;';
+    const updatePreview = () => {
+      const m = Math.max(1, Math.min(60, parseInt(customInp.value, 10) || 1));
+      const days = Math.max(1, Math.round(m / 3));
+      const xp = Math.round(game.state.lv * m * 20 * hall.mul);
+      customPreview.innerHTML = `<span style="color:#a0a0a0;">실시간 ${m}분</span> · <span style="color:#a0a0a0;">게임 ${days}일 경과</span> · 예상 +${xp.toLocaleString()} XP`;
+    };
+    customInp.oninput = updatePreview;
+    const customBtn = mkBtn('맞춤 수련 시작', () => {
+      const m = Math.max(1, Math.min(60, parseInt(customInp.value, 10) || 1));
+      const days = Math.max(1, Math.round(m / 3));
+      startFocus(m, days, { custom: true });
+    }, { primary: true });
+    customBtn.style.minWidth = '160px';
+    customRow.appendChild(customBtn);
+    customRow.appendChild(customInp);
+    customRow.appendChild(minLabel);
+    customRow.appendChild(customPreview);
+    act.appendChild(customRow);
+    updatePreview();
+
     // 누적 수련 시간 + 해금 스킬 진행도
     const totalMin = game.state.trainedMinutes || 0;
     const learned  = game.state.trainedSkills || [];
@@ -3174,8 +3216,8 @@
     if (target) target.classList.add('active');
   }
   function cycleTheme() {
-    const i = THEMES.indexOf(disguiseTheme);
-    setTheme(THEMES[(i + 1) % THEMES.length]);
+    const i = DISGUISE_THEMES.indexOf(disguiseTheme);
+    setTheme(DISGUISE_THEMES[(i + 1) % DISGUISE_THEMES.length]);
   }
   // Ctrl+Shift+T — 브라우저 기본 '새 탭 복원' 과 충돌 가능하니 preventDefault.
   document.addEventListener('keydown', (e) => {
