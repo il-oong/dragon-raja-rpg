@@ -1397,6 +1397,9 @@
       if (r.ok) {
         currentToken = r.token; currentUsername = r.username; saveAuth();
         print(`✦ ${r.username}으로 로그인 완료.`, 'good');
+        // 로그인 직후 클라우드에서 내 캐릭터 자동 로드 — 다른 PC 의 로컬 캐릭터가
+        // 내 계정 앞에 뜨던 문제 수정. 취소 시 로컬 유지 (기존 동작).
+        await autoLoadCloudOnLogin();
         uiMode = 'select'; render();
       } else {
         print(r.error || '로그인 실패', 'warn');
@@ -1453,6 +1456,7 @@
       if (r.ok) {
         currentToken = r.token; currentUsername = r.username; saveAuth();
         print(`✦ ${r.username} 가입 + 로그인 완료.`, 'good');
+        await autoLoadCloudOnLogin();
         uiMode = 'select'; render();
       } else {
         print(r.error || '가입 실패', 'warn');
@@ -1466,6 +1470,44 @@
     btnRow.appendChild(mkBtn('로그인 없이 진행', () => { uiMode = 'select'; render(); }, { mini: true }));
     act.appendChild(btnRow);
     setTimeout(() => idInp.focus(), 50);
+  }
+
+  // 로그인/가입 직후 호출. 클라우드에 이 계정 세이브가 있으면 로컬을 덮어쓰고
+  // 가져와 내 캐릭터가 어느 PC 에서든 뜨게 함. 로컬도 없고 클라우드도 없으면 조용히 통과.
+  async function autoLoadCloudOnLogin() {
+    try {
+      const cloudR = await api('/api/cloud/load');
+      const cloudSaves = cloudR && cloudR.ok && cloudR.data && Array.isArray(cloudR.data.saves) ? cloudR.data.saves : null;
+      const localCount = savesList.length;
+
+      if (cloudSaves && cloudSaves.length > 0) {
+        // 로컬에 뭐가 있는 경우에만 경고 — 빈 PC 면 조용히 교체.
+        if (localCount > 0) {
+          const go = confirm(
+            `클라우드에 ${cloudSaves.length}개 캐릭터가 있습니다.\n`
+            + `이 PC 로컬의 ${localCount}개는 삭제되고 덮어씁니다.\n`
+            + `(취소하면 로컬 유지 — 나중에 [☁ 클라우드 동기화] 에서 수동 가능)\n\n불러올까요?`
+          );
+          if (!go) { print('클라우드 로드 취소 — 로컬 캐릭터 유지.', 'dim'); return; }
+        }
+        for (const s of savesList) { await ipcRenderer.invoke('delete-char', s.id); }
+        for (const s of cloudSaves) { await ipcRenderer.invoke('save-char', { id: s.id, data: s }); }
+        await refreshSaves();
+        print(`✦ 클라우드에서 ${cloudSaves.length}개 캐릭터 불러옴.`, 'good');
+        return;
+      }
+
+      // 클라우드에 없음 + 로컬에 있음 → 최초 업로드 권유.
+      if (localCount > 0) {
+        if (confirm(`클라우드에 저장된 캐릭터가 없습니다.\n로컬 ${localCount}개를 지금 클라우드에 업로드할까요?\n(다른 PC 에서 로그인 시 이 캐릭터들을 불러올 수 있음)`)) {
+          const upR = await api('/api/cloud/save', 'POST', { saves: savesList });
+          if (upR && upR.ok) print(`✦ 로컬 ${localCount}개를 클라우드에 업로드 완료.`, 'good');
+          else print('클라우드 업로드 실패: ' + (upR && upR.error || '알 수 없음'), 'warn');
+        }
+      }
+    } catch (e) {
+      print('클라우드 자동 동기화 실패: ' + (e && e.message || e), 'warn');
+    }
   }
 
   // ═══════ 클라우드 동기화 ═══════
@@ -3205,8 +3247,15 @@
     if (!currentCharId) currentCharId = 'char_' + Date.now();
     const r = await ipcRenderer.invoke('save-char', { id: currentCharId, data: game.state });
     print(r.ok ? '저장 완료.' : '저장 실패: ' + r.error, r.ok ? 'good' : 'warn');
-    // 로그인 상태면 리더보드 자동 갱신
-    if (r.ok && currentToken && game.state) updateLeaderboard(game.state);
+    // 로그인 상태면 리더보드 + 클라우드 자동 동기화.
+    // 클라우드 푸시 실패해도 로컬 저장은 이미 성공 — 조용히 경고만 남김.
+    if (r.ok && currentToken && game.state) {
+      updateLeaderboard(game.state);
+      await refreshSaves();
+      api('/api/cloud/save', 'POST', { saves: savesList }).then(cr => {
+        if (cr && !cr.ok) print('☁ 클라우드 동기화 실패: ' + cr.error, 'warn');
+      }).catch(() => {});
+    }
   }
 
   // ═══════ 위장 ═══════
