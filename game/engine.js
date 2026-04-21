@@ -2122,14 +2122,18 @@ class Game {
       return out;
     };
 
-    const books = SKILL_BOOKS
+    // 희귀 이상: 정확히 1종만 진열 (×10 프리미엄).
+    // 고급/영웅: 2종 (×3 프리미엄).
+    const bookOf = (grades) => SKILL_BOOKS
       ? Object.keys(SKILL_BOOKS).filter(k => {
           const b = SKILL_BOOKS[k];
-          if (!b || !['advanced','rare','epic'].includes(b.grade)) return false;
+          if (!b || !grades.includes(b.grade)) return false;
           if (b.sourceJob && myJobs.length && !myJobs.includes(b.sourceJob)) return false;
           return true;
         })
       : [];
+    const rareBooks = bookOf(['rare','epic','legendary']);
+    const otherBooks = bookOf(['advanced']);
 
     const cursed = Object.keys(ITEMS).filter(k => {
       const it = ITEMS[k];
@@ -2149,7 +2153,8 @@ class Game {
     });
 
     const picked = [
-      ...pickN(books, 3),
+      ...pickN(rareBooks, 1),    // 희귀/영웅/전설 스킬북 1종 (×10)
+      ...pickN(otherBooks, 2),   // 고급 스킬북 2종 (×3)
       ...pickN(cursed, 3),
       ...pickN(junk, 3),
       'potion_x', 'ether_l',
@@ -2165,7 +2170,12 @@ class Game {
   itemPrice(key) {
     const it = ITEMS[key]; if (!it) return 0;
     const base = it.price || 10;
-    const mul = (this.state.flags && this.state.flags.black_market) ? this.BLACK_MARKET_MARKUP : 1;
+    let mul = 1;
+    if (this.state.flags && this.state.flags.black_market) {
+      mul = this.BLACK_MARKET_MARKUP;
+      // 희귀(rare) 이상 스킬북은 암시장 프리미엄 ×10 — 세트의 핵심 상품.
+      if (it.type === 'skillbook' && ['rare','epic','legendary'].includes(it.grade)) mul = 10;
+    }
     return Math.round(base * mul * (1 - this.getShopDisc()));
   }
 

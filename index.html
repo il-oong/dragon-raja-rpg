@@ -2015,8 +2015,22 @@
       row2.appendChild(mkBtn(hasMansion ? '저택 휴식' : '여관', () => enterMode('inn'), { hotkey: nextActKey() }));
     }
     if (loc.shop) {
+      const band = game.timeBand();
       const open = game.shopOpen();
-      row2.appendChild(mkBtn(open ? '상점' : '상점 (닫힘 🌙)', () => enterMode('shop', 'shop'), { hotkey: nextActKey(), disabled: !open, title: open ? undefined : '밤에는 문이 닫혀 있다' }));
+      // 암거래상이 있는 지역이면 밤엔 상점 버튼이 통째로 '🗝 암시장' 으로 전환.
+      // 클릭 시 자동으로 black_market 플래그 set (talk 암거래상 생략).
+      const hasBlackMarket = loc.npcs && loc.npcs['암거래상'];
+      const isNight = band === '밤';
+      if (isNight && hasBlackMarket) {
+        row2.appendChild(mkBtn('🗝 암시장', () => {
+          if (!game.state.flags) game.state.flags = {};
+          game.state.flags.black_market = true;
+          enterMode('shop', 'shop');
+        }, { primary: true, hotkey: nextActKey(), title: '밤에만 열리는 특수 시장 — 희귀 스킬북 1종 (×10) · 저주 장비 · 잡동사니 세트 아이템' }));
+      } else {
+        row2.appendChild(mkBtn(open ? '상점' : '상점 (닫힘 🌙)', () => enterMode('shop', 'shop'),
+          { hotkey: nextActKey(), disabled: !open, title: open ? undefined : '밤에는 문이 닫혀 있다' }));
+      }
     }
     if (TRADE_PRICES[game.state.location]) row2.appendChild(mkBtn('무역', () => enterMode('trade', 'trade'), { hotkey: nextActKey() }));
     // 수련장 (해당 지역에 수련장 있을 때만)
