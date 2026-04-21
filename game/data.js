@@ -1088,6 +1088,7 @@ const LOCATIONS = {
       '촌장':          { band: ['새벽','낮','황혼'] },
       '대장장이 게롤트':{ band: ['낮','황혼'] },
       '술집주인 메이린':{ band: ['황혼','밤'] },
+      '후치 네드발':    { band: ['황혼','밤'] },
       '암거래상':       { band: ['밤'] },
     },
     shop: true, inn: true,
@@ -1127,6 +1128,7 @@ const LOCATIONS = {
       '장로 엘리안':  { band: ['새벽','낮','황혼','밤'] },
       '상인 실바나':  { band: ['새벽','낮','황혼'] },
       '수색자 카일란':{ band: ['새벽','낮'] },
+      '이루릴 나슬리야': { band: ['새벽','낮'] },
     },
     shop: true, inn: true,
     exits: {
@@ -1152,6 +1154,7 @@ const LOCATIONS = {
       '왕궁 마법사 핸드레이크': { band: ['새벽','낮','황혼'] },
       '기사단장 리프크네':      { band: ['새벽','낮','황혼'] },
       '대주교 유스티스':        { band: ['새벽','낮','황혼','밤'] },
+      '샌슨 퍼시벌':            { band: ['새벽','낮','황혼'] },
       '암살자 길드장':          { band: ['황혼','밤'] },
       '궁사 길드장 이무스':     { band: ['낮','황혼'] },
       '대장장이 마스터 흐랄':   { band: ['낮','황혼'] },
@@ -2202,128 +2205,179 @@ const QUESTS = {
 const NPC_DIALOG = {
   '촌장': {
     root: {
-      lines: ['"...그대가 왔군. 요즘 북쪽 숲이 심상치 않아."'],
+      lines: [
+        '"또 왔군, 드래곤 라자 후보. 북쪽 숲이 심상치 않아. ...물론 심상치 않은 게 어디 한두 가지겠는가."',
+      ],
       options: [
         { text: '무슨 일이 있었습니까?', next: 'trouble' },
-        { text: '도움이 필요하십니까?', next: 'help' },
-        { text: '(드워프) 땅의 소리가 거칠어졌더군.', race: 'dwarf', next: 'dwarf_hint' },
-        { text: '(오우거) 힘쓸 일이 있으면 말하시오.', race: 'ogre', next: 'ogre_hint' },
+        { text: '도울 일은?', next: 'help' },
+        { text: '(드워프) 땅 소리가 거칠어졌소.', race: 'dwarf', next: 'dwarf_hint' },
+        { text: '(오우거) 무거운 건 내가 들지.', race: 'ogre', next: 'ogre_hint' },
       ],
     },
     trouble: {
-      lines: ['"늑대 떼가 마을 근처를 돌고 있어. 사람이 다칠까 두렵네."'],
-      options: [
-        { text: '제가 처리하겠습니다.', action: 'accept', qid: 'q1' },
-      ],
+      lines: ['"늑대 떼가 마을 둘레를 맴돈다네. 사람이 다치면... 후회하고 싶지 않네."'],
+      options: [{ text: '제가 처리하겠습니다.', action: 'accept', qid: 'q1' }],
     },
     help: {
-      lines: ['"고블린이 숲 입구를 자주 습격한다네. 도와줄 텐가?"'],
-      options: [
-        { text: '맡겨 주십시오.', action: 'accept', qid: 'q2' },
-      ],
+      lines: ['"숲 입구로 고블린이 내려온다더군. 재촉하지는 않을 테니 내키면 맡아주게."'],
+      options: [{ text: '맡지요.', action: 'accept', qid: 'q2' }],
     },
-    dwarf_hint: { lines: ['"드워프여! 광산 쪽에서 암석 울음이 들린다. 자네 형제들이 걱정돼."'], options: [] },
-    ogre_hint:  { lines: ['"오우거라! 저 돌 담을 혼자 밀어봐 주겠나? ...농담일세."'], options: [] },
+    dwarf_hint: { lines: ['"드워프의 귀는 땅의 말을 듣지. 광산에서 울음소리가 들린다면, 그건 돌이 아닌 다른 것의 소리일 것이야."'], options: [] },
+    ogre_hint:  { lines: ['"저 돌 담을 한 번 밀어봐 주겠나? ...농담일세. 반쯤은."'], options: [] },
   },
+
   '술집주인 메이린': {
     root: {
-      lines: ['"한 잔 하실 건가? ...아니면 다른 볼 일이라도?"'],
+      lines: ['"한 잔 하실 텐가, 아니면 이야기만 들으러 온 겐가. 둘 다 돈을 받는 건 같지만."'],
       options: [
         { text: '북방 소식을 듣고 싶소.', next: 'news' },
         { text: '(조용히) 무슨 걱정이 있나?', next: 'worry' },
-        { text: '(하프엘프) 나도 비밀이 있어.', race: 'half_elf', next: 'half_elf_bond' },
+        { text: '(하프엘프) 나한테도 숨긴 이야기는 있소.', race: 'half_elf', next: 'half_elf_bond' },
       ],
     },
-    news: { lines: ['"북방에서 용이 운다고 하더군. 옛이야기로만 듣던 소리를."'], options: [] },
+    news: { lines: ['"북쪽에서 용이 운다더군. 옛이야기에 나오던 그 소리 — 손님들이 자주 그 얘길 하다 가. 술값 제대로 내고 가던 사람은 적지만."'], options: [] },
     worry: {
-      lines: ['"...아들이 일 년 전 남쪽 가도로 떠난 뒤 연락이 없어. 혹시 아시는 게 있소?"'],
-      options: [
-        { text: '찾아보겠소.', action: 'accept', qid: 'q_meir_son' },
-      ],
+      lines: ['"...일 년 전 아들이 남쪽 가도로 떠난 뒤 소식이 없어. 죽었다고 생각하면 편하겠지만, 살아있을까 봐 매일 문을 열어둔다네."'],
+      options: [{ text: '찾아보겠소.', action: 'accept', qid: 'q_meir_son' }],
     },
-    half_elf_bond: { lines: ['"하프엘프끼리는 말 없이 통하지. ...고맙네."'], options: [] },
+    half_elf_bond: { lines: ['"하프엘프끼리는 눈빛으로 안다고들 하지. 거짓말이야. 그냥 말이 덜 필요한 것뿐이지."'], options: [] },
   },
+
   '대장장이 게롤트': {
     root: {
-      lines: ['"강철은 두드려야 나온다."'],
+      lines: ['"강철은 두드려야 나온다. 말을 얹어서는 안 나와."'],
       options: [
-        { text: '무기 주문이 가능합니까?', action: 'shop' },
-        { text: '(드워프) 네 망치질은 예술이네.', race: 'dwarf', next: 'dwarf_bond' },
+        { text: '무기 좀 보여주시오.', action: 'shop' },
+        { text: '(드워프) 망치질이 깨끗하군.', race: 'dwarf', next: 'dwarf_bond' },
       ],
     },
-    dwarf_bond: { lines: ['"드워프의 혈통이군! ...상점 가격 5% 깎아주지."', '(다음 구매부터 5% 할인)'], options: [], onEnter: 'discount:5' },
+    dwarf_bond: { lines: ['"드워프의 혈통이구나. 좋아, 값은 깎아주지. 같은 종족끼리 비싸게 파는 건 운차이의 손자가 할 일이 못 되거든."', '(상점 가격 5% 할인)'], options: [], onEnter: 'discount:5' },
   },
+
   '장로 엘리안': {
     root: {
-      lines: ['"바람이 심상치 않다."'],
+      lines: ['"바람이 심상치 않다. ...엘프에게 바람이 심상치 않다는 건, 대개는 평소와 똑같다는 뜻이지만."'],
       options: [
-        { text: '와이번이 출몰한다고 들었습니다.', action: 'accept', qid: 'q4' },
-        { text: '(엘프) 숲의 안부를 묻고 싶습니다.', race: 'elf', next: 'elf_wisdom' },
-        { text: '(하프엘프) 혈통의 뿌리를 알고 싶습니다.', race: 'half_elf', next: 'half_elf_root' },
+        { text: '와이번이 출몰한다 들었소.', action: 'accept', qid: 'q4' },
+        { text: '(엘프) 숲의 안부를 묻습니다.', race: 'elf', next: 'elf_wisdom' },
+        { text: '(하프엘프) 뿌리를 알고 싶습니다.', race: 'half_elf', next: 'half_elf_root' },
       ],
     },
-    elf_wisdom: { lines: ['"동족이여, 숲은 기억한다. 너의 걸음을 기억할 것이다."'], options: [] },
-    half_elf_root: { lines: ['"피는 거짓을 말하지 않는다. 너의 길을 걸어라, 이루릴의 후손."'], options: [] },
+    elf_wisdom:     { lines: ['"숲은 너의 걸음을 기억한다. 기억하지 못하는 건 네 쪽일 뿐이다."'], options: [] },
+    half_elf_root:  { lines: ['"피는 거짓을 말하지 않는다. 이루릴 나슬리야의 이름을 들은 적이 있느냐? ...너의 길을 걸어라, 그 이름의 먼 그림자 위에서."'], options: [] },
   },
+
   '왕궁 마법사 핸드레이크': {
     root: {
-      lines: ['"드래곤 라자의 전승... 자네가 그 아이인가?"'],
+      lines: ['"드래곤 라자의 전승이라. 자네가 그 아이인가, 아니면 내 노안이 다시 실수를 한 것인가."'],
       options: [
         { text: '드래곤 라자가 무엇입니까?', next: 'raja' },
-        { text: '(엘프) 마법의 근원에 대해 묻고 싶습니다.', race: 'elf', next: 'elf_mag' },
+        { text: '(엘프) 마법의 근원에 대해.', race: 'elf', next: 'elf_mag' },
       ],
     },
-    raja: { lines: ['"아무르타트와 맺어진 자. 용을 벨 운명을 진 자를 일컫지."'], options: [] },
-    elf_mag: { lines: ['"엘프의 마법은 숲에서 온다. 자네의 지팡이는 여전히 숲을 기억할 것이야."'], options: [] },
+    raja:    { lines: ['"아무르타트와 맺어진 자. 용을 벨 운명을 진 자를 말하지. ...운명이라는 단어는 내가 가장 싫어하는 단어네만, 다른 말로는 설명할 수가 없어."'], options: [] },
+    elf_mag: { lines: ['"엘프의 마법은 숲에서 온다. 인간의 마법은 책에서 오지. 어느 쪽이 더 오래 가는지는 숲이 불타는 날 알게 되겠지."'], options: [] },
   },
+
   '기사단장 리프크네': {
     root: {
-      lines: ['"검을 든 자여, 왕국이 그대를 부른다."'],
+      lines: ['"검을 든 자여. 왕국이 그대를 부른다. 거절해도 좋지만, 그런 경우는 드물더군."'],
       options: [
-        { text: '산적 토벌 명령을 받겠습니다.', action: 'accept', qid: 'q3' },
-        { text: '(인간) 바이서스의 왕도를 이어가겠소.', race: 'human', next: 'human_honor' },
+        { text: '산적 토벌 명령을 받겠소.', action: 'accept', qid: 'q3' },
+        { text: '(인간) 바이서스의 왕도를 잇겠소.', race: 'human', next: 'human_honor' },
       ],
     },
-    human_honor: { lines: ['"바이서스의 혈통이여, 검을 놓지 마라."'], options: [] },
+    human_honor: { lines: ['"바이서스의 혈통이여. 검을 놓지 마라. 놓는 순간 다른 자가 네 검을 집어들 것이다."'], options: [] },
   },
+
   '대주교 유스티스': {
     root: {
-      lines: ['"신의 뜻이 그대와 함께."'],
+      lines: ['"신의 뜻이 그대와 함께. ...있을 때도 있고 없을 때도 있지만, 그건 내가 판단할 일이 아니지."'],
       options: [
         { text: '축복을 받을 수 있습니까?', next: 'blessing' },
         { text: '(오우거) 힘은 축복인가 저주인가?', race: 'ogre', next: 'ogre_bless' },
       ],
     },
-    blessing: { lines: ['"...그대의 마음에 이미 있다."'], options: [] },
-    ogre_bless: { lines: ['"힘은 짐이다. 짐을 짊어지는 자가 기사다."'], options: [] },
+    blessing:   { lines: ['"축복은 받는 게 아니라 알아차리는 것일세. ...그대의 마음에 이미 있다네."'], options: [] },
+    ogre_bless: { lines: ['"힘은 짐이다. 짐을 짊어지는 자만이 기사이고, 짊어지지 못하는 자는 짐에게 지배당한다."'], options: [] },
   },
+
   '국왕 다케온': {
     root: {
-      lines: ['"아무르타트가 깨어났다."'],
+      lines: ['"아무르타트가 깨어났다. ...짐이 깨웠다는 소문은 유감스럽게도 사실이 아니네."'],
       options: [
         { text: '그를 쓰러뜨리겠습니다.', action: 'accept', qid: 'q5' },
-        { text: '(인간) 폐하의 뜻을 받들겠습니다.', race: 'human', next: 'human_vow' },
-        { text: '(오우거) 바이서스에 충성 바치겠소.', race: 'ogre', next: 'ogre_vow' },
+        { text: '(인간) 폐하의 뜻을 받듭니다.', race: 'human', next: 'human_vow' },
+        { text: '(오우거) 바이서스에 충성을.', race: 'ogre', next: 'ogre_vow' },
       ],
     },
-    human_vow: { lines: ['"너는 바이서스의 자식이다. 나라가 너를 기억할 것이다."'], options: [] },
-    ogre_vow:  { lines: ['"대공 가문이여, 너의 일족의 무용을 오래 기억했다."'], options: [] },
+    human_vow: { lines: ['"너는 바이서스의 자식이다. 나라가 너를 기억할 것이다. ...기억하지 못해도 놀라지 말고."'], options: [] },
+    ogre_vow:  { lines: ['"대공 가문의 혈통이여, 너의 일족의 무용은 오래 기록되어 있다. 다만 짧게 기록되어 있지."'], options: [] },
   },
+
   '암살자 길드장': {
     root: {
-      lines: ['"...그림자는 이미 그대를 안다."'],
+      lines: ['"...그림자는 이미 그대를 안다. 소개가 필요 없다는 뜻이자, 도망칠 수 없다는 뜻이기도 하지."'],
       options: [
-        { text: '메이린의 아들을 찾고 있다.', next: 'meir_son', qid: 'q_meir_son' },
-        { text: '(하프엘프) 그림자는 종족을 묻지 않지.', race: 'half_elf', next: 'half_elf_shade' },
+        { text: '메이린의 아들을 찾고 있소.', next: 'meir_son' },
+        { text: '(하프엘프) 그림자는 종족을 가리지 않지.', race: 'half_elf', next: 'half_elf_shade' },
       ],
     },
     meir_son: {
-      lines: ['"...그 아이 이야기군. 수도 뒷골목에 그와 닮은 아이가 깡패들과 어울려 다닌다."'],
+      lines: ['"...그 아이 이야기군. 수도 뒷골목에, 그와 닮은 아이가 깡패들과 어울린다는 말을 들은 적이 있다."'],
+      options: [{ text: '그 단서를 쫓겠소.', action: 'accept', qid: 'q_meir_son_2' }],
+    },
+    half_elf_shade: { lines: ['"피는 진하다. 그림자는 더 진하지. ...그림자는 피를 가리지 않는다."'], options: [] },
+  },
+
+  // ─── 이스터 에그 NPC (드래곤 라자 원작 주요 인물) ───
+  '후치 네드발': {
+    root: {
+      lines: [
+        '"... 후치, 후치 네드발이오. 하프엘프이자 드래곤 라자의 후보 중 한 명."',
+        '"사실 후보라기보단 도망자에 가깝지만 말이오."',
+      ],
       options: [
-        { text: '단서를 쫓아 깡패를 쓰러뜨리겠다.', action: 'accept', qid: 'q_meir_son_2' },
+        { text: '드래곤 라자가 뭡니까?', next: 'raja' },
+        { text: '당신의 모험담을 듣고 싶소.', next: 'tale' },
+        { text: '(하프엘프) ...나도 그쪽이오.', race: 'half_elf', next: 'brother' },
       ],
     },
-    half_elf_shade: { lines: ['"피는 진하고, 그림자는 더 진하다. 알지?"'], options: [] },
+    raja:   { lines: ['"아무르타트와 맺어질 운명이라는데 — 내 장점은 운명을 별로 안 믿는다는 것이오. 덕분에 살아 있지."'], options: [] },
+    tale:   { lines: ['"이루릴이 내 활을 부러뜨리고, 칼이 내 검을 훔치고, 샌슨이 내 머리를 치유하는 사이에 — 나는 여전히 드래곤 라자가 되지 못했소. 거의 훌륭한 성과라 할 수 있지."'], options: [] },
+    brother:{ lines: ['"...하프엘프끼리는 말 없이 통한다는 얘기는 거짓이오. 하지만 한 잔 나누고 싶어지는 것만은 진실이지."'], options: [] },
+  },
+
+  '이루릴 나슬리야': {
+    root: {
+      lines: [
+        '"이루릴이다. 후치의 일행이자, 후치 때문에 곤경에 빠진 일행이기도 하지."',
+      ],
+      options: [
+        { text: '활솜씨가 유명하다고 들었습니다.', next: 'bow' },
+        { text: '엘프의 지혜를 빌려주시오.', next: 'wisdom' },
+        { text: '(엘프) 동족의 인사를 드립니다.', race: 'elf', next: 'kin' },
+      ],
+    },
+    bow:     { lines: ['"화살은 목표를 맞히기 위해 쏜다. 남들은 그 뻔한 것을 왜 자꾸 놓치는지 — 그게 엘프가 숲을 나오는 이유지."'], options: [] },
+    wisdom:  { lines: ['"지혜는 나누는 것이 아니라 나눠 가진 뒤에도 줄지 않는다는 점에서, 드워프의 돈과는 정반대다."'], options: [] },
+    kin:     { lines: ['"동족이여, 숲은 기억한다. 바람은 잊는다. 너는 어느 쪽이 되고 싶은가?"'], options: [] },
+  },
+
+  '샌슨 퍼시벌': {
+    root: {
+      lines: [
+        '"샌슨 퍼시벌. ...세상에서 가장 짧은 설교로 유명한 성직자요."',
+        '"긴 설교는 후치가 듣지 않아서 포기했다오."',
+      ],
+      options: [
+        { text: '축복을 받을 수 있겠습니까?', next: 'bless' },
+        { text: '치유에 대해 묻고 싶소.', next: 'heal' },
+      ],
+    },
+    bless: { lines: ['"축복은 하지 않겠소. 대신 몸조심하시오 — 그게 더 실용적이니."'], options: [] },
+    heal:  { lines: ['"치유는 상처를 없애는 것이 아니라, 상처가 기억이 될 때까지 함께 있는 것이오. ...학교에서 가르치진 않더군."'], options: [] },
   },
 };
 
