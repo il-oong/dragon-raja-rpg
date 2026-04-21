@@ -2,7 +2,14 @@ const __DATA__ = (typeof require === 'function')
   ? require('./data.js')
   : (typeof window !== 'undefined' ? window.__GAME_DATA__ : globalThis.__GAME_DATA__);
 const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS,
-        learnSkill, findSkillById, LIBRARIES, SKILL_GRADES } = __DATA__;
+        learnSkill, findSkillById, LIBRARIES, SKILL_GRADES, SKILL_BOOKS } = __DATA__;
+
+// 간단 시드 기반 PRNG — 암시장 일일 로테이션에 사용.
+function _makeSeededRand(seed) {
+  let x = (Math.abs(Math.floor(seed)) * 2654435761) % 2147483647;
+  if (x <= 0) x = 1;
+  return () => { x = (x * 16807) % 2147483647; return x / 2147483647; };
+}
 // 별칭 — cUse 등 메서드 내부에서 짧게 호출.
 const findSkillByIdLocal = findSkillById;
 
@@ -157,6 +164,8 @@ class Game {
       title: null,
       pet: null,
       trainedMinutes: 0,
+      trainedRealSec: 0,
+      trainedDayKey: '',
       trainedSkills: [],
       tradeBook: {},
       totalTradeProfit: 0,
@@ -2050,30 +2059,102 @@ class Game {
   }
 
   // ════════════════ 상점 / 무역 / 장비 ════════════════
-  shop() {
+  // 현재 상점의 진열 아이템 배열. 암시장 플래그가 있으면 일일 시드 기반으로
+  // 특수 재고를 생성, 일반 상점이면 직업 부적합 스킬북 제외.
+  shopInventory() {
     const list = SHOP_ITEMS[this.state.location];
-    if (!list && !this.state.flags.black_market) { this.out('상점 없다.'); return; }
+    if (this.state.flags && this.state.flags.black_market) return this._blackMarketInventory();
+    if (!list) return null;
+    const myJobs = this.state.jobs || [];
+    return list.filter(k => {
+      const it = ITEMS[k];
+      if (!it) return false;
+      if (it.type === 'skillbook' && it.sourceJob && myJobs.length && !myJobs.includes(it.sourceJob)) return false;
+      return true;
+    });
+  }
+
+  // 암시장 특수 재고 — 매 게임일마다 로테이션, 직업 계열에 맞춰 선별.
+  //   고급/희귀/영웅 직업 스킬북 3개 + 저주 장비 3개(내 계열) + 잡동사니 3개 + 고급 포션 2개
+  _blackMarketInventory() {
+    const myJobs = this.state.jobs || [];
+    const myLines = new Set(myJobs.map(j => JOBS[j] && JOBS[j].line).filter(Boolean));
+    const locSeed = (this.state.location || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const rand = _makeSeededRand(this.state.time.day * 31 + locSeed);
+    const pickN = (pool, n) => {
+      const copy = [...pool];
+      const out = [];
+      while (copy.length && out.length < n) out.push(copy.splice(Math.floor(rand() * copy.length), 1)[0]);
+      return out;
+    };
+
+    const books = SKILL_BOOKS
+      ? Object.keys(SKILL_BOOKS).filter(k => {
+          const b = SKILL_BOOKS[k];
+          if (!b || !['advanced','rare','epic'].includes(b.grade)) return false;
+          if (b.sourceJob && myJobs.length && !myJobs.includes(b.sourceJob)) return false;
+          return true;
+        })
+      : [];
+
+    const cursed = Object.keys(ITEMS).filter(k => {
+      const it = ITEMS[k];
+      if (!it.cursed || !it.price) return false;
+      if (it.line && myLines.size && !myLines.has(it.line)) return false;
+      return true;
+    });
+
+    const junk = Object.keys(ITEMS).filter(k => ITEMS[k].type === 'junk');
+
+    const picked = [
+      ...pickN(books, 3),
+      ...pickN(cursed, 3),
+      ...pickN(junk, 3),
+      'potion_x', 'ether_l',
+    ].filter(k => ITEMS[k]);
+    // 중복 제거 (이미 고정 포션이 랜덤 풀에 있을 수 있음)
+    return Array.from(new Set(picked));
+  }
+
+  // 암시장 가격 배수 — 정상 상점 기준가의 3배. 레어/저주/잡동사니 등 암시장 전용품은
+  // 다른 어디서도 못 구하므로 프리미엄 책정.
+  get BLACK_MARKET_MARKUP() { return 3; }
+
+  itemPrice(key) {
+    const it = ITEMS[key]; if (!it) return 0;
+    const base = it.price || 10;
+    const mul = (this.state.flags && this.state.flags.black_market) ? this.BLACK_MARKET_MARKUP : 1;
+    return Math.round(base * mul * (1 - this.getShopDisc()));
+  }
+
+  shop() {
+    const useList = this.shopInventory();
+    if (!useList) { this.out('상점 없다.'); return; }
     if (!this.shopOpen()) {
       this.out(`  🌙 ${this.timeBand()}에는 상점 문이 닫혔다. (여관은 열려 있다)`);
       return;
     }
-    const useList = list || ['potion_l', 'ether_l', 'sword', 'plate'];
     const disc = this.getShopDisc();
-    this.out(this.state.flags.black_market ? '\n[🗝 암시장]' : '\n[🛒 상점]');
+    const isBm = this.state.flags && this.state.flags.black_market;
+    if (isBm) {
+      this.out(`\n[🗝 암시장] — Day ${this.state.time.day} 특수 재고 (×${this.BLACK_MARKET_MARKUP} 프리미엄, 여기서만 구할 수 있음)`);
+    } else {
+      this.out('\n[🛒 상점]');
+    }
     if (disc > 0) this.out(`  CHA 할인: -${(disc*100).toFixed(1)}%`);
     useList.forEach(k => {
       const it = ITEMS[k];
-      const price = Math.round(it.price * (1 - disc));
-      this.out(`  ${k.padEnd(18)} ${price.toString().padStart(5)}G  ${it.name} — ${it.desc}`);
+      const price = this.itemPrice(k);
+      this.out(`  ${k.padEnd(22)} ${price.toString().padStart(6)}G  ${it.name} — ${it.desc}`);
     });
     this.out('  buy <키> / sell <키>');
   }
 
   buy(key) {
-    const list = SHOP_ITEMS[this.state.location];
-    if ((!list || !list.includes(key)) && !this.state.flags.black_market) { this.out('여긴 그 아이템 없다.'); return; }
+    const useList = this.shopInventory();
+    if (!useList || !useList.includes(key)) { this.out('여긴 그 아이템 없다.'); return; }
     const it = ITEMS[key]; if (!it) { this.out('아이템 없음.'); return; }
-    const price = Math.round(it.price * (1 - this.getShopDisc()));
+    const price = this.itemPrice(key);
     if (this.state.gold < price) { this.out('골드 부족.'); return; }
     this.state.gold -= price;
     this.state.inv[key] = (this.state.inv[key]||0) + 1;

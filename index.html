@@ -668,6 +668,28 @@
     return !!TRAINING_HALLS[game.state.location];
   }
 
+  // 하루 수련 시간 제한 — 실제 시간 기준 90분/day.
+  // state.trainedDayKey (YYYY-MM-DD) + state.trainedRealSec 로 누적 관리.
+  const DAILY_TRAIN_CAP_SEC = 90 * 60;
+  function _todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function dailyTrainUsedSec() {
+    const s = game.state; if (!s) return 0;
+    if (s.trainedDayKey !== _todayKey()) return 0; // 날짜 바뀜 = 리셋
+    return s.trainedRealSec || 0;
+  }
+  function dailyTrainRemainingSec() {
+    return Math.max(0, DAILY_TRAIN_CAP_SEC - dailyTrainUsedSec());
+  }
+  function addDailyTrainSec(sec) {
+    const s = game.state; if (!s) return;
+    const today = _todayKey();
+    if (s.trainedDayKey !== today) { s.trainedDayKey = today; s.trainedRealSec = 0; }
+    s.trainedRealSec = (s.trainedRealSec || 0) + Math.max(0, Math.round(sec));
+  }
+
   function startFocus(durationMin, gameDays, opts) {
     if (focusActive || !canStartFocus()) return;
     const s = game.state;
@@ -685,6 +707,21 @@
         print(`${tier.name} 은(는) Lv.${tier.reqLv} 이상부터 가능 (현재 Lv.${s.lv}).`, 'warn');
         return;
       }
+    }
+    // 하루 수련 한도 체크 (실제 시간 90분/day).
+    const remainSec = dailyTrainRemainingSec();
+    if (remainSec <= 0) {
+      print(`오늘의 수련 한도(90분)를 모두 사용했다. 내일 다시 시도.`, 'warn');
+      return;
+    }
+    const requestedSec = durationMin * 60;
+    if (requestedSec > remainSec) {
+      const cappedMin = Math.floor(remainSec / 60);
+      if (cappedMin <= 0) { print(`오늘 남은 수련 시간이 1분 미만이다.`, 'warn'); return; }
+      print(`오늘 남은 수련 시간 ${Math.floor(remainSec/60)}분 ${remainSec%60}초. ${cappedMin}분으로 조정.`, 'dim');
+      durationMin = cappedMin;
+      // gameDays 는 비례 축소
+      if (gameDays > 0) gameDays = Math.max(1, Math.round(gameDays * (cappedMin / (requestedSec/60))));
     }
     const hall = TRAINING_HALLS[s.location];
     const eff = hall.effects || {};
@@ -774,6 +811,8 @@
     clearInterval(focusState.timer);
     const elapsed = Math.min(focusState.durationMs, Date.now() - focusState.startedAt);
     const progress = elapsed / focusState.durationMs;
+    // 실제 소요 시간을 일일 누적에 반영.
+    addDailyTrainSec(elapsed / 1000);
     const earnedBase = Math.round(focusState.baseXp * progress);
     const totalToAward = Math.max(0, earnedBase - focusState.xpAwarded);
     if (totalToAward > 0) {
@@ -989,6 +1028,8 @@
     if (typeof s.pet === 'undefined') s.pet = null;
     if (!s.flags) s.flags = {};
     if (typeof s.trainedMinutes !== 'number') s.trainedMinutes = 0;
+    if (typeof s.trainedRealSec !== 'number') s.trainedRealSec = 0;
+    if (typeof s.trainedDayKey !== 'string') s.trainedDayKey = '';
     if (!Array.isArray(s.trainedSkills)) s.trainedSkills = [];
     if (typeof s.totalTradeProfit !== 'number') s.totalTradeProfit = 0;
     if (!Array.isArray(s.tradeSkills)) s.tradeSkills = [];
@@ -2534,14 +2575,30 @@
   }
 
   function renderShop() {
-    const list = SHOP_ITEMS[game.state.location];
-    if (list) {
-      // 스킬북은 플레이어 직업과 무관한 책을 숨김 (써도 전투 메뉴에 안 떠서 쓸모없기 때문).
-      const visible = list.filter(k => isBookCompatible(ITEMS[k]));
-      visible.forEach(k => {
+    const list = game.shopInventory();
+    const isBlackMkt = game.state.flags && game.state.flags.black_market;
+    if (isBlackMkt) {
+      const notice = mkSection();
+      const d = document.createElement('div');
+      d.style.cssText = 'color:#c88adc;font-size:12px;width:100%;line-height:1.6;';
+      d.innerHTML = `<b>🗝 암시장</b> — Day ${game.state.time.day} 특수 재고 · 가격 ×${game.BLACK_MARKET_MARKUP} 프리미엄.<br>날이 바뀌면 진열 갱신. 보유 직업 전체에 맞춰 스킬북·저주장비·잡동사니 랜덤 선별.`;
+      notice.appendChild(d);
+      act.appendChild(notice);
+    }
+    if (list && list.length) {
+      list.forEach(k => {
         const it = ITEMS[k];
-        const price = Math.round(it.price * (1 - game.getShopDisc()));
-        const row = mkSection(it.name);
+        if (!it) return;
+        const price = game.itemPrice(k);
+        const tagBits = [];
+        if (it.cursed) tagBits.push('💀');
+        if (it.type === 'skillbook') {
+          const g = it.grade && SKILL_GRADES[it.grade];
+          if (g) tagBits.push(`[${g.name}]`);
+        }
+        if (it.type === 'junk') tagBits.push('🎲');
+        const tags = tagBits.length ? ' ' + tagBits.join(' ') : '';
+        const row = mkSection(it.name + tags);
         const can = game.state.gold >= price;
         row.appendChild(mkBtn(`사기 (${price}G)`, `buy ${k}`, { primary: true, disabled: !can, title: it.desc }));
         act.appendChild(row);
@@ -3160,6 +3217,25 @@
     n.innerHTML = `수련 시작 시 <b>실제 시간이 흐르며 다른 행동 불가</b>. 중단은 언제든 가능 (경과 비례 XP 획득).<br>중간에 깨달음 이벤트가 발생해 보너스 XP를 받을 수 있다.`;
     notice.appendChild(n);
     act.appendChild(notice);
+
+    // 하루 수련 한도 표시 (실제 시간 90분/day).
+    const capRow = mkSection();
+    const capDiv = document.createElement('div');
+    capDiv.style.cssText = 'width:100%;color:#cccccc;font-size:12px;line-height:1.7;';
+    const usedSec = dailyTrainUsedSec();
+    const remainSec = dailyTrainRemainingSec();
+    const usedMin = Math.floor(usedSec / 60), remainMin = Math.floor(remainSec / 60);
+    const pct = Math.round((usedSec / DAILY_TRAIN_CAP_SEC) * 100);
+    const barColor = remainSec <= 300 ? '#c88a8a' : remainSec <= 1800 ? '#c8b88a' : '#8ac8a0';
+    capDiv.innerHTML = `
+      <div><b>오늘의 수련 한도</b>: ${usedMin}분 / 90분 (실제 시간 · 날짜 바뀌면 초기화)</div>
+      <div style="height:6px;background:#1e1e1e;border:1px solid #333;margin:3px 0;">
+        <div style="height:100%;width:${pct}%;background:${barColor};"></div>
+      </div>
+      <div style="color:#858585;font-size:11px;">남은 수련 가능 시간: <b style="color:${barColor};">${remainMin}분 ${remainSec%60}초</b></div>
+    `;
+    capRow.appendChild(capDiv);
+    act.appendChild(capRow);
 
     // 서재 안내 — 수련장과 분리됐으므로 메인메뉴의 [📚 서재] 버튼 힌트만.
     if (LIBRARIES && LIBRARIES[game.state.location]) {

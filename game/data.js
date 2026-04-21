@@ -1820,9 +1820,9 @@ const ITEMS = {
   scimitar:      { name: '시미터',          type: 'weapon', atk: 26, dex: 6, str: 3, price: 2200, desc: '사막 검 (DEX+6 STR+3).' },
   flameblade:    { name: '화염검',          type: 'weapon', atk: 32, mag: 12, str: 5, int: 4, price: 5000, desc: '화염 (STR+5 INT+4).' },
   ice_lance:     { name: '얼음창',          type: 'weapon', atk: 30, mag: 10, dex: 6, int: 4, price: 4500, desc: '빙창 (DEX+6 INT+4).' },
-  cursed_staff:  { name: '저주받은 지팡이', type: 'weapon', atk: 12, mag: 30, int: 8, wis: -3, price: 5500, desc: '암흑 (INT+8 WIS-3).' },
+  cursed_staff:  { name: '저주받은 지팡이', type: 'weapon', atk: 12, mag: 30, int: 8, wis: -3, price: 5500, cursed: true, line: 'mage', desc: '💀 저주 — 강력한 힘 (INT+8), 정신 침식 (WIS-3).' },
   mithril_axe:   { name: '미스릴 도끼',     type: 'weapon', atk: 38, str: 8, vit: 4, price: 6000, desc: '드워프 명품 (STR+8 VIT+4).' },
-  demonsword:    { name: '데몬 소드',       type: 'weapon', atk: 42, str: 10, vit: -3, price: 7000, desc: '악마의 검 (STR+10 VIT-3).' },
+  demonsword:    { name: '데몬 소드',       type: 'weapon', atk: 42, str: 10, vit: -3, price: 7000, cursed: true, line: 'warrior', desc: '💀 저주 — 악마의 힘 (STR+10), 생명 침식 (VIT-3).' },
   frost_hammer:  { name: '서리 망치',       type: 'weapon', atk: 45, mag: 10, str: 9, vit: 4, price: 8000, desc: '얼음 (STR+9 VIT+4).' },
   pharaoh_blade: { name: '파라오의 검',     type: 'weapon', atk: 50, mag: 15, str: 8, int: 8, cha: 5, price: 12000, desc: '고대 (STR+8 INT+8 CHA+5).' },
   // ═══ 전설 무기 (보스 드랍) ═══
@@ -1830,7 +1830,33 @@ const ITEMS = {
   handrake_staff:        { name: '핸드레이크의 지팡이', type: 'weapon', atk: 25, mag: 60, int: 20, wis: 15, price: 0, restricted: ['mage'], desc: '대마법사 유산 (INT+20 WIS+15).' },
   flameblade_legendary:  { name: '진(眞) 화염검',       type: 'weapon', atk: 70, mag: 20, str: 12, int: 10, price: 0, desc: '드레이크의 정수 (STR+12 INT+10).' },
   ice_lance_legendary:   { name: '진(眞) 얼음창',       type: 'weapon', atk: 65, mag: 25, dex: 14, int: 10, price: 0, desc: '백룡의 송곳니 (DEX+14 INT+10).' },
-  demonblade_lord:       { name: '데몬 군주의 검',     type: 'weapon', atk: 80, str: 18, vit: -5, price: 0, desc: '악마 군주 (STR+18 VIT-5).' },
+  demonblade_lord:       { name: '데몬 군주의 검',     type: 'weapon', atk: 80, str: 18, vit: -5, price: 0, cursed: true, line: 'warrior', desc: '💀 저주 — 악마 군주의 검 (STR+18 VIT-5).' },
+
+  // ═══ 저주 장비 (암시장 전용) — line 태그로 직업 계열 필터링 ═══
+  blood_blade:      { name: '피의 검',         type: 'weapon', atk: 48, str: 14, vit: -4, price: 9000,  cursed: true, line: 'warrior', desc: '💀 저주 — 피를 갈구하는 검 (STR+14 VIT-4).' },
+  doom_amulet:      { name: '파멸의 목걸이',   type: 'acc',    mag: 20, int: 12, wis: -4, price: 6500,  cursed: true, line: 'mage',    desc: '💀 저주 — 암흑 마력 (INT+12 WIS-4).' },
+  lich_crown:       { name: '리치의 왕관',     type: 'armor',  def: 18, mag: 25, mp: 80, vit: -3, price: 11000, cursed: true, line: 'mage', desc: '💀 저주 — 불사의 왕관 (MP+80 MAG+25 VIT-3).' },
+  shadow_cloak:     { name: '그림자 망토',     type: 'armor',  def: 12, dex: 10, luk: 5, cha: -5, price: 8500,  cursed: true, line: 'thief',   desc: '💀 저주 — 그림자 기만 (DEX+10 LUK+5 CHA-5).' },
+  soul_ring:        { name: '영혼 포식 반지',  type: 'acc',    atk: 20, str: 8, hp: -50, price: 7500, cursed: true, line: 'warrior', desc: '💀 저주 — 영혼을 빨아들이는 반지 (STR+8 HP-50).' },
+  bloody_bow:       { name: '피의 장궁',       type: 'weapon', atk: 42, dex: 12, vit: -3, price: 8800, cursed: true, line: 'ranger',  desc: '💀 저주 — 쏠 때마다 피를 토한다 (DEX+12 VIT-3).' },
+  venom_dagger:     { name: '맹독 단검',       type: 'weapon', atk: 30, dex: 10, luk: 6, vit: -3, price: 7200, cursed: true, line: 'thief', desc: '💀 저주 — 독이 술자도 해친다 (DEX+10 LUK+6 VIT-3).' },
+  inverted_cross:   { name: '역십자 성물',     type: 'acc',    mag: 18, wis: 10, int: -4, price: 7800, cursed: true, line: 'priest', desc: '💀 저주 — 타락한 신앙 (WIS+10 INT-4).' },
+  howling_plate:    { name: '울부짖는 판금',   type: 'armor',  def: 28, str: 8, cha: -6, price: 9500,  cursed: true, line: 'warrior', desc: '💀 저주 — 밤마다 갑옷이 운다 (DEF+28 STR+8 CHA-6).' },
+  madness_circlet:  { name: '광기의 관',       type: 'acc',    mag: 25, int: 10, wis: -5, price: 8200, cursed: true, line: 'mage', desc: '💀 저주 — 마력의 대가는 이성 (INT+10 WIS-5).' },
+  siren_lute:       { name: '세이렌의 류트',   type: 'weapon', atk: 18, mag: 22, cha: 14, int: 6, hp: -40, price: 8900, cursed: true, line: 'bard', desc: '💀 저주 — 세이렌의 목소리 (CHA+14 INT+6 HP-40).' },
+  weeper_rosary:    { name: '울음의 묵주',     type: 'acc',    mag: 15, wis: 8, mp: 60, cha: -4, price: 7000, cursed: true, line: 'priest', desc: '💀 저주 — 기도할 때마다 눈물이 난다 (MP+60 WIS+8 CHA-4).' },
+
+  // ═══ 잡동사니 (암시장 감성용 — 효과 없음) ═══
+  junk_tooth:       { name: '정체불명의 이빨',   type: 'junk', price: 120,  desc: '누구 것인지 모를 송곳니. 기분이 나쁘다.' },
+  junk_map:         { name: '구겨진 보물 지도', type: 'junk', price: 350,  desc: '낡은 양피지. 대부분 잉크가 번져 읽을 수 없다.' },
+  junk_box:         { name: '봉인된 상자',       type: 'junk', price: 800,  desc: '열어본 자는 돌아오지 않았다고 한다. 열쇠도 없다.' },
+  junk_finger:      { name: '마른 손가락',      type: 'junk', price: 250,  desc: '어느 마녀의 잘린 손가락이라고 상인이 속삭였다.' },
+  junk_eye:         { name: '유리로 된 눈',    type: 'junk', price: 180,  desc: '어둠 속에서 번뜩이는 것 같지만 착각일 것이다.' },
+  junk_scale:       { name: '정체불명의 비늘', type: 'junk', price: 600,  desc: '용의 비늘이라 주장하지만 물고기 비늘 같기도 하다.' },
+  junk_bottle:      { name: '빈 병',             type: 'junk', price: 50,   desc: '라벨이 떨어진 빈 병. 먼지만 가득.' },
+  junk_key:         { name: '녹슨 열쇠',        type: 'junk', price: 200,  desc: '어디에도 맞지 않는 열쇠. 구멍을 찾으면 엄청난 게 나올지도.' },
+  junk_skull:       { name: '작은 두개골',      type: 'junk', price: 450,  desc: '무슨 동물인지 알 수 없다. 기분이 묘하다.' },
+  junk_feather:     { name: '검은 깃털',        type: 'junk', price: 90,   desc: '바람이 불어도 흔들리지 않는다.' },
 
   // ═══ Lv 55~75 보스 드랍 무기 ═══
   staff_of_moon:       { name: '달빛 지팡이', type: 'weapon', atk: 50, mag: 150, int: 20, wis: 20, cha: 10, price: 0,
