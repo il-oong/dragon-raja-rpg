@@ -1534,7 +1534,7 @@ const MONSTERS = {
   thug:      { name: '깡패',       hp: 110, atk: 22, def: 12, exp: 80, gold: 70, tags: [], drops: [['mace', 0.10], ['potion_m', 0.15]] },
   rogue_mage:{ name: '도적 마법사', hp: 95, atk: 14, def: 8, exp: 90, gold: 90, tags: ['mag'], drops: [['ether_m', 0.20], ['wand', 0.08]] },
   gold_chain_boss: { name: '두목 지스카', hp: 600, atk: 45, def: 22, exp: 500, gold: 800, tags: [], boss: true,
-    drops: [['cutlass', 0.40], ['gold_chain_amulet', 0.25], ['potion_l', 0.5]],
+    drops: [['cutlass', 0.40], ['gold_chain_amulet', 0.25], ['junk_skull', 0.60], ['potion_l', 0.5]],
     phases: [
       { at: 0.5, msg: '지스카가 부하를 부른다 — "모두 덤벼!"', effect: { atk_mul: 1.3 } },
       { at: 0.25, msg: '지스카가 광기에 빠진다 — 최후의 발악!', effect: { atk_mul: 1.5 } },
@@ -1544,7 +1544,7 @@ const MONSTERS = {
   skeleton:  { name: '스켈레톤',   hp: 130, atk: 28, def: 14, exp: 110, gold: 40, tags: ['undead'], drops: [['rusty_blade', 0.10], ['bonebow', 0.08]] },
   wraith:    { name: '망령',       hp: 180, atk: 35, def: 18, exp: 180, gold: 60, tags: ['undead', 'mag'], drops: [['ether_m', 0.25]] },
   dark_priest_lord: { name: '흑사제장 칼릭스', hp: 1100, atk: 75, def: 35, exp: 1200, gold: 1500, tags: ['undead', 'mag'], boss: true,
-    drops: [['cursed_staff', 0.40], ['shadow_robe', 0.30], ['potion_l', 0.5]],
+    drops: [['cursed_staff', 0.40], ['shadow_robe', 0.30], ['junk_grimoire', 0.60], ['potion_l', 0.5]],
     phases: [
       { at: 0.5, msg: '칼릭스가 사령(死靈)을 불러낸다 — 상태이상 해제', effect: { cleanse: true, atk_mul: 1.25 } },
       { at: 0.25, msg: '칼릭스의 눈이 붉게 타오른다 — 암흑 각성!', effect: { atk_mul: 1.6 } },
@@ -1595,7 +1595,7 @@ const MONSTERS = {
   frost_giant:   { name: '서리 거인',   hp: 900, atk: 110, def: 55, exp: 1500, gold: 700, tags: [], drops: [['frost_hammer', 0.20], ['mithril', 0.15]] },
   white_wyrmling:{ name: '백룡 새끼',   hp: 700, atk: 100, def: 50, exp: 1300, gold: 800, tags: ['dragon'], drops: [['ice_lance', 0.25]] },
   frost_dragon:  { name: '프로스트 드래곤', hp: 5500, atk: 170, def: 90, exp: 12000, gold: 15000, tags: ['dragon', 'boss'], boss: true,
-    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['dragon_wisdom_2', 1.0], ['elixir', 1.0]],
+    drops: [['ice_lance_legendary', 0.40], ['dragonring', 0.30], ['junk_dragon_heart', 0.60], ['dragon_wisdom_2', 1.0], ['elixir', 1.0]],
     phases: [
       { at: 0.5, msg: '프로스트 드래곤이 빙갑을 두른다 — 방어 강화', effect: { def_mul: 1.5 } },
       { at: 0.25, msg: '프로스트 드래곤의 브레스가 하늘을 얼린다!', effect: { atk_mul: 1.8 } },
@@ -1849,29 +1849,29 @@ const ITEMS = {
   // ═══ 잡동사니 — 암시장 감성 + 도시별 컬렉션 세트 ═══
   // 3 세트 × 각 5종 = 5개 이상 모으면 시너지. 각 도시 암시장에만 진열 (amsijangCity).
 
-  // 🧙 마녀의 유물 세트 (헬탄트 암시장)
-  junk_finger:      { name: '마른 손가락',      type: 'junk', price: 250,  setId: 'witch',  amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 어느 마녀의 잘린 손가락이라고 상인이 속삭였다.' },
-  junk_eye:         { name: '유리로 된 눈',    type: 'junk', price: 180,  setId: 'witch',  amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 어둠 속에서 번뜩이는 것 같지만 착각일 것이다.' },
-  junk_witch_hair:  { name: '붉은 머리카락 한 올', type: 'junk', price: 320, setId: 'witch', amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 마녀 루카린의 머리카락이라 주장한다. 묘하게 뜨겁다.' },
-  junk_grimoire:    { name: '찢어진 그리모어', type: 'junk', price: 550, setId: 'witch', amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 페이지 세 장뿐인 마도서. 읽으면 두통이 온다.' },
-  junk_witch_dust:  { name: '재가루 봉지',      type: 'junk', price: 140, setId: 'witch', amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 마녀가 화형당한 자리의 재라고 한다. 주의해서 다룰 것.' },
+  // 🧙 마녀의 유물 세트 (헬탄트 암시장 — 4종 / 보스 1종)
+  junk_finger:      { name: '마른 손가락',           type: 'junk', price: 250,  setId: 'witch',  amsijangCity: 'heltant',   desc: '[🧙 마녀의 유물] 어느 마녀의 잘린 손가락이라고 상인은 말한다. 거짓말을 한다기엔 그 자신이 먼저 믿어버린 눈치다.' },
+  junk_eye:         { name: '유리로 된 눈',          type: 'junk', price: 180,  setId: 'witch',  amsijangCity: 'heltant',   desc: '[🧙 마녀의 유물] 어둠 속에서 번뜩일 리 없는 유리 눈알. 그럼에도 당신은 자꾸 뒤를 돌아보게 된다.' },
+  junk_witch_hair:  { name: '붉은 머리카락 한 올',   type: 'junk', price: 320,  setId: 'witch',  amsijangCity: 'heltant',   desc: '[🧙 마녀의 유물] 마녀 아이의 머리카락이라고 한다. 아이. 라는 단어와 마녀라는 단어가 함께 붙으면 어떻게 되는지는, 드래곤 라자가 알 일이다.' },
+  junk_grimoire:    { name: '찢어진 그리모어',       type: 'junk', price: 550,  setId: 'witch',  bossOnly: true,           desc: '[🧙 마녀의 유물 · 보스] 흑사제장 칼릭스가 남긴 마도서의 잔해. 세 장뿐인데, 펼칠 때마다 다른 주문이 쓰여 있다.' },
+  junk_witch_dust:  { name: '재가루 봉지',           type: 'junk', price: 140,  setId: 'witch',  amsijangCity: 'heltant',   desc: '[🧙 마녀의 유물] 화형당한 마녀의 재라 주장한다. 재는 그 어떤 주장도 반박하지 않는 법이다.' },
 
-  // 🐲 용 신봉자 세트 (수도 암시장)
-  junk_tooth:       { name: '정체불명의 이빨',   type: 'junk', price: 260,  setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 누구 것인지 모를 송곳니. 아주 크다.' },
-  junk_scale:       { name: '정체불명의 비늘', type: 'junk', price: 620,  setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 용의 비늘이라 주장하지만 물고기 비늘 같기도 하다.' },
-  junk_dragon_claw: { name: '뿌러진 발톱',       type: 'junk', price: 480, setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 웨어울프나 용? 밤에 미세하게 진동한다.' },
-  junk_dragon_eye:  { name: '황금빛 눈알',      type: 'junk', price: 720, setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 황금색 홍채. 지켜보는 느낌이 든다.' },
-  junk_dragon_heart:{ name: '작은 심장 표본',   type: 'junk', price: 900, setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 유리병 속 작은 심장. 아직 뛰는 듯하다.' },
+  // 🐲 용 신봉자 세트 (수도 암시장 — 4종 / 보스 1종)
+  junk_tooth:       { name: '정체불명의 송곳니',     type: 'junk', price: 260,  setId: 'dragon', amsijangCity: 'capital',   desc: '[🐲 용 신봉자] 드래곤의 송곳니라고 한다. 아무르타트가 이를 뽑았을 리 없으니 용종 어딘가에서 온 것이겠지.' },
+  junk_scale:       { name: '정체불명의 비늘',       type: 'junk', price: 620,  setId: 'dragon', amsijangCity: 'capital',   desc: '[🐲 용 신봉자] 은빛으로 빛나는 비늘 한 장. 용에게서 떨어진 것이든, 물고기에게서 떨어진 것이든, 상인은 두 배 값을 매긴다.' },
+  junk_dragon_claw: { name: '부러진 용의 발톱',      type: 'junk', price: 480,  setId: 'dragon', amsijangCity: 'capital',   desc: '[🐲 용 신봉자] 부러진 끝면이 유난히 매끈하다. 부러진 게 아니라 잘린 쪽일지도 모르겠다.' },
+  junk_dragon_eye:  { name: '황금빛 눈알',           type: 'junk', price: 720,  setId: 'dragon', amsijangCity: 'capital',   desc: '[🐲 용 신봉자] 당신을 응시하는 황금빛 홍채. 응시를 되돌려주는 것 외에는 할 수 있는 게 없다.' },
+  junk_dragon_heart:{ name: '용의 심장 조각',         type: 'junk', price: 1200, setId: 'dragon', bossOnly: true,           desc: '[🐲 용 신봉자 · 보스] 유리병 속에 봉한 작은 심장. 프로스트 드래곤이 마지막으로 뛴 한 번이 아직 남아 있다.' },
 
-  // ☠ 해적의 유산 세트 (카밀카르 암시장)
-  junk_map:         { name: '구겨진 보물 지도', type: 'junk', price: 380,  setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 낡은 양피지. 대부분 잉크가 번져 읽을 수 없다.' },
-  junk_bottle:      { name: '럼주 빈 병',       type: 'junk', price: 70,   setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 라벨이 떨어진 빈 병. 희미한 럼주 냄새.' },
-  junk_key:         { name: '녹슨 열쇠',        type: 'junk', price: 220,  setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 어디에도 맞지 않는 열쇠. 구멍을 찾으면 엄청난 게 나올지도.' },
-  junk_skull:       { name: '해적의 두개골',    type: 'junk', price: 470,  setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 안구 자리에 금화가 박혀 있다.' },
-  junk_feather:     { name: '검은 깃털',        type: 'junk', price: 90,   setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 까마귀의 것. 바람이 불어도 흔들리지 않는다.' },
+  // ☠ 해적의 유산 세트 (카밀카르 암시장 — 4종 / 보스 1종)
+  junk_map:         { name: '번진 보물 지도',        type: 'junk', price: 380,  setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 잉크가 번진 양피지. 지도라고 하기엔 얼룩이 많고, 얼룩이라 하기엔 표식이 너무 정연하다.' },
+  junk_bottle:      { name: '라벨 없는 럼주 병',     type: 'junk', price: 70,   setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 빈 병에서 희미한 럼주 냄새가 난다. 누가 마셨는지, 그 자가 아직 살아있는지는 아무도 모른다.' },
+  junk_key:         { name: '녹슨 열쇠',              type: 'junk', price: 220,  setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 어디에도 맞지 않는 열쇠. 문 없이 열쇠만 있는 편이, 문은 있는데 열쇠가 없는 것보다는 낫다.' },
+  junk_skull:       { name: '해적 선장의 두개골',    type: 'junk', price: 900,  setId: 'pirate', bossOnly: true,           desc: '[☠ 해적의 유산 · 보스] 두목 지스카의 두개골. 안구 자리에 바이서스 금화가 박혀 있다 — 죽어서도 전리품을 놓지 못했다.' },
+  junk_feather:     { name: '검은 깃털',              type: 'junk', price: 90,   setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 바람이 불어도 흔들리지 않는 검은 깃털. 그러면 흔들리는 건 바람일까, 깃털일까.' },
 
-  // 📦 분류 없음 (등장 조건 없어 전 암시장 공통)
-  junk_box:         { name: '봉인된 상자',       type: 'junk', price: 850,  desc: '열어본 자는 돌아오지 않았다고 한다. 열쇠도 없다.' },
+  // 📦 분류 없음 (공통 — 3도시 암시장 어디든 가끔)
+  junk_box:         { name: '봉인된 상자',            type: 'junk', price: 850,  desc: '열어본 자가 돌아왔다는 기록은 남아 있지 않다. 기록이 없다는 건, 돌아오지 못해서인지 굳이 기록할 필요가 없어서인지 알 수 없다.' },
 
   // ═══ Lv 55~75 보스 드랍 무기 ═══
   staff_of_moon:       { name: '달빛 지팡이', type: 'weapon', atk: 50, mag: 150, int: 20, wis: 20, cha: 10, price: 0,

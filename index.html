@@ -2169,8 +2169,8 @@
     const hd = document.createElement('div');
     hd.style.cssText = 'width:100%;color:#ccc;line-height:1.7;';
     hd.innerHTML = `<b>💎 암시장 수집품</b>
-      <div style="color:#858585;font-size:11.5px;">각 도시 암시장(밤)에 방문해 세트 아이템을 모으면 시너지 효과 발동.
-      3개 이상 / 5개 전부 — 두 단계 티어. 인벤에 있기만 하면 적용됨.</div>`;
+      <div style="color:#858585;font-size:11.5px;">세 도시의 암시장(새벽 02~04시) 을 돌며 세트 아이템을 모으면 시너지.
+      3개 / 5개 두 단계 티어. 인벤에 있으면 자동 적용. <span style="color:#b88a5a;">👑 표시는 보스 드랍 전용.</span></div>`;
     header.appendChild(hd);
     act.appendChild(header);
 
@@ -2186,7 +2186,9 @@
       const memberList = set.members.map(k => {
         const owned = (game.state.inv[k] || 0) > 0;
         const it = ITEMS[k];
-        return `<span style="color:${owned ? '#e0e6ed' : '#555'};">${owned ? '✓' : '○'} ${it ? it.name : k}</span>`;
+        const bossTag = it && it.bossOnly ? ' 👑' : '';
+        const color = owned ? '#e0e6ed' : (it && it.bossOnly ? '#b88a5a' : '#555');
+        return `<span style="color:${color};">${owned ? '✓' : '○'} ${it ? it.name : k}${bossTag}</span>`;
       }).join('  ·  ');
       const effText = bestTier ? (() => {
         const e = bestTier.effect || {};

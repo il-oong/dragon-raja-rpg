@@ -1962,9 +1962,9 @@ class Game {
     const npc = present.find(n => n.includes(npcName));
     // 암거래상 특수 처리: 밤에만 등장, 대화 시 암시장 플래그 on
     if (npc === '암거래상') {
-      this.out('\n"...조용히. 어둠 아래서만 거래한다. 동이 트기 전까지만 내 물건을 볼 수 있어."');
+      this.out('\n"조용히 하시오. 세 시 좀 넘어서 찾아왔다면 당신은 올바른 시각에 온 것이고, 그 전에 왔다면 — 잘못 온 것이지."');
       this.state.flags.black_market = true;
-      this.out('  [🗝 암시장 개방 — 이 지역의 상점을 열면 특수 상품이 진열된다]');
+      this.out('  [🗝 암시장 개방 — 02시 ~ 04시 사이에만. 지역 상점을 열면 진열이 바뀌어 있을 것이다.]');
       return;
     }
     // B1: 대화 트리 데이터가 있으면 다이얼로그 모드로 진입
@@ -2159,11 +2159,12 @@ class Game {
     });
 
     // 잡동사니: 도시 전용 (amsijangCity) 일치하는 것 또는 도시 태그 없는 공통만.
-    // 세트 컬렉션을 돌면서 모으려면 3도시 (헬탄트/수도/카밀카르) 를 모두 돌아야 함.
+    // bossOnly 플래그가 있는 세트 완성품은 암시장에 진열되지 않음 (보스 드랍 전용).
     const here = this.state.location;
     const junk = Object.keys(ITEMS).filter(k => {
       const it = ITEMS[k];
       if (it.type !== 'junk') return false;
+      if (it.bossOnly) return false;
       if (!it.amsijangCity) return true; // 공통
       return it.amsijangCity === here;
     });
