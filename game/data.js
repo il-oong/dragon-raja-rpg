@@ -1846,17 +1846,32 @@ const ITEMS = {
   siren_lute:       { name: '세이렌의 류트',   type: 'weapon', atk: 18, mag: 22, cha: 14, int: 6, hp: -40, price: 8900, cursed: true, line: 'bard', desc: '💀 저주 — 세이렌의 목소리 (CHA+14 INT+6 HP-40).' },
   weeper_rosary:    { name: '울음의 묵주',     type: 'acc',    mag: 15, wis: 8, mp: 60, cha: -4, price: 7000, cursed: true, line: 'priest', desc: '💀 저주 — 기도할 때마다 눈물이 난다 (MP+60 WIS+8 CHA-4).' },
 
-  // ═══ 잡동사니 (암시장 감성용 — 효과 없음) ═══
-  junk_tooth:       { name: '정체불명의 이빨',   type: 'junk', price: 120,  desc: '누구 것인지 모를 송곳니. 기분이 나쁘다.' },
-  junk_map:         { name: '구겨진 보물 지도', type: 'junk', price: 350,  desc: '낡은 양피지. 대부분 잉크가 번져 읽을 수 없다.' },
-  junk_box:         { name: '봉인된 상자',       type: 'junk', price: 800,  desc: '열어본 자는 돌아오지 않았다고 한다. 열쇠도 없다.' },
-  junk_finger:      { name: '마른 손가락',      type: 'junk', price: 250,  desc: '어느 마녀의 잘린 손가락이라고 상인이 속삭였다.' },
-  junk_eye:         { name: '유리로 된 눈',    type: 'junk', price: 180,  desc: '어둠 속에서 번뜩이는 것 같지만 착각일 것이다.' },
-  junk_scale:       { name: '정체불명의 비늘', type: 'junk', price: 600,  desc: '용의 비늘이라 주장하지만 물고기 비늘 같기도 하다.' },
-  junk_bottle:      { name: '빈 병',             type: 'junk', price: 50,   desc: '라벨이 떨어진 빈 병. 먼지만 가득.' },
-  junk_key:         { name: '녹슨 열쇠',        type: 'junk', price: 200,  desc: '어디에도 맞지 않는 열쇠. 구멍을 찾으면 엄청난 게 나올지도.' },
-  junk_skull:       { name: '작은 두개골',      type: 'junk', price: 450,  desc: '무슨 동물인지 알 수 없다. 기분이 묘하다.' },
-  junk_feather:     { name: '검은 깃털',        type: 'junk', price: 90,   desc: '바람이 불어도 흔들리지 않는다.' },
+  // ═══ 잡동사니 — 암시장 감성 + 도시별 컬렉션 세트 ═══
+  // 3 세트 × 각 5종 = 5개 이상 모으면 시너지. 각 도시 암시장에만 진열 (amsijangCity).
+
+  // 🧙 마녀의 유물 세트 (헬탄트 암시장)
+  junk_finger:      { name: '마른 손가락',      type: 'junk', price: 250,  setId: 'witch',  amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 어느 마녀의 잘린 손가락이라고 상인이 속삭였다.' },
+  junk_eye:         { name: '유리로 된 눈',    type: 'junk', price: 180,  setId: 'witch',  amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 어둠 속에서 번뜩이는 것 같지만 착각일 것이다.' },
+  junk_witch_hair:  { name: '붉은 머리카락 한 올', type: 'junk', price: 320, setId: 'witch', amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 마녀 루카린의 머리카락이라 주장한다. 묘하게 뜨겁다.' },
+  junk_grimoire:    { name: '찢어진 그리모어', type: 'junk', price: 550, setId: 'witch', amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 페이지 세 장뿐인 마도서. 읽으면 두통이 온다.' },
+  junk_witch_dust:  { name: '재가루 봉지',      type: 'junk', price: 140, setId: 'witch', amsijangCity: 'heltant', desc: '[🧙 마녀의 유물] 마녀가 화형당한 자리의 재라고 한다. 주의해서 다룰 것.' },
+
+  // 🐲 용 신봉자 세트 (수도 암시장)
+  junk_tooth:       { name: '정체불명의 이빨',   type: 'junk', price: 260,  setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 누구 것인지 모를 송곳니. 아주 크다.' },
+  junk_scale:       { name: '정체불명의 비늘', type: 'junk', price: 620,  setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 용의 비늘이라 주장하지만 물고기 비늘 같기도 하다.' },
+  junk_dragon_claw: { name: '뿌러진 발톱',       type: 'junk', price: 480, setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 웨어울프나 용? 밤에 미세하게 진동한다.' },
+  junk_dragon_eye:  { name: '황금빛 눈알',      type: 'junk', price: 720, setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 황금색 홍채. 지켜보는 느낌이 든다.' },
+  junk_dragon_heart:{ name: '작은 심장 표본',   type: 'junk', price: 900, setId: 'dragon', amsijangCity: 'capital', desc: '[🐲 용 신봉자] 유리병 속 작은 심장. 아직 뛰는 듯하다.' },
+
+  // ☠ 해적의 유산 세트 (카밀카르 암시장)
+  junk_map:         { name: '구겨진 보물 지도', type: 'junk', price: 380,  setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 낡은 양피지. 대부분 잉크가 번져 읽을 수 없다.' },
+  junk_bottle:      { name: '럼주 빈 병',       type: 'junk', price: 70,   setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 라벨이 떨어진 빈 병. 희미한 럼주 냄새.' },
+  junk_key:         { name: '녹슨 열쇠',        type: 'junk', price: 220,  setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 어디에도 맞지 않는 열쇠. 구멍을 찾으면 엄청난 게 나올지도.' },
+  junk_skull:       { name: '해적의 두개골',    type: 'junk', price: 470,  setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 안구 자리에 금화가 박혀 있다.' },
+  junk_feather:     { name: '검은 깃털',        type: 'junk', price: 90,   setId: 'pirate', amsijangCity: 'carmilkar', desc: '[☠ 해적의 유산] 까마귀의 것. 바람이 불어도 흔들리지 않는다.' },
+
+  // 📦 분류 없음 (등장 조건 없어 전 암시장 공통)
+  junk_box:         { name: '봉인된 상자',       type: 'junk', price: 850,  desc: '열어본 자는 돌아오지 않았다고 한다. 열쇠도 없다.' },
 
   // ═══ Lv 55~75 보스 드랍 무기 ═══
   staff_of_moon:       { name: '달빛 지팡이', type: 'weapon', atk: 50, mag: 150, int: 20, wis: 20, cha: 10, price: 0,
@@ -2550,6 +2565,40 @@ const TRAINING_HALLS = {
 // Stage D 에서 스킬북 획득 경로:
 //   common      = 상점에서 구매 가능 (도시별 SHOP_ITEMS 에 배치)
 //   advanced 이상 = 도시 서재(LIBRARIES) 수련에서만 발견
+// ═══════════ 잡동사니 세트 시너지 ═══════════
+// 3 도시 × 5 아이템. 한 세트에서 count 개 이상 보유 시 effect 활성.
+// effect: stats({...}), goldMul, critBonus, dragonDmg(용 몬스터 대미지 배수), ...
+// 인벤 수량은 무관 — 종류(type) 갯수로만 판정.
+const JUNK_SETS = {
+  witch: {
+    name: '🧙 마녀의 유물',
+    city: 'heltant',
+    members: ['junk_finger', 'junk_eye', 'junk_witch_hair', 'junk_grimoire', 'junk_witch_dust'],
+    tiers: [
+      { count: 3, label: '속삭임',   effect: { stats: { int: 5, wis: 3 } } },
+      { count: 5, label: '완전 장악', effect: { stats: { int: 12, wis: 8 }, magMul: 1.10 } },
+    ],
+  },
+  dragon: {
+    name: '🐲 용 신봉자',
+    city: 'capital',
+    members: ['junk_tooth', 'junk_scale', 'junk_dragon_claw', 'junk_dragon_eye', 'junk_dragon_heart'],
+    tiers: [
+      { count: 3, label: '용의 조각', effect: { stats: { str: 4, vit: 3 } } },
+      { count: 5, label: '용 신봉자', effect: { stats: { str: 10, vit: 6 }, dragonDmg: 1.30 } },
+    ],
+  },
+  pirate: {
+    name: '☠ 해적의 유산',
+    city: 'carmilkar',
+    members: ['junk_map', 'junk_bottle', 'junk_key', 'junk_skull', 'junk_feather'],
+    tiers: [
+      { count: 3, label: '노획물',   effect: { stats: { dex: 3, luk: 4 } } },
+      { count: 5, label: '선장의 유산', effect: { stats: { dex: 6, luk: 10 }, goldMul: 1.20 } },
+    ],
+  },
+};
+
 const SKILL_GRADES = {
   common:    { name: '일반', color: '#cccccc', order: 1, shopBuyable: true  },
   advanced:  { name: '고급', color: '#7ec77e', order: 2, shopBuyable: false },
@@ -3667,6 +3716,6 @@ function reconcileDeactivations(state) {
   state.skillsReconciled = true;
 }
 
-const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, learnSkill, reconcileDeactivations, SKILL_BOOKS };
+const __DATA_EXPORTS__ = { WORLD, RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, COMBO_SKILLS, THEMES, SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, learnSkill, reconcileDeactivations, SKILL_BOOKS, JUNK_SETS };
 if (typeof module !== 'undefined' && module.exports) module.exports = __DATA_EXPORTS__;
 if (typeof window !== 'undefined') window.__GAME_DATA__ = __DATA_EXPORTS__;

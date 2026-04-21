@@ -2,7 +2,7 @@ const __DATA__ = (typeof require === 'function')
   ? require('./data.js')
   : (typeof window !== 'undefined' ? window.__GAME_DATA__ : globalThis.__GAME_DATA__);
 const { RACES, JOBS, LOCATIONS, MONSTERS, ITEMS, SHOP_ITEMS, QUESTS, NPC_DIALOG, ADVANCE_NPC, BASE_STATS, TRADE_GOODS, TRADE_PRICES, TRADE_BUY_MARKUP, TRADE_SELL_TAX, TRADE_SKILLS, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO, GOURMET, TITLES, PETS, CARRIAGE_PRICE, TRAINING_HALLS, TRAIN_SKILLS, COMBO_SKILLS,
-        learnSkill, findSkillById, LIBRARIES, SKILL_GRADES, SKILL_BOOKS } = __DATA__;
+        learnSkill, findSkillById, LIBRARIES, SKILL_GRADES, SKILL_BOOKS, JUNK_SETS } = __DATA__;
 
 // 간단 시드 기반 PRNG — 암시장 일일 로테이션에 사용.
 function _makeSeededRand(seed) {
@@ -202,7 +202,33 @@ class Game {
     // 수련 스킬: allStat
     const tb = this.trainBonus();
     if (tb.allStat) base += tb.allStat;
+    // 잡동사니 세트 시너지 스탯
+    const jb = this.junkBonus();
+    if (jb.stats && jb.stats[k]) base += jb.stats[k];
     return base;
+  }
+
+  // ════════════════ 잡동사니 세트 시너지 ════════════════
+  // 인벤에서 각 세트 member 의 종류 수를 세서, tiers 중 count 조건 만족하는
+  // 가장 높은 티어의 effect 를 누적 반환.
+  junkBonus() {
+    const acc = { stats: {}, magMul: 1, goldMul: 1, dragonDmg: 1, sets: [] };
+    if (!JUNK_SETS || !this.state || !this.state.inv) return acc;
+    Object.entries(JUNK_SETS).forEach(([sid, set]) => {
+      const have = set.members.reduce((n, k) => n + ((this.state.inv[k] || 0) > 0 ? 1 : 0), 0);
+      let bestTier = null;
+      for (const tier of (set.tiers || [])) {
+        if (have >= tier.count) bestTier = tier;
+      }
+      if (!bestTier) return;
+      acc.sets.push({ id: sid, name: set.name, tier: bestTier.label, have, total: set.members.length });
+      const e = bestTier.effect || {};
+      if (e.stats) Object.entries(e.stats).forEach(([k, v]) => { acc.stats[k] = (acc.stats[k] || 0) + v; });
+      if (e.magMul)    acc.magMul *= e.magMul;
+      if (e.goldMul)   acc.goldMul *= e.goldMul;
+      if (e.dragonDmg) acc.dragonDmg *= e.dragonDmg;
+    });
+    return acc;
   }
   // 강화 배수
   enhMul(slot) {
@@ -275,7 +301,9 @@ class Game {
     const aM = a ? (ITEMS[a].mag||0) : 0;
     const rM = r ? Math.round((ITEMS[r].mag||0) * this.enhMul('armor')) : 0;
     const base = this.state.magBase + wM + aM + rM + Math.floor(this.S('int')/2) + Math.floor(this.S('wis')/3);
-    return Math.round(base * (this.racePassive().mag_mul || 1));
+    const raceMul = this.racePassive().mag_mul || 1;
+    const junkMul = (this.junkBonus() || {}).magMul || 1;
+    return Math.round(base * raceMul * junkMul);
   }
   getCritRate() {
     const tb = this.trainBonus();
@@ -1052,6 +1080,9 @@ class Game {
     if (opt.dragonSlay && (f.tags||[]).includes('dragon')) dmg = Math.round(dmg * 2.0);
     if (opt.undeadSlay && (f.tags||[]).includes('undead')) dmg = Math.round(dmg * 2.0);
     if (opt.magSlay && (f.tags||[]).includes('mag')) dmg = Math.round(dmg * 1.8);
+    // 잡동사니 "용 신봉자" 세트: 용 태그 몬스터에게 추가 배율
+    const jb = this.junkBonus();
+    if (jb.dragonDmg !== 1 && (f.tags||[]).includes('dragon')) dmg = Math.round(dmg * jb.dragonDmg);
     f.hp -= dmg;
     return dmg;
   }
@@ -1641,6 +1672,9 @@ class Game {
     // 상인 스킬 보너스
     const trb = this.tradeBonus();
     if (trb.goldMul) gold = Math.round(gold * trb.goldMul);
+    // 잡동사니 세트 시너지 (해적 5/5: 골드 +20%)
+    const jb = this.junkBonus();
+    if (jb.goldMul !== 1) gold = Math.round(gold * jb.goldMul);
     // 상인 계열은 전투 특화 직업이 아니므로 전투 XP -20% (거래 XP로 보상 받음)
     if (JOBS[this.state.job].line === 'merchant') exp = Math.round(exp * 0.8);
     // NaN 방어 — 위 배율 체인 중 하나라도 NaN 을 만들면 state 전체가 망가진다.
@@ -2104,7 +2138,15 @@ class Game {
       return true;
     });
 
-    const junk = Object.keys(ITEMS).filter(k => ITEMS[k].type === 'junk');
+    // 잡동사니: 도시 전용 (amsijangCity) 일치하는 것 또는 도시 태그 없는 공통만.
+    // 세트 컬렉션을 돌면서 모으려면 3도시 (헬탄트/수도/카밀카르) 를 모두 돌아야 함.
+    const here = this.state.location;
+    const junk = Object.keys(ITEMS).filter(k => {
+      const it = ITEMS[k];
+      if (it.type !== 'junk') return false;
+      if (!it.amsijangCity) return true; // 공통
+      return it.amsijangCity === here;
+    });
 
     const picked = [
       ...pickN(books, 3),

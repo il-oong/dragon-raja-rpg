@@ -486,7 +486,8 @@
   const { LOCATIONS, JOBS, ITEMS, MONSTERS, RACES, SHOP_ITEMS, TRADE_PRICES, TRADE_GOODS, TRADE_SELL_TAX, TRADE_SKILLS,
           QUESTS, NPC_DIALOG, ADVANCE_NPC, AWAKENINGS, PROPERTIES, MERCENARIES, ENHANCEMENT, CASINO,
           GOURMET, TITLES, PETS, TRAINING_HALLS, TRAIN_DURATIONS, TRAIN_EVENTS, TRAIN_SKILLS, THEMES,
-          SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, reconcileDeactivations } = D;
+          SKILL_GRADES, getSkillGrade, LIBRARIES, findSkillById, reconcileDeactivations,
+          JUNK_SETS } = D;
 
   // ═══════ 지역 테마 적용 (소소하게) ═══════
   let _lastThemeKey = null;
@@ -2115,6 +2116,7 @@
       { k: 'inv',       label: '🎒 인벤' },
       { k: 'quest',     label: '📜 퀘스트' },
       { k: 'jobs',      label: '⚔ 직업·마스터리' },
+      { k: 'collection', label: '💎 수집품' },
       { k: 'version',   label: '🔖 버전' },
     ];
     const tabRow = mkSection();
@@ -2131,6 +2133,7 @@
     if (mypageTab === 'inv')       return renderMyPageInv();
     if (mypageTab === 'quest')     return renderMyPageQuest();
     if (mypageTab === 'jobs')      return renderMyPageJobs();
+    if (mypageTab === 'collection') return renderMyPageCollection();
     if (mypageTab === 'version')   return renderMyPageVersion();
   }
 
@@ -2139,6 +2142,69 @@
   // 각 카드 헤더 클릭 시 본문 토글. '업데이트 확인' 버튼으로 수동 체크 가능.
   let _versionCache = null;
   let _versionExpanded = null; // 어느 버전이 펼쳐져 있는지 (최신만 기본 펼침)
+  // ─── 수집품 (잡동사니 세트) ───
+  function renderMyPageCollection() {
+    if (!JUNK_SETS) { act.appendChild(mkSection('데이터 없음')); return; }
+    const header = mkSection();
+    const hd = document.createElement('div');
+    hd.style.cssText = 'width:100%;color:#ccc;line-height:1.7;';
+    hd.innerHTML = `<b>💎 암시장 수집품</b>
+      <div style="color:#858585;font-size:11.5px;">각 도시 암시장(밤)에 방문해 세트 아이템을 모으면 시너지 효과 발동.
+      3개 이상 / 5개 전부 — 두 단계 티어. 인벤에 있기만 하면 적용됨.</div>`;
+    header.appendChild(hd);
+    act.appendChild(header);
+
+    const jb = game.junkBonus();
+    Object.entries(JUNK_SETS).forEach(([sid, set]) => {
+      const have = set.members.filter(k => (game.state.inv[k] || 0) > 0);
+      const bestTier = (set.tiers || []).filter(t => have.length >= t.count).pop();
+      const card = mkSection();
+      const d = document.createElement('div');
+      d.style.cssText = 'width:100%;line-height:1.7;';
+      const cityName = LOCATIONS[set.city] ? LOCATIONS[set.city].name : set.city;
+      const activeColor = bestTier ? '#e5c24c' : '#858585';
+      const memberList = set.members.map(k => {
+        const owned = (game.state.inv[k] || 0) > 0;
+        const it = ITEMS[k];
+        return `<span style="color:${owned ? '#e0e6ed' : '#555'};">${owned ? '✓' : '○'} ${it ? it.name : k}</span>`;
+      }).join('  ·  ');
+      const effText = bestTier ? (() => {
+        const e = bestTier.effect || {};
+        const parts = [];
+        if (e.stats) parts.push(Object.entries(e.stats).map(([k,v]) => `${k.toUpperCase()}+${v}`).join(' '));
+        if (e.magMul && e.magMul !== 1) parts.push(`마법력 ×${e.magMul}`);
+        if (e.goldMul && e.goldMul !== 1) parts.push(`골드 ×${e.goldMul}`);
+        if (e.dragonDmg && e.dragonDmg !== 1) parts.push(`용 타입 대미지 ×${e.dragonDmg}`);
+        return parts.join(' · ');
+      })() : '';
+      d.innerHTML = `
+        <div style="color:${activeColor};font-weight:bold;">${set.name}
+          <span style="color:#858585;font-weight:normal;font-size:11px;"> · ${cityName} 암시장</span>
+          <span style="float:right;color:${activeColor};">${have.length} / ${set.members.length}</span>
+        </div>
+        <div style="font-size:11.5px;color:#aaa;">${memberList}</div>
+        ${bestTier ? `<div style="color:#e5c24c;font-size:12px;margin-top:3px;">✦ [${bestTier.label}] (${bestTier.count}종 이상) — ${effText}</div>` : `<div style="color:#666;font-size:11px;margin-top:3px;">— 효과 없음 (최소 ${set.tiers[0].count}종 필요)</div>`}
+      `;
+      card.appendChild(d);
+      act.appendChild(card);
+    });
+
+    // 활성 중인 보너스 합산 요약
+    if (jb.sets && jb.sets.length) {
+      const sum = mkSection();
+      const s = document.createElement('div');
+      s.style.cssText = 'width:100%;color:#e5c24c;font-size:12px;line-height:1.7;border-top:1px solid #3a3a3a;padding-top:6px;';
+      const parts = [];
+      if (Object.keys(jb.stats).length) parts.push(Object.entries(jb.stats).map(([k,v]) => `${k.toUpperCase()}+${v}`).join(' '));
+      if (jb.magMul !== 1)    parts.push(`마법력 ×${jb.magMul.toFixed(2)}`);
+      if (jb.goldMul !== 1)   parts.push(`골드 ×${jb.goldMul.toFixed(2)}`);
+      if (jb.dragonDmg !== 1) parts.push(`용 타입 대미지 ×${jb.dragonDmg.toFixed(2)}`);
+      s.innerHTML = `<b>✦ 활성 시너지 합계:</b> ${parts.join(' · ') || '(없음)'}`;
+      sum.appendChild(s);
+      act.appendChild(sum);
+    }
+  }
+
   async function renderMyPageVersion() {
     // 로딩
     if (!_versionCache) {
