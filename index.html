@@ -2015,18 +2015,24 @@
       row2.appendChild(mkBtn(hasMansion ? '저택 휴식' : '여관', () => enterMode('inn'), { hotkey: nextActKey() }));
     }
     if (loc.shop) {
-      const band = game.timeBand();
       const open = game.shopOpen();
-      // 암거래상이 있는 지역이면 밤엔 상점 버튼이 통째로 '🗝 암시장' 으로 전환.
-      // 클릭 시 자동으로 black_market 플래그 set (talk 암거래상 생략).
       const hasBlackMarket = loc.npcs && loc.npcs['암거래상'];
-      const isNight = band === '밤';
-      if (isNight && hasBlackMarket) {
+      const bmHour = game.isBlackMarketHour();
+      const bmRange = game.BLACK_MARKET_HOURS;
+      const rangeStr = `${String(bmRange.from).padStart(2,'0')}~${String(bmRange.to).padStart(2,'0')}시`;
+      if (hasBlackMarket && bmHour) {
+        // 개장 시간 안 — 상점 자리에 암시장 버튼.
         row2.appendChild(mkBtn('🗝 암시장', () => {
           if (!game.state.flags) game.state.flags = {};
           game.state.flags.black_market = true;
           enterMode('shop', 'shop');
-        }, { primary: true, hotkey: nextActKey(), title: '밤에만 열리는 특수 시장 — 희귀 스킬북 1종 (×10) · 저주 장비 · 잡동사니 세트 아이템' }));
+        }, { primary: true, hotkey: nextActKey(),
+             title: `심야 한정 (${rangeStr}) · 희귀 스킬북 1종 ×10 · 저주 장비 · 잡동사니 세트` }));
+      } else if (hasBlackMarket && game.timeBand() === '밤' && !bmHour) {
+        // 밤이지만 개장 시간 전/후 — 안내 표시.
+        row2.appendChild(mkBtn(`🗝 암시장 (${rangeStr})`, () => {},
+          { disabled: true, hotkey: nextActKey(),
+            title: `암시장은 ${rangeStr} 사이에만 연다. 현재 ${game.timeStr()}` }));
       } else {
         row2.appendChild(mkBtn(open ? '상점' : '상점 (닫힘 🌙)', () => enterMode('shop', 'shop'),
           { hotkey: nextActKey(), disabled: !open, title: open ? undefined : '밤에는 문이 닫혀 있다' }));

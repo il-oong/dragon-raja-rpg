@@ -354,14 +354,21 @@ class Game {
   advanceTime(hours) {
     const t = this.state.time;
     const prevBand = this.timeBand();
+    const prevHour = t.hour;
     const prevDay = t.day;
+    const wasBmHour = this.isBlackMarketHour(prevHour);
     t.hour += hours;
     while (t.hour >= 24) { t.hour -= 24; t.day++; }
     const newBand = this.timeBand();
+    const isBmHour = this.isBlackMarketHour(t.hour);
+    // 암시장 개장창(22~02)을 벗어나면 플래그 해제.
+    if (wasBmHour && !isBmHour && this.state.flags && this.state.flags.black_market) {
+      this.state.flags.black_market = false;
+      this.out(`  🗝 암시장이 문을 닫았다.`);
+    }
     if (newBand !== prevBand) {
       this.out(`  ${this.timeBandEmoji(newBand)} ${newBand}이 되었다. (${this.timeStr()})`);
-      // 밤에서 벗어나면 암시장 접근은 사라진다
-      if (prevBand === '밤' && this.state.flags) this.state.flags.black_market = false;
+      // (기존의 '밤→아침 시 암시장 해제' 는 위 시간창 체크로 이미 커버됨)
     }
     if (t.day !== prevDay) this.checkQuestExpiry();
   }
@@ -397,9 +404,18 @@ class Game {
     const b = band || this.timeBand();
     return b === '밤' ? Math.min(1, base * 1.3) : base;
   }
-  // 시간대 기반 상점 영업: black_market 플래그가 있으면 밤에도 개장
+  // 암시장 개장 시간 — 02:00 ~ 04:00 (게임 시간 기준 2시간, 새벽 깊은 시각).
+  // 이 창 밖에서는 black_market 플래그가 있어도 들어갈 수 없음.
+  get BLACK_MARKET_HOURS() { return { from: 2, to: 4 }; }
+  isBlackMarketHour(hour) {
+    const h = (hour === undefined) ? this.state.time.hour : hour;
+    const { from, to } = this.BLACK_MARKET_HOURS;
+    // 자정을 걸치는 범위 (from > to) — from 이후 또는 to 이전.
+    return from > to ? (h >= from || h < to) : (h >= from && h < to);
+  }
+  // 시간대 기반 상점 영업: black_market 플래그 + 개장 시간 창 안일 때만 개장.
   shopOpen() {
-    if (this.state.flags && this.state.flags.black_market) return true;
+    if (this.state.flags && this.state.flags.black_market && this.isBlackMarketHour()) return true;
     return ['낮','황혼'].includes(this.timeBand());
   }
 
