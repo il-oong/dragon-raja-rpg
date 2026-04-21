@@ -256,7 +256,59 @@
       padding: 5px 8px; font-family: inherit; font-size: 13px; border-radius: 3px;
     }
     input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #4a6aac; }
-  </style>
+
+    /* ─── 게임 화면 테마 변형 (몰래 플레이 컨셉) ─── */
+    /* body[data-game-theme] 속성으로 선택. 기본은 sysmon (변형 없음). */
+    body[data-game-theme="excel"] #game { background: #fafafa; }
+    body[data-game-theme="excel"] #output {
+      background: linear-gradient(to bottom, var(--region-tint), transparent 120px),
+                  linear-gradient(to top, var(--time-tint), transparent 60%), #ffffff;
+      color: #222; border-bottom-color: #c0c0c0;
+    }
+    body[data-game-theme="excel"] #side,
+    body[data-game-theme="excel"] #actions,
+    body[data-game-theme="excel"] #topbar { background: #f3f3f3; color: #333; border-color: #c0c0c0; }
+    body[data-game-theme="excel"] .s-row, body[data-game-theme="excel"] .s-row .v { color: #222; }
+    body[data-game-theme="excel"] .s-row .k { color: #555; }
+    body[data-game-theme="excel"] button {
+      background: #fff; color: #222; border-color: #b0b0b0;
+    }
+    body[data-game-theme="excel"] button:hover:not(:disabled) { background: #e8f0e0; color: #000; }
+    body[data-game-theme="excel"] #topbar .t1 { color: #333; }
+    body[data-game-theme="excel"] .line-title { color: #217346; }
+
+    body[data-game-theme="terminal"] #game { background: #000; }
+    body[data-game-theme="terminal"] #output {
+      background: #000; color: #33ff66; border-bottom-color: #0f2f0f;
+      font-family: 'Consolas', monospace;
+    }
+    body[data-game-theme="terminal"] #side,
+    body[data-game-theme="terminal"] #actions,
+    body[data-game-theme="terminal"] #topbar { background: #0a0a0a; color: #33ff66; border-color: #0f2f0f; }
+    body[data-game-theme="terminal"] .s-row, body[data-game-theme="terminal"] .s-row .v { color: #33ff66; }
+    body[data-game-theme="terminal"] .s-row .k { color: #2a8a44; }
+    body[data-game-theme="terminal"] button {
+      background: #0a0a0a; color: #33ff66; border-color: #1a3a1a;
+    }
+    body[data-game-theme="terminal"] button:hover:not(:disabled) { background: #103010; color: #8fff9a; }
+    body[data-game-theme="terminal"] #topbar .t1 { color: #33ff66; }
+
+    body[data-game-theme="kakao"] #game { background: #b2c7d9; }
+    body[data-game-theme="kakao"] #output {
+      background: linear-gradient(to bottom, var(--region-tint), transparent 120px), #b2c7d9;
+      color: #1a1a1a; border-bottom-color: #8fa8bf;
+    }
+    body[data-game-theme="kakao"] #side,
+    body[data-game-theme="kakao"] #actions,
+    body[data-game-theme="kakao"] #topbar { background: #9bb4c9; color: #1a1a1a; border-color: #7a95a8; }
+    body[data-game-theme="kakao"] .s-row, body[data-game-theme="kakao"] .s-row .v { color: #1a1a1a; }
+    body[data-game-theme="kakao"] .s-row .k { color: #3a4a5a; }
+    body[data-game-theme="kakao"] button {
+      background: #fee500; color: #1a1a1a; border-color: #dcc400;
+    }
+    body[data-game-theme="kakao"] button:hover:not(:disabled) { background: #ffed4d; }
+    body[data-game-theme="kakao"] #topbar .t1 { color: #1a1a1a; }
+</style>
 </head>
 <body>
 
@@ -2098,10 +2150,10 @@
     act.appendChild(actions);
 
     // ── 위장 테마 선택 ──
-    const themeRow = mkSection('위장 테마:');
+    const themeRow = mkSection('테마:');
     const themeInfo = document.createElement('div');
     themeInfo.style.cssText = 'width:100%;color:#858585;font-size:11px;margin-bottom:4px;';
-    themeInfo.textContent = 'Ctrl+Shift+T 로도 순환 가능. 선택 상태는 저장됨.';
+    themeInfo.textContent = 'Ctrl+Shift+T 로도 순환 가능. 위장 화면 + 게임 화면 모두 같은 계열로 변경.';
     themeRow.appendChild(themeInfo);
     const themeBtnRow = mkSection();
     const themeList = [
@@ -2117,6 +2169,33 @@
     });
     act.appendChild(themeRow);
     act.appendChild(themeBtnRow);
+
+    // ── 창 불투명도 (몰래 플레이) ──
+    const opRow = mkSection('불투명도:');
+    const opInfo = document.createElement('div');
+    opInfo.style.cssText = 'width:100%;color:#858585;font-size:11px;margin-bottom:4px;';
+    opInfo.textContent = '창 뒤가 살짝 비치게 해 몰래 플레이. 0.3 ~ 1.0 범위. 선택 상태는 저장됨.';
+    opRow.appendChild(opInfo);
+    const opCtl = mkSection();
+    const opSlider = document.createElement('input');
+    opSlider.type = 'range';
+    opSlider.min = '0.3'; opSlider.max = '1.0'; opSlider.step = '0.05';
+    opSlider.value = String(_windowOpacity);
+    opSlider.style.cssText = 'flex:1;min-width:180px;';
+    const opValue = document.createElement('span');
+    opValue.style.cssText = 'color:#ccc;font-size:12px;min-width:42px;display:inline-block;text-align:right;';
+    opValue.textContent = Math.round(_windowOpacity * 100) + '%';
+    opSlider.oninput = () => {
+      applyWindowOpacity(opSlider.value);
+      opValue.textContent = Math.round(parseFloat(opSlider.value) * 100) + '%';
+    };
+    opCtl.appendChild(opSlider);
+    opCtl.appendChild(opValue);
+    opCtl.appendChild(mkBtn('100%', () => { opSlider.value = '1.0'; opSlider.oninput(); }, { mini: true }));
+    opCtl.appendChild(mkBtn('80%',  () => { opSlider.value = '0.8'; opSlider.oninput(); }, { mini: true }));
+    opCtl.appendChild(mkBtn('50%',  () => { opSlider.value = '0.5'; opSlider.oninput(); }, { mini: true }));
+    act.appendChild(opRow);
+    act.appendChild(opCtl);
 
     // CHANGELOG 파싱
     const cl = info.changelog || '';
@@ -3366,7 +3445,27 @@
     document.querySelectorAll('#disguise .theme').forEach(el => el.classList.remove('active'));
     const target = document.querySelector('#disguise .theme-' + t);
     if (target) target.classList.add('active');
+    // 게임 화면 자체도 같은 테마 계열로 — 몰래 플레이 컨셉. sysmon 은 기본(속성 제거).
+    if (t === 'sysmon') document.body.removeAttribute('data-game-theme');
+    else document.body.setAttribute('data-game-theme', t);
   }
+
+  // ─── 창 불투명도 (몰래 플레이) ───
+  // 0.3 ~ 1.0. localStorage 에 영속화, 앱 시작 시 복원.
+  let _windowOpacity = 1.0;
+  async function applyWindowOpacity(v) {
+    const clamped = Math.max(0.3, Math.min(1, Number(v) || 1));
+    _windowOpacity = clamped;
+    try { localStorage.setItem('dr_window_opacity', String(clamped)); } catch {}
+    try { await ipcRenderer.invoke('set-window-opacity', clamped); } catch {}
+  }
+  // 시작 시 저장값 복원.
+  (() => {
+    try {
+      const raw = localStorage.getItem('dr_window_opacity');
+      if (raw) applyWindowOpacity(parseFloat(raw));
+    } catch {}
+  })();
   function cycleTheme() {
     const i = DISGUISE_THEMES.indexOf(disguiseTheme);
     setTheme(DISGUISE_THEMES[(i + 1) % DISGUISE_THEMES.length]);

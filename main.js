@@ -273,6 +273,15 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
 });
 
+// 창 불투명도 — 몰래 플레이 컨셉. 0.3 ~ 1.0 범위.
+// 렌더러의 설정 UI 에서 localStorage 로 영속화하고 호출.
+ipcMain.handle('set-window-opacity', (_e, v) => {
+  if (!win || win.isDestroyed()) return { ok: false, error: 'no window' };
+  const clamped = Math.max(0.3, Math.min(1, Number(v) || 1));
+  try { win.setOpacity(clamped); return { ok: true, value: clamped }; }
+  catch (err) { return { ok: false, error: err.message }; }
+});
+
 // ══════════════ 스플래시 & Auto Update (GitHub Releases) ══════════════
 // 위장 유지를 위해 스플래시 문구는 "System Monitor" 톤으로만 노출.
 
