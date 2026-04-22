@@ -271,6 +271,21 @@
     }
     input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #4a6aac; }
 
+    /* ═══════ 피킹 모드 — 사이드바만 보이는 좁은 세로창 (몰래 플레이) ═══════ */
+    /* 입력이 필요 없는 idle 상태(수련/여행/밤 자동진행) 확인용. 로그·액션은 숨김. */
+    body.peek-mode #game {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+      grid-template-areas: "top" "side";
+    }
+    body.peek-mode #output,
+    body.peek-mode #actions,
+    body.peek-mode #splitter { display: none; }
+    body.peek-mode #side { border-left: none; }
+    /* 피킹 중엔 상단 힌트 축약 — 좁은 창에서 줄바꿈 방지 */
+    body.peek-mode #topbar { padding: 4px 10px; font-size: 10.5px; }
+    body.peek-mode #topbar .t1 { font-size: 11px; }
+
     /* ─── 게임 화면 테마 변형 (몰래 플레이 컨셉) ─── */
     /* body[data-game-theme] 속성으로 선택. 기본은 sysmon (변형 없음). */
     body[data-game-theme="excel"] #game { background: #fafafa; }
@@ -419,7 +434,7 @@
 <div id="game">
   <div id="topbar">
     <span class="t1">드래곤 라자 — 바이서스 연대기 <span id="regionTag"></span></span>
-    <span>Ctrl+Shift+D: 위장 / Ctrl+Shift+B: 숨김 / Ctrl+Shift+Q: 종료</span>
+    <span>Ctrl+Shift+D: 위장 / Ctrl+Shift+P: 피킹 / Ctrl+Shift+B: 숨김 / Ctrl+Shift+Q: 종료</span>
   </div>
   <div id="output"></div>
   <div id="side"></div>
@@ -3650,6 +3665,59 @@
       if (raw) applyWindowOpacity(parseFloat(raw));
     } catch {}
   })();
+
+  // ─── 피킹 모드 (몰래 플레이) ───
+  // 사이드바만 보이는 좁은 세로창으로 축소 → 상태만 체크. 입력 필요 시 해제.
+  // 피킹·플레이 각각 창 크기를 localStorage 에 기억하고 토글 시 복원.
+  // Tauri 에서는 set-window-size 가 no-op 이므로 CSS 만 동작.
+  const PEEK_DEFAULT = { width: 340, height: 720 };
+  const PLAY_DEFAULT = { width: 1100, height: 720 };
+  let _peekMode = false;
+  try { _peekMode = localStorage.getItem('dr_peek_mode') === '1'; } catch {}
+
+  async function _getWinSize() {
+    try { const r = await ipcRenderer.invoke('get-window-size'); if (r && r.ok) return { width: r.width, height: r.height }; } catch {}
+    return null;
+  }
+  async function _setWinSize(w, h) {
+    try { await ipcRenderer.invoke('set-window-size', { width: w, height: h }); } catch {}
+  }
+  function _readSavedSize(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      const p = JSON.parse(raw);
+      if (p && p.width > 0 && p.height > 0) return p;
+    } catch {}
+    return fallback;
+  }
+  async function setPeekMode(on) {
+    on = !!on;
+    // 모드 전환 전 현재 크기를 "나가려는 모드" 쪽으로 저장 (사용자 수동 리사이즈 반영).
+    const cur = await _getWinSize();
+    if (cur) {
+      const saveKey = _peekMode ? 'dr_win_peek' : 'dr_win_play';
+      try { localStorage.setItem(saveKey, JSON.stringify(cur)); } catch {}
+    }
+    _peekMode = on;
+    document.body.classList.toggle('peek-mode', on);
+    try { localStorage.setItem('dr_peek_mode', on ? '1' : '0'); } catch {}
+    // 진입하는 모드 크기 복원.
+    const target = _readSavedSize(on ? 'dr_win_peek' : 'dr_win_play', on ? PEEK_DEFAULT : PLAY_DEFAULT);
+    await _setWinSize(target.width, target.height);
+  }
+  // 시작 시 CSS 상태만 복원 — 창 크기는 사용자가 수동 조정했을 수 있으니 건드리지 않는다.
+  if (_peekMode) document.body.classList.add('peek-mode');
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+      e.preventDefault();
+      setPeekMode(!_peekMode);
+    }
+  });
+  // main 프로세스 globalShortcut (Ctrl+Shift+P) — 창 포커스 없을 때도 토글.
+  try { ipcRenderer.on('toggle-peek-mode', () => setPeekMode(!_peekMode)); } catch {}
+
   function cycleTheme() {
     const i = DISGUISE_THEMES.indexOf(disguiseTheme);
     setTheme(DISGUISE_THEMES[(i + 1) % DISGUISE_THEMES.length]);

@@ -237,6 +237,12 @@ app.whenReady().then(async () => {
     try { win.webContents.send('cycle-disguise-theme'); } catch {}
   });
 
+  // 피킹 모드 토글: Ctrl+Shift+P (사이드바만 보이는 좁은 세로창 ↔ 풀 플레이)
+  globalShortcut.register('Control+Shift+P', () => {
+    if (!win || win.isDestroyed()) return;
+    try { win.webContents.send('toggle-peek-mode'); } catch {}
+  });
+
   // ─── 자동 업데이트 주기 재체크 (1시간마다) ───
   // 시작 시 1회만 체크하면 오랫동안 켜놓은 세션은 새 릴리즈를 놓침.
   // autoUpdater 는 이미 once 리스너로 시작 흐름에 묶여있어 여기선 checkForUpdates 호출만.
@@ -279,6 +285,24 @@ ipcMain.handle('set-window-opacity', (_e, v) => {
   if (!win || win.isDestroyed()) return { ok: false, error: 'no window' };
   const clamped = Math.max(0.3, Math.min(1, Number(v) || 1));
   try { win.setOpacity(clamped); return { ok: true, value: clamped }; }
+  catch (err) { return { ok: false, error: err.message }; }
+});
+
+// 피킹 모드 — 렌더러가 사이드바만 보이는 좁은 세로창으로 줄이거나,
+// 다시 플레이 모드로 확장할 때 호출. { width, height } 만 받고 위치는 유지.
+// 실패 시 ok:false 로 떨어뜨려 렌더러가 localStorage 를 되돌릴 수 있게.
+ipcMain.handle('set-window-size', (_e, { width, height } = {}) => {
+  if (!win || win.isDestroyed()) return { ok: false, error: 'no window' };
+  const w = Math.max(260, Math.min(4000, Math.round(Number(width) || 0)));
+  const h = Math.max(200, Math.min(3000, Math.round(Number(height) || 0)));
+  if (!w || !h) return { ok: false, error: 'bad size' };
+  try { win.setSize(w, h); return { ok: true, width: w, height: h }; }
+  catch (err) { return { ok: false, error: err.message }; }
+});
+
+ipcMain.handle('get-window-size', () => {
+  if (!win || win.isDestroyed()) return { ok: false, error: 'no window' };
+  try { const [w, h] = win.getSize(); return { ok: true, width: w, height: h }; }
   catch (err) { return { ok: false, error: err.message }; }
 });
 
