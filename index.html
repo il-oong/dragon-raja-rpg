@@ -3706,8 +3706,15 @@
     const target = _readSavedSize(on ? 'dr_win_peek' : 'dr_win_play', on ? PEEK_DEFAULT : PLAY_DEFAULT);
     await _setWinSize(target.width, target.height);
   }
-  // 시작 시 CSS 상태만 복원 — 창 크기는 사용자가 수동 조정했을 수 있으니 건드리지 않는다.
-  if (_peekMode) document.body.classList.add('peek-mode');
+  // 시작 시 피킹 상태 복원. Electron 은 매번 createWindow() 의 기본(1100×720)
+  // 으로 열리기 때문에 CSS 만 씌우면 사이드바만 보이면서 창은 풀사이즈인 어긋난
+  // 상태가 되고, 다음 토글이 그 풀사이즈를 dr_win_peek 로 잘못 저장한다.
+  // → 시작 시 저장된 피킹 크기(없으면 기본)로 즉시 축소.
+  if (_peekMode) {
+    document.body.classList.add('peek-mode');
+    const target = _readSavedSize('dr_win_peek', PEEK_DEFAULT);
+    _setWinSize(target.width, target.height);
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
