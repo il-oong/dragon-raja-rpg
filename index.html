@@ -134,17 +134,17 @@
     #splitter {
       grid-area: splitter;
       background: #252526;
-      border-top: 1px solid #3a3a3a;
-      border-bottom: 1px solid #3a3a3a;
+      border-top: 1px solid #2a2a2a;
+      border-bottom: 1px solid #2a2a2a;
       cursor: ns-resize;
       position: relative;
       transition: background 0.15s;
     }
-    #splitter:hover, #splitter.dragging { background: #3a3a4a; }
+    #splitter:hover, #splitter.dragging { background: #2f2f38; }
     #splitter::after {
       content: ''; position: absolute; left: 50%; top: 50%;
       transform: translate(-50%, -50%);
-      width: 32px; height: 2px; background: #555; border-radius: 1px;
+      width: 32px; height: 2px; background: #3f3f3f; border-radius: 1px;
     }
     body.splitter-dragging { cursor: ns-resize; user-select: none; }
 
@@ -152,12 +152,12 @@
       grid-area: top;
       display: flex; justify-content: space-between; align-items: center;
       padding: 5px 14px; background: #252526;
-      border-bottom: 1px solid #3a3a3a;
+      border-bottom: 1px solid #2a2a2a;
       border-top: 2px solid var(--region-strip);
       transition: border-color 0.5s ease;
-      color: #858585; font-size: 11px;
+      color: #7a7a7a; font-size: 11px;
     }
-    #topbar .t1 { color: #bbb; font-weight: normal; font-size: 12px; }
+    #topbar .t1 { color: #9a9a9a; font-weight: normal; font-size: 12px; }
     #regionTag {
       color: var(--region-accent);
       font-size: 11px; opacity: 0.85;
@@ -168,30 +168,31 @@
       grid-area: output;
       padding: 10px 14px; overflow-y: auto;
       white-space: pre-wrap; word-break: keep-all; overflow-wrap: normal;
-      color: #b4b4b4; line-height: 1.5;
+      color: #9c9c9c; line-height: 1.5;
       font-family: 'Consolas', 'Courier New', monospace; font-size: 12.5px;
       background:
         linear-gradient(to bottom, var(--region-tint), transparent 120px),
         linear-gradient(to top, var(--time-tint), transparent 60%),
         #1e1e1e;
-      border-bottom: 1px solid #3a3a3a;
+      border-bottom: 1px solid #2a2a2a;
       transition: background 0.5s ease;
     }
     #output::-webkit-scrollbar { width: 8px; }
-    #output::-webkit-scrollbar-thumb { background: #3a3a3a; }
-    .line-title { color: #d4d4d4; font-weight: bold; font-size: 13px; }
-    .line-warn  { color: #a0a0a0; }
-    .line-good  { color: #b4b4b4; }
-    .line-sys   { color: #8a8a8a; }
-    .line-dim   { color: #555; }
+    #output::-webkit-scrollbar-thumb { background: #2a2a2a; }
+    /* 로그 색 계조 압축 — 이전 #d4d4d4~#555 에서 #a8a8a8~#6a6a6a 로. */
+    .line-title { color: #a8a8a8; font-weight: normal; font-size: 13px; }
+    .line-warn  { color: #8c8c8c; }
+    .line-good  { color: #9a9a9a; }
+    .line-sys   { color: #7a7a7a; }
+    .line-dim   { color: #6a6a6a; }
 
     #side {
       grid-area: side;
-      background: #252526; border-left: 1px solid #3a3a3a;
+      background: #252526; border-left: 1px solid #2a2a2a;
       padding: 10px 14px; overflow-y: auto; font-size: 12px;
       font-family: 'Consolas', 'Segoe UI', monospace;
     }
-    .s-block { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #333; }
+    .s-block { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #2a2a2a; }
     .s-block:last-child { border-bottom: none; }
     .s-title {
       color: var(--region-accent); font-size: 10.5px; letter-spacing: 0.5px;
@@ -200,24 +201,24 @@
     }
     .s-row {
       display: flex; justify-content: space-between; padding: 2px 0;
-      color: #b4b4b4; gap: 8px; align-items: baseline;
+      color: #9a9a9a; gap: 8px; align-items: baseline;
     }
-    .s-row .k { color: #707070; flex-shrink: 0; font-size: 11.5px; }
+    .s-row .k { color: #7a7a7a; flex-shrink: 0; font-size: 11.5px; }
     .s-row .v {
-      color: #cccccc; font-weight: normal; font-size: 12px;
+      color: #9c9c9c; font-weight: normal; font-size: 12px;
       text-align: right; word-break: break-all;
     }
-    .s-hpbar, .s-mpbar { height: 6px; background: #1e1e1e; border: 1px solid #333; margin: 3px 0; overflow: hidden; }
-    .s-hpbar .fill, .s-mpbar .fill { height: 100%; background: #707070; }
+    .s-hpbar, .s-mpbar { height: 6px; background: #1c1c1c; border: 1px solid #2a2a2a; margin: 3px 0; overflow: hidden; }
+    .s-hpbar .fill, .s-mpbar .fill { height: 100%; background: #5a5a5a; }
 
     #actions {
       grid-area: actions;
       background: #252526;
       padding: 10px 14px; overflow-y: auto;
-      border-top: 1px solid #3a3a3a;
+      border-top: 1px solid #2a2a2a;
     }
     #actions::-webkit-scrollbar { width: 8px; }
-    #actions::-webkit-scrollbar-thumb { background: #3a3a3a; }
+    #actions::-webkit-scrollbar-thumb { background: #2a2a2a; }
     .act-label {
       color: var(--region-accent); font-size: 11px; font-weight: normal;
       margin-right: 8px; display: inline-block; min-width: 50px;
@@ -228,26 +229,39 @@
       display: flex; flex-wrap: wrap; gap: 5px;
       align-items: center; margin: 4px 0;
       padding: 5px 0;
-      border-bottom: 1px solid #2d2d2d;
+      border-bottom: 1px solid #262626;
     }
     .act-row:last-child { border-bottom: none; }
 
+    /* 버튼 경계 흐리기 — 패널과의 대비 최소화, 테두리 제거. 호버에서만 살짝 떠오름. */
     button {
-      background: #3c3c3c; color: #cccccc; border: 1px solid #4a4a4a;
+      background: rgba(255,255,255,0.035);
+      color: #9a9a9a;
+      border: 1px solid transparent;
       padding: 6px 12px; font-family: inherit; font-size: 12.5px;
-      cursor: pointer; border-radius: 2px; transition: background 0.1s;
+      cursor: pointer; border-radius: 3px;
+      transition: background 0.18s ease, color 0.18s ease;
       min-height: 30px;
     }
-    button:hover:not(:disabled) { background: #505050; border-color: #5a5a5a; color: #eee; }
+    button:hover:not(:disabled) {
+      background: rgba(255,255,255,0.075);
+      color: #c0c0c0;
+    }
     button:disabled { opacity: 0.35; cursor: not-allowed; }
-    /* 모든 색 변형 제거 — 단일 톤으로 통일 */
+    /* 색 변형 완전 통일 (primary/danger/success/gold) — 평탄화 */
     button.primary, button.danger, button.success, button.gold {
-      background: #3c3c3c; border-color: #4a4a4a; color: #cccccc; font-weight: normal;
+      background: rgba(255,255,255,0.035);
+      border-color: transparent;
+      color: #9a9a9a;
+      font-weight: normal;
     }
     button.primary:hover:not(:disabled),
     button.danger:hover:not(:disabled),
     button.success:hover:not(:disabled),
-    button.gold:hover:not(:disabled) { background: #505050; color: #eee; }
+    button.gold:hover:not(:disabled) {
+      background: rgba(255,255,255,0.075);
+      color: #c0c0c0;
+    }
     button.mini { padding: 4px 9px; font-size: 11.5px; min-height: 24px; }
     button.big { padding: 10px 16px; font-size: 13px; min-height: 40px; }
 
@@ -256,6 +270,31 @@
       padding: 5px 8px; font-family: inherit; font-size: 13px; border-radius: 3px;
     }
     input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #4a6aac; }
+
+    /* ═══════ 피킹 모드 — 사이드(스텟) 숨기고 로그/액션 2단 세로 스택 ═══════ */
+    /* 진행창(로그+액션)만 좁은 세로창에 살림. 사이드바·스플리터는 숨김. */
+    body.peek-mode #game {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr auto;
+      grid-template-areas: "top" "output" "actions";
+    }
+    body.peek-mode #side,
+    body.peek-mode #splitter { display: none; }
+    body.peek-mode #output {
+      border-bottom: 1px solid #2a2a2a;
+      min-height: 80px;
+    }
+    body.peek-mode #actions {
+      max-height: 45vh;
+      overflow-y: auto;
+    }
+    /* 좁은 폭에서 액션 라벨 줄바꿈 방지 — 작은 패딩 */
+    body.peek-mode .act-row { gap: 4px; padding: 3px 0; }
+    body.peek-mode button { padding: 5px 8px; font-size: 11.5px; min-height: 26px; }
+    body.peek-mode .act-label { min-width: 0; margin-right: 4px; }
+    /* 피킹 중엔 상단 힌트 축약 — 좁은 창에서 줄바꿈 방지 */
+    body.peek-mode #topbar { padding: 4px 10px; font-size: 10.5px; }
+    body.peek-mode #topbar .t1 { font-size: 11px; }
 
     /* ─── 게임 화면 테마 변형 (몰래 플레이 컨셉) ─── */
     /* body[data-game-theme] 속성으로 선택. 기본은 sysmon (변형 없음). */
@@ -267,15 +306,15 @@
     }
     body[data-game-theme="excel"] #side,
     body[data-game-theme="excel"] #actions,
-    body[data-game-theme="excel"] #topbar { background: #f3f3f3; color: #333; border-color: #c0c0c0; }
-    body[data-game-theme="excel"] .s-row, body[data-game-theme="excel"] .s-row .v { color: #222; }
-    body[data-game-theme="excel"] .s-row .k { color: #555; }
+    body[data-game-theme="excel"] #topbar { background: #f3f3f3; color: #555; border-color: #e4e4e4; }
+    body[data-game-theme="excel"] .s-row, body[data-game-theme="excel"] .s-row .v { color: #555; }
+    body[data-game-theme="excel"] .s-row .k { color: #6e6e6e; }
     body[data-game-theme="excel"] button {
-      background: #fff; color: #222; border-color: #b0b0b0;
+      background: rgba(0,0,0,0.035); color: #555; border-color: transparent;
     }
-    body[data-game-theme="excel"] button:hover:not(:disabled) { background: #e8f0e0; color: #000; }
-    body[data-game-theme="excel"] #topbar .t1 { color: #333; }
-    body[data-game-theme="excel"] .line-title { color: #217346; }
+    body[data-game-theme="excel"] button:hover:not(:disabled) { background: rgba(0,0,0,0.07); color: #333; }
+    body[data-game-theme="excel"] #topbar .t1 { color: #555; }
+    body[data-game-theme="excel"] .line-title { color: #4d7a63; font-weight: normal; }
 
     body[data-game-theme="terminal"] #game { background: #000; }
     body[data-game-theme="terminal"] #output {
@@ -284,14 +323,14 @@
     }
     body[data-game-theme="terminal"] #side,
     body[data-game-theme="terminal"] #actions,
-    body[data-game-theme="terminal"] #topbar { background: #0a0a0a; color: #33ff66; border-color: #0f2f0f; }
-    body[data-game-theme="terminal"] .s-row, body[data-game-theme="terminal"] .s-row .v { color: #33ff66; }
-    body[data-game-theme="terminal"] .s-row .k { color: #2a8a44; }
+    body[data-game-theme="terminal"] #topbar { background: #0a0a0a; color: #5a9e6e; border-color: #0f1f0f; }
+    body[data-game-theme="terminal"] .s-row, body[data-game-theme="terminal"] .s-row .v { color: #5a9e6e; }
+    body[data-game-theme="terminal"] .s-row .k { color: #4a7a55; }
     body[data-game-theme="terminal"] button {
-      background: #0a0a0a; color: #33ff66; border-color: #1a3a1a;
+      background: rgba(90,158,110,0.06); color: #5a9e6e; border-color: transparent;
     }
-    body[data-game-theme="terminal"] button:hover:not(:disabled) { background: #103010; color: #8fff9a; }
-    body[data-game-theme="terminal"] #topbar .t1 { color: #33ff66; }
+    body[data-game-theme="terminal"] button:hover:not(:disabled) { background: rgba(90,158,110,0.12); color: #7ac285; }
+    body[data-game-theme="terminal"] #topbar .t1 { color: #5a9e6e; }
 
     body[data-game-theme="kakao"] #game { background: #b2c7d9; }
     body[data-game-theme="kakao"] #output {
@@ -300,14 +339,14 @@
     }
     body[data-game-theme="kakao"] #side,
     body[data-game-theme="kakao"] #actions,
-    body[data-game-theme="kakao"] #topbar { background: #9bb4c9; color: #1a1a1a; border-color: #7a95a8; }
-    body[data-game-theme="kakao"] .s-row, body[data-game-theme="kakao"] .s-row .v { color: #1a1a1a; }
-    body[data-game-theme="kakao"] .s-row .k { color: #3a4a5a; }
+    body[data-game-theme="kakao"] #topbar { background: #9bb4c9; color: #3a4a5a; border-color: #8ea7bb; }
+    body[data-game-theme="kakao"] .s-row, body[data-game-theme="kakao"] .s-row .v { color: #3a4a5a; }
+    body[data-game-theme="kakao"] .s-row .k { color: #566674; }
     body[data-game-theme="kakao"] button {
-      background: #fee500; color: #1a1a1a; border-color: #dcc400;
+      background: rgba(255,255,255,0.18); color: #3a4a5a; border-color: transparent;
     }
-    body[data-game-theme="kakao"] button:hover:not(:disabled) { background: #ffed4d; }
-    body[data-game-theme="kakao"] #topbar .t1 { color: #1a1a1a; }
+    body[data-game-theme="kakao"] button:hover:not(:disabled) { background: rgba(255,255,255,0.32); color: #1a2a3a; }
+    body[data-game-theme="kakao"] #topbar .t1 { color: #3a4a5a; }
 </style>
 </head>
 <body>
@@ -405,7 +444,7 @@
 <div id="game">
   <div id="topbar">
     <span class="t1">드래곤 라자 — 바이서스 연대기 <span id="regionTag"></span></span>
-    <span>Ctrl+Shift+D: 위장 / Ctrl+Shift+B: 숨김 / Ctrl+Shift+Q: 종료</span>
+    <span>Ctrl+Shift+D: 위장 / Ctrl+Shift+P: 피킹 / Ctrl+Shift+B: 숨김 / Ctrl+Shift+Q: 종료</span>
   </div>
   <div id="output"></div>
   <div id="side"></div>
@@ -1944,16 +1983,26 @@
   const NUM_ROW_KEYS = ['1','2','3','4','5','6','7','8','9','0'];
   const COMBAT_SKILL_KEYS = TOP_ROW_KEYS;
   function renderCombat() {
+    // 전투 액션/스킬은 짧은 딜레이로 타격감 — 모험·이동은 즉시, 전투는 뜸.
+    const ATTACK_DELAY_MS = 450;
+    const SKILL_DELAY_MS = 700;
+
     const row1 = mkSection('행동:');
     let actNum = 1;
-    row1.appendChild(mkBtn('⚔ 공격', 'attack', { primary: true, hotkey: String(actNum++) }));
+    row1.appendChild(mkBtn('⚔ 공격',
+      () => withDelay(ATTACK_DELAY_MS, '⚔ 무기를 휘두른다...', () => game.handleInput('attack')),
+      { primary: true, hotkey: String(actNum++) }));
     if (!game.combat.trialMode) {
-      row1.appendChild(mkBtn('🏃 도주', 'run', { danger: true, hotkey: String(actNum++) }));
+      row1.appendChild(mkBtn('🏃 도주',
+        () => withDelay(ATTACK_DELAY_MS, '🏃 거리를 벌린다...', () => game.handleInput('run')),
+        { danger: true, hotkey: String(actNum++) }));
       // 상인 계열 & 무역품 보유 시: 희생 도주
       const isMerchant = JOBS[game.state.job].line === 'merchant';
       const hasGoods = Object.values(game.state.tradeInv || {}).some(v => v > 0);
       if (isMerchant && hasGoods) {
-        row1.appendChild(mkBtn('💰 희생 도주 (무역품 20% 버리고 +50%)', 'runsac', { danger: true, mini: true, hotkey: String(actNum++), title: '상인 전용: 무역품 20%를 버려 도주 성공률을 대폭 올린다.' }));
+        row1.appendChild(mkBtn('💰 희생 도주 (무역품 20% 버리고 +50%)',
+          () => withDelay(ATTACK_DELAY_MS, '💰 무역품을 버리며 달아난다...', () => game.handleInput('runsac')),
+          { danger: true, mini: true, hotkey: String(actNum++), title: '상인 전용: 무역품 20%를 버려 도주 성공률을 대폭 올린다.' }));
       }
     }
     act.appendChild(row1);
@@ -1968,7 +2017,8 @@
         const mpCost = game.combat.buffs.mag_mastery ? Math.round(sk.mp * 0.5) : sk.mp;
         const can = game.state.mp >= mpCost;
         const hk = COMBAT_SKILL_KEYS[skillIdx++];
-        skillRow.appendChild(mkBtn(`${sk.name}(${mpCost})`, `skill ${sk.id}`,
+        skillRow.appendChild(mkBtn(`${sk.name}(${mpCost})`,
+          () => withDelay(SKILL_DELAY_MS, `✨ ${sk.name} 시전...`, () => game.handleInput(`skill ${sk.id}`)),
           { disabled: !can, title: sk.desc, hotkey: hk }));
       }
     }));
@@ -2007,9 +2057,7 @@
     const row2 = mkSection('행동:');
     let actIdx = 0;
     const nextActKey = () => TOP_ROW_KEYS[actIdx++];
-    row2.appendChild(mkBtn('탐험', () => {
-      withDelay(1500, '🔍 주변을 둘러본다...', () => game.handleInput('explore'));
-    }, { primary: true, hotkey: nextActKey() }));
+    row2.appendChild(mkBtn('탐험', 'explore', { primary: true, hotkey: nextActKey() }));
     if (loc.inn || Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location)) {
       const hasMansion = Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location);
       row2.appendChild(mkBtn(hasMansion ? '저택 휴식' : '여관', () => enterMode('inn'), { hotkey: nextActKey() }));
@@ -2063,11 +2111,8 @@
         let label = `${dst} (${h}h)${effReq ? ` Lv${effReq}+` : ''}`;
         if (isMerchant && rawReq && effReq < rawReq) label += ' 🎫';
         const hk = BOTTOM_ROW_KEYS[moveIdx++];
-        // 이동은 1.5초 딜레이 + "이동 중" 메시지. 장거리(6h+) 는 3초.
-        const travelMs = (typeof h === 'number' && h >= 6) ? 3000 : 1500;
-        row3.appendChild(mkBtn(label, () => {
-          withDelay(travelMs, `🚶 ${dst} 쪽으로 이동 중...`, () => game.handleInput(`go ${dst}`));
-        }, { disabled: !can, hotkey: hk, title: isMerchant && rawReq ? `상인 완화 (원래 Lv.${rawReq}, -4)` : undefined }));
+        row3.appendChild(mkBtn(label, `go ${dst}`,
+          { disabled: !can, hotkey: hk, title: isMerchant && rawReq ? `상인 완화 (원래 Lv.${rawReq}, -4)` : undefined }));
       });
       act.appendChild(row3);
     }
@@ -3630,6 +3675,66 @@
       if (raw) applyWindowOpacity(parseFloat(raw));
     } catch {}
   })();
+
+  // ─── 피킹 모드 (몰래 플레이) ───
+  // 사이드바만 보이는 좁은 세로창으로 축소 → 상태만 체크. 입력 필요 시 해제.
+  // 피킹·플레이 각각 창 크기를 localStorage 에 기억하고 토글 시 복원.
+  // Tauri 에서는 set-window-size 가 no-op 이므로 CSS 만 동작.
+  const PEEK_DEFAULT = { width: 340, height: 720 };
+  const PLAY_DEFAULT = { width: 1100, height: 720 };
+  let _peekMode = false;
+  try { _peekMode = localStorage.getItem('dr_peek_mode') === '1'; } catch {}
+
+  async function _getWinSize() {
+    try { const r = await ipcRenderer.invoke('get-window-size'); if (r && r.ok) return { width: r.width, height: r.height }; } catch {}
+    return null;
+  }
+  async function _setWinSize(w, h) {
+    try { await ipcRenderer.invoke('set-window-size', { width: w, height: h }); } catch {}
+  }
+  function _readSavedSize(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      const p = JSON.parse(raw);
+      if (p && p.width > 0 && p.height > 0) return p;
+    } catch {}
+    return fallback;
+  }
+  async function setPeekMode(on) {
+    on = !!on;
+    // 모드 전환 전 현재 크기를 "나가려는 모드" 쪽으로 저장 (사용자 수동 리사이즈 반영).
+    const cur = await _getWinSize();
+    if (cur) {
+      const saveKey = _peekMode ? 'dr_win_peek' : 'dr_win_play';
+      try { localStorage.setItem(saveKey, JSON.stringify(cur)); } catch {}
+    }
+    _peekMode = on;
+    document.body.classList.toggle('peek-mode', on);
+    try { localStorage.setItem('dr_peek_mode', on ? '1' : '0'); } catch {}
+    // 진입하는 모드 크기 복원.
+    const target = _readSavedSize(on ? 'dr_win_peek' : 'dr_win_play', on ? PEEK_DEFAULT : PLAY_DEFAULT);
+    await _setWinSize(target.width, target.height);
+  }
+  // 시작 시 피킹 상태 복원. Electron 은 매번 createWindow() 의 기본(1100×720)
+  // 으로 열리기 때문에 CSS 만 씌우면 사이드바만 보이면서 창은 풀사이즈인 어긋난
+  // 상태가 되고, 다음 토글이 그 풀사이즈를 dr_win_peek 로 잘못 저장한다.
+  // → 시작 시 저장된 피킹 크기(없으면 기본)로 즉시 축소.
+  if (_peekMode) {
+    document.body.classList.add('peek-mode');
+    const target = _readSavedSize('dr_win_peek', PEEK_DEFAULT);
+    _setWinSize(target.width, target.height);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+      e.preventDefault();
+      setPeekMode(!_peekMode);
+    }
+  });
+  // main 프로세스 globalShortcut (Ctrl+Shift+P) — 창 포커스 없을 때도 토글.
+  try { ipcRenderer.on('toggle-peek-mode', () => setPeekMode(!_peekMode)); } catch {}
+
   function cycleTheme() {
     const i = DISGUISE_THEMES.indexOf(disguiseTheme);
     setTheme(DISGUISE_THEMES[(i + 1) % DISGUISE_THEMES.length]);
