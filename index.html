@@ -271,17 +271,27 @@
     }
     input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #4a6aac; }
 
-    /* ═══════ 피킹 모드 — 사이드바만 보이는 좁은 세로창 (몰래 플레이) ═══════ */
-    /* 입력이 필요 없는 idle 상태(수련/여행/밤 자동진행) 확인용. 로그·액션은 숨김. */
+    /* ═══════ 피킹 모드 — 사이드(스텟) 숨기고 로그/액션 2단 세로 스택 ═══════ */
+    /* 진행창(로그+액션)만 좁은 세로창에 살림. 사이드바·스플리터는 숨김. */
     body.peek-mode #game {
       grid-template-columns: 1fr;
-      grid-template-rows: auto 1fr;
-      grid-template-areas: "top" "side";
+      grid-template-rows: auto 1fr auto;
+      grid-template-areas: "top" "output" "actions";
     }
-    body.peek-mode #output,
-    body.peek-mode #actions,
+    body.peek-mode #side,
     body.peek-mode #splitter { display: none; }
-    body.peek-mode #side { border-left: none; }
+    body.peek-mode #output {
+      border-bottom: 1px solid #2a2a2a;
+      min-height: 80px;
+    }
+    body.peek-mode #actions {
+      max-height: 45vh;
+      overflow-y: auto;
+    }
+    /* 좁은 폭에서 액션 라벨 줄바꿈 방지 — 작은 패딩 */
+    body.peek-mode .act-row { gap: 4px; padding: 3px 0; }
+    body.peek-mode button { padding: 5px 8px; font-size: 11.5px; min-height: 26px; }
+    body.peek-mode .act-label { min-width: 0; margin-right: 4px; }
     /* 피킹 중엔 상단 힌트 축약 — 좁은 창에서 줄바꿈 방지 */
     body.peek-mode #topbar { padding: 4px 10px; font-size: 10.5px; }
     body.peek-mode #topbar .t1 { font-size: 11px; }
