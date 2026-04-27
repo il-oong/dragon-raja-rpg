@@ -1,5 +1,42 @@
 # 릴리즈 보드
 
+## v1.0.31 (2026-04-27) — 친구 시스템 & 메시징 기능 추가
+
+### 👥 친구 시스템
+- 친구 요청 보내기 및 수락/거절 기능
+- 친구 목록 조회 및 친구 삭제
+- 양방향 친구 관계 관리
+
+### 💬 메시징 시스템
+- 친구 간 실시간 메시지 송수신
+- 대화 내역 조회 (최대 200개 메시지)
+- 읽지 않은 메시지 카운트
+- 최근 대화 목록 (받은 메시지함)
+
+### 🔒 보안 기능
+- 친구에게만 메시지 전송 가능
+- HTML 이스케이프로 XSS 공격 방지
+- 레이트 리밋 적용 (스팸 방지)
+- 메시지 개수 제한으로 DB 부하 방지
+
+### 📊 API 엔드포인트
+**친구 관리:**
+- `POST /api/friends/request` - 친구 요청
+- `GET /api/friends/requests/received` - 받은 요청 목록
+- `GET /api/friends/requests/sent` - 보낸 요청 목록
+- `POST /api/friends/accept` - 요청 수락
+- `POST /api/friends/reject` - 요청 거절
+- `GET /api/friends/list` - 친구 목록
+- `POST /api/friends/remove` - 친구 삭제
+
+**메시징:**
+- `POST /api/messages/send` - 메시지 전송
+- `GET /api/messages/conversation/:username` - 대화 내역
+- `GET /api/messages/inbox` - 받은 메시지 목록
+- `GET /api/messages/unread-count` - 읽지 않은 메시지 수
+
+---
+
 ## v1.0.27 (2026-04-21) — NPC 대사 드래곤 라자 톤 + 이스터 에그 원작 인물 3명
 
 ### 📜 기존 NPC 대사 대폭 재작성 (Dragon Raja 소설 톤)
