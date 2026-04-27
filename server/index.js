@@ -82,6 +82,36 @@ db.exec(`
     claimed INTEGER DEFAULT 0,
     created_at INTEGER DEFAULT (strftime('%s','now'))
   );
+
+  CREATE TABLE IF NOT EXISTS friend_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    from_username TEXT NOT NULL,
+    to_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_username TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    UNIQUE(from_user_id, to_user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS friends (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    friend_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    friend_username TEXT NOT NULL,
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    PRIMARY KEY (user_id, friend_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    from_username TEXT NOT NULL,
+    to_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_username TEXT NOT NULL,
+    message TEXT NOT NULL,
+    read INTEGER DEFAULT 0,
+    created_at INTEGER DEFAULT (strftime('%s','now'))
+  );
 `);
 
 // ─── 스키마: 마이그레이션 (기존 DB 에 신규 컬럼 추가) ──────────
@@ -105,6 +135,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_lb_mastery  ON leaderboard(mastered_lines DESC);
   CREATE INDEX IF NOT EXISTS idx_lb_playtime ON leaderboard(play_time DESC);
   CREATE INDEX IF NOT EXISTS idx_mail_inbox  ON mails(to_user, claimed);
+  CREATE INDEX IF NOT EXISTS idx_friend_req_to ON friend_requests(to_user_id, status);
+  CREATE INDEX IF NOT EXISTS idx_friend_req_from ON friend_requests(from_user_id, status);
+  CREATE INDEX IF NOT EXISTS idx_friends_user ON friends(user_id);
+  CREATE INDEX IF NOT EXISTS idx_messages_to ON messages(to_user_id, read, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_messages_from ON messages(from_user_id, created_at DESC);
 `);
 
 // ─── Express ───────────────────────────────────
@@ -326,6 +361,302 @@ app.post('/api/mail/claim', requireAuth, (req, res) => {
     const r = db.prepare('UPDATE mails SET claimed = 1 WHERE id = ? AND claimed = 0').run(id);
     if (r.changes === 0) return res.status(400).json({ ok: false, error: '수령 실패' });
     res.json({ ok: true, mail });
+  } catch (err) { serverError(res, err); }
+});
+
+// ─── 친구 시스템 ───────────────────────────────
+// 친구 요청 보내기
+app.post('/api/friends/request', requireAuth, rateLimit('friend_req', 30), (req, res) => {
+  try {
+    const { to_username } = req.body || {};
+    if (!to_username || typeof to_username !== 'string') {
+      return res.status(400).json({ ok: false, error: '대상 닉네임 필요' });
+    }
+    if (to_username === req.user.username) {
+      return res.status(400).json({ ok: false, error: '자기 자신에게 친구 요청 불가' });
+    }
+
+    const targetUser = db.prepare('SELECT id, username FROM users WHERE username = ?').get(to_username);
+    if (!targetUser) {
+      return res.status(400).json({ ok: false, error: '해당 닉네임 없음' });
+    }
+
+    // 이미 친구인지 확인
+    const existingFriend = db.prepare('SELECT 1 FROM friends WHERE user_id = ? AND friend_id = ?')
+      .get(req.user.id, targetUser.id);
+    if (existingFriend) {
+      return res.status(400).json({ ok: false, error: '이미 친구입니다' });
+    }
+
+    // 이미 요청을 보냈는지 확인
+    const existingRequest = db.prepare(
+      'SELECT status FROM friend_requests WHERE from_user_id = ? AND to_user_id = ?'
+    ).get(req.user.id, targetUser.id);
+
+    if (existingRequest) {
+      if (existingRequest.status === 'pending') {
+        return res.status(400).json({ ok: false, error: '이미 친구 요청을 보냈습니다' });
+      }
+      // 거절된 요청이면 다시 보낼 수 있도록 업데이트
+      db.prepare(
+        'UPDATE friend_requests SET status = ?, created_at = strftime(\'%s\',\'now\') WHERE from_user_id = ? AND to_user_id = ?'
+      ).run('pending', req.user.id, targetUser.id);
+    } else {
+      db.prepare(
+        'INSERT INTO friend_requests (from_user_id, from_username, to_user_id, to_username) VALUES (?, ?, ?, ?)'
+      ).run(req.user.id, req.user.username, targetUser.id, targetUser.username);
+    }
+
+    res.json({ ok: true, message: '친구 요청을 보냈습니다' });
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(400).json({ ok: false, error: '이미 요청을 보냈습니다' });
+    }
+    serverError(res, err);
+  }
+});
+
+// 받은 친구 요청 목록
+app.get('/api/friends/requests/received', requireAuth, (req, res) => {
+  try {
+    const requests = db.prepare(
+      'SELECT id, from_user_id, from_username, created_at FROM friend_requests WHERE to_user_id = ? AND status = ? ORDER BY created_at DESC'
+    ).all(req.user.id, 'pending');
+    res.json({ ok: true, data: requests });
+  } catch (err) { serverError(res, err); }
+});
+
+// 보낸 친구 요청 목록
+app.get('/api/friends/requests/sent', requireAuth, (req, res) => {
+  try {
+    const requests = db.prepare(
+      'SELECT id, to_user_id, to_username, status, created_at FROM friend_requests WHERE from_user_id = ? ORDER BY created_at DESC LIMIT 50'
+    ).all(req.user.id);
+    res.json({ ok: true, data: requests });
+  } catch (err) { serverError(res, err); }
+});
+
+// 친구 요청 수락
+app.post('/api/friends/accept', requireAuth, rateLimit('friend_accept', 30), (req, res) => {
+  try {
+    const { request_id } = req.body || {};
+    const id = parseInt(request_id);
+    if (!id || id <= 0) {
+      return res.status(400).json({ ok: false, error: 'request_id 필요' });
+    }
+
+    const request = db.prepare(
+      'SELECT * FROM friend_requests WHERE id = ? AND to_user_id = ? AND status = ?'
+    ).get(id, req.user.id, 'pending');
+
+    if (!request) {
+      return res.status(404).json({ ok: false, error: '친구 요청을 찾을 수 없습니다' });
+    }
+
+    // 트랜잭션으로 처리
+    const insertFriend = db.prepare(
+      'INSERT OR IGNORE INTO friends (user_id, friend_id, friend_username) VALUES (?, ?, ?)'
+    );
+    const updateRequest = db.prepare(
+      'UPDATE friend_requests SET status = ? WHERE id = ?'
+    );
+
+    db.transaction(() => {
+      // 양방향 친구 관계 생성
+      insertFriend.run(req.user.id, request.from_user_id, request.from_username);
+      insertFriend.run(request.from_user_id, req.user.id, req.user.username);
+      updateRequest.run('accepted', id);
+    })();
+
+    res.json({ ok: true, message: '친구 요청을 수락했습니다' });
+  } catch (err) { serverError(res, err); }
+});
+
+// 친구 요청 거절
+app.post('/api/friends/reject', requireAuth, rateLimit('friend_reject', 30), (req, res) => {
+  try {
+    const { request_id } = req.body || {};
+    const id = parseInt(request_id);
+    if (!id || id <= 0) {
+      return res.status(400).json({ ok: false, error: 'request_id 필요' });
+    }
+
+    const result = db.prepare(
+      'UPDATE friend_requests SET status = ? WHERE id = ? AND to_user_id = ? AND status = ?'
+    ).run('rejected', id, req.user.id, 'pending');
+
+    if (result.changes === 0) {
+      return res.status(404).json({ ok: false, error: '친구 요청을 찾을 수 없습니다' });
+    }
+
+    res.json({ ok: true, message: '친구 요청을 거절했습니다' });
+  } catch (err) { serverError(res, err); }
+});
+
+// 친구 목록
+app.get('/api/friends/list', requireAuth, (req, res) => {
+  try {
+    const friends = db.prepare(
+      'SELECT friend_id, friend_username, created_at FROM friends WHERE user_id = ? ORDER BY friend_username ASC'
+    ).all(req.user.id);
+    res.json({ ok: true, data: friends });
+  } catch (err) { serverError(res, err); }
+});
+
+// 친구 삭제
+app.post('/api/friends/remove', requireAuth, rateLimit('friend_remove', 20), (req, res) => {
+  try {
+    const { friend_id } = req.body || {};
+    const fid = parseInt(friend_id);
+    if (!fid || fid <= 0) {
+      return res.status(400).json({ ok: false, error: 'friend_id 필요' });
+    }
+
+    const deleteFriend = db.prepare(
+      'DELETE FROM friends WHERE user_id = ? AND friend_id = ?'
+    );
+
+    // 양방향 친구 관계 삭제
+    db.transaction(() => {
+      deleteFriend.run(req.user.id, fid);
+      deleteFriend.run(fid, req.user.id);
+    })();
+
+    res.json({ ok: true, message: '친구를 삭제했습니다' });
+  } catch (err) { serverError(res, err); }
+});
+
+// ─── 메시징 시스템 ─────────────────────────────
+const MAX_MESSAGE_LEN = 500;
+const MAX_MESSAGES_PER_CONVERSATION = 200;
+
+// 메시지 보내기
+app.post('/api/messages/send', requireAuth, rateLimit('msg_send', 60), (req, res) => {
+  try {
+    const { to_username, message } = req.body || {};
+
+    if (!to_username || typeof to_username !== 'string') {
+      return res.status(400).json({ ok: false, error: '수신자 필요' });
+    }
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return res.status(400).json({ ok: false, error: '메시지 내용 필요' });
+    }
+    if (to_username === req.user.username) {
+      return res.status(400).json({ ok: false, error: '자기 자신에게 메시지 불가' });
+    }
+
+    const targetUser = db.prepare('SELECT id, username FROM users WHERE username = ?').get(to_username);
+    if (!targetUser) {
+      return res.status(400).json({ ok: false, error: '해당 닉네임 없음' });
+    }
+
+    // 친구인지 확인
+    const isFriend = db.prepare('SELECT 1 FROM friends WHERE user_id = ? AND friend_id = ?')
+      .get(req.user.id, targetUser.id);
+    if (!isFriend) {
+      return res.status(403).json({ ok: false, error: '친구에게만 메시지를 보낼 수 있습니다' });
+    }
+
+    // 메시지 개수 제한 확인
+    const msgCount = db.prepare(
+      'SELECT COUNT(*) AS n FROM messages WHERE (from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?)'
+    ).get(req.user.id, targetUser.id, targetUser.id, req.user.id).n;
+
+    if (msgCount >= MAX_MESSAGES_PER_CONVERSATION) {
+      return res.status(429).json({ ok: false, error: '대화 메시지가 너무 많습니다. 이전 메시지를 삭제해주세요.' });
+    }
+
+    // HTML 이스케이프
+    const safeMessage = escapeHtml(String(message).slice(0, MAX_MESSAGE_LEN));
+
+    db.prepare(
+      'INSERT INTO messages (from_user_id, from_username, to_user_id, to_username, message) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.user.id, req.user.username, targetUser.id, targetUser.username, safeMessage);
+
+    res.json({ ok: true, message: '메시지를 보냈습니다' });
+  } catch (err) { serverError(res, err); }
+});
+
+// 특정 친구와의 대화 내역
+app.get('/api/messages/conversation/:username', requireAuth, (req, res) => {
+  try {
+    const { username } = req.params;
+
+    const targetUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    if (!targetUser) {
+      return res.status(400).json({ ok: false, error: '해당 닉네임 없음' });
+    }
+
+    // 친구인지 확인
+    const isFriend = db.prepare('SELECT 1 FROM friends WHERE user_id = ? AND friend_id = ?')
+      .get(req.user.id, targetUser.id);
+    if (!isFriend) {
+      return res.status(403).json({ ok: false, error: '친구와만 대화를 볼 수 있습니다' });
+    }
+
+    // 대화 내역 조회
+    const messages = db.prepare(`
+      SELECT id, from_user_id, from_username, to_user_id, to_username, message, read, created_at
+      FROM messages
+      WHERE (from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?)
+      ORDER BY created_at ASC
+      LIMIT ?
+    `).all(req.user.id, targetUser.id, targetUser.id, req.user.id, MAX_MESSAGES_PER_CONVERSATION);
+
+    // 받은 메시지를 읽음 처리
+    db.prepare(
+      'UPDATE messages SET read = 1 WHERE to_user_id = ? AND from_user_id = ? AND read = 0'
+    ).run(req.user.id, targetUser.id);
+
+    res.json({ ok: true, data: messages });
+  } catch (err) { serverError(res, err); }
+});
+
+// 받은 메시지 목록 (최근 대화 상대)
+app.get('/api/messages/inbox', requireAuth, (req, res) => {
+  try {
+    // 각 대화 상대의 가장 최근 메시지와 읽지 않은 메시지 수
+    const conversations = db.prepare(`
+      SELECT
+        CASE
+          WHEN m.from_user_id = ? THEN m.to_user_id
+          ELSE m.from_user_id
+        END AS other_user_id,
+        CASE
+          WHEN m.from_user_id = ? THEN m.to_username
+          ELSE m.from_username
+        END AS other_username,
+        m.message AS last_message,
+        m.created_at AS last_message_time,
+        (SELECT COUNT(*) FROM messages WHERE to_user_id = ? AND from_user_id = (
+          CASE WHEN m.from_user_id = ? THEN m.to_user_id ELSE m.from_user_id END
+        ) AND read = 0) AS unread_count
+      FROM messages m
+      WHERE m.id IN (
+        SELECT MAX(id)
+        FROM messages
+        WHERE from_user_id = ? OR to_user_id = ?
+        GROUP BY
+          CASE
+            WHEN from_user_id = ? THEN to_user_id
+            ELSE from_user_id
+          END
+      )
+      ORDER BY m.created_at DESC
+      LIMIT 50
+    `).all(req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id);
+
+    res.json({ ok: true, data: conversations });
+  } catch (err) { serverError(res, err); }
+});
+
+// 읽지 않은 메시지 수
+app.get('/api/messages/unread-count', requireAuth, (req, res) => {
+  try {
+    const count = db.prepare(
+      'SELECT COUNT(*) AS n FROM messages WHERE to_user_id = ? AND read = 0'
+    ).get(req.user.id).n;
+    res.json({ ok: true, count });
   } catch (err) { serverError(res, err); }
 });
 
