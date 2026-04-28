@@ -633,7 +633,7 @@
     _lastPlayTick = now;
     if (!game.state || !game.state.name) return;
     // 게임이 유휴 상태여도 틱은 누적 — 단, 캐릭터 선택 중이면 안 됨
-    if (uiMode === 'select' || uiMode.startsWith('auth_') || uiMode.startsWith('cloud') || uiMode === 'leaderboard' || uiMode === 'mail' || uiMode === 'mail_send') return;
+    if (uiMode === 'select' || uiMode.startsWith('auth_') || uiMode.startsWith('cloud') || uiMode === 'leaderboard' || uiMode === 'mail' || uiMode === 'mail_send' || uiMode === 'friends' || uiMode === 'friends_requests' || uiMode === 'messages' || uiMode === 'chat') return;
     if (!game.state.playTimeSec) game.state.playTimeSec = 0;
     game.state.playTimeSec += delta;
   }, 1000);
@@ -1269,6 +1269,10 @@
     if (uiMode === 'auth_register')return renderAuthRegister();
     if (uiMode === 'cloud_sync')   return renderCloudSync();
     if (uiMode === 'leaderboard')  return renderLeaderboard();
+    if (uiMode === 'friends')      return renderFriends();
+    if (uiMode === 'friends_requests') return renderFriendRequests();
+    if (uiMode === 'messages')     return renderMessages();
+    if (uiMode === 'chat')         return renderChat();
     if (uiMode === 'mail')         return renderMail();
     if (uiMode === 'mail_send')    return renderMailSend();
     if (uiMode === 'mypage')       return renderMyPage();
@@ -1378,6 +1382,7 @@
       netRow.appendChild(info);
       netRow.appendChild(mkBtn('☁ 클라우드 동기화', () => { uiMode = 'cloud_sync'; render(); }, { success: true, mini: true }));
       netRow.appendChild(mkBtn('🏆 리더보드', () => { uiMode = 'leaderboard'; render(); }, { mini: true }));
+      netRow.appendChild(mkBtn('👥 친구', () => { uiMode = 'friends'; render(); }, { mini: true }));
       netRow.appendChild(mkBtn('📮 우편함', () => { uiMode = 'mail'; render(); }, { mini: true }));
       netRow.appendChild(mkBtn('로그아웃', () => { clearAuth(); print(`로그아웃 완료.`, 'good'); render(); }, { danger: true, mini: true }));
     } else {
@@ -1831,6 +1836,317 @@
     act.appendChild(btnRow);
   }
 
+  // ─── 친구 시스템 ───
+  let friendsCache = null;
+  let friendRequestsCache = null;
+  let messagesCache = null;
+
+  function renderFriends() {
+    const intro = mkSection();
+    intro.innerHTML = '<div style="color:#e0e6ed;font-size:14px;margin-bottom:8px;"><b>👥 친구</b></div>';
+    act.appendChild(intro);
+
+    const tabs = mkSection();
+    tabs.appendChild(mkBtn('친구 목록', async () => {
+      friendsCache = null;
+      uiMode = 'friends';
+      render();
+    }, { primary: uiMode === 'friends', mini: true }));
+    tabs.appendChild(mkBtn('친구 요청', () => {
+      friendRequestsCache = null;
+      uiMode = 'friends_requests';
+      render();
+    }, { mini: true }));
+    tabs.appendChild(mkBtn('메시지', () => {
+      messagesCache = null;
+      uiMode = 'messages';
+      render();
+    }, { mini: true }));
+    act.appendChild(tabs);
+
+    const list = mkSection();
+    list.style.flexDirection = 'column';
+    list.style.gap = '4px';
+    if (!friendsCache) {
+      list.innerHTML = '<span style="color:#858585;">로딩 중...</span>';
+      act.appendChild(list);
+      (async () => {
+        const r = await api('/api/friends/list', 'GET');
+        friendsCache = r.ok ? r.data : [];
+        render();
+      })();
+    } else if (friendsCache.length === 0) {
+      list.innerHTML = '<span style="color:#858585;">친구가 없습니다.</span>';
+      act.appendChild(list);
+    } else {
+      friendsCache.forEach(f => {
+        const row = mkSection();
+        const name = document.createElement('span');
+        name.style.cssText = 'flex:1;color:#e0e6ed;';
+        name.textContent = f.friend_username;
+        row.appendChild(name);
+        row.appendChild(mkBtn('💬 메시지', () => {
+          uiCtx.chatWith = f.friend_username;
+          uiMode = 'chat';
+          render();
+        }, { mini: true, primary: true }));
+        row.appendChild(mkBtn('삭제', async () => {
+          if (!confirm(`${f.friend_username}를 친구 목록에서 삭제하시겠습니까?`)) return;
+          const r = await api('/api/friends/remove', 'POST', { friend_id: f.friend_id });
+          if (r.ok) {
+            print('친구를 삭제했습니다.', 'good');
+            friendsCache = null;
+            render();
+          } else {
+            print(r.error, 'warn');
+          }
+        }, { mini: true, danger: true }));
+        list.appendChild(row);
+      });
+      act.appendChild(list);
+    }
+
+    const addRow = mkSection();
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = '친구 닉네임';
+    inp.style.flex = '1';
+    inp.maxLength = 20;
+    addRow.appendChild(inp);
+    addRow.appendChild(mkBtn('➕ 친구 요청', async () => {
+      if (!inp.value.trim()) {
+        print('닉네임을 입력하세요.', 'warn');
+        return;
+      }
+      const r = await api('/api/friends/request', 'POST', { to_username: inp.value.trim() });
+      if (r.ok) {
+        print(r.message || '친구 요청을 보냈습니다.', 'good');
+        inp.value = '';
+      } else {
+        print(r.error, 'warn');
+      }
+    }, { primary: true }));
+    act.appendChild(addRow);
+
+    const backRow = mkSection();
+    backRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }, { danger: true }));
+    act.appendChild(backRow);
+  }
+
+  function renderFriendRequests() {
+    const intro = mkSection();
+    intro.innerHTML = '<div style="color:#e0e6ed;font-size:14px;margin-bottom:8px;"><b>👥 친구 요청</b></div>';
+    act.appendChild(intro);
+
+    const tabs = mkSection();
+    tabs.appendChild(mkBtn('친구 목록', () => {
+      friendsCache = null;
+      uiMode = 'friends';
+      render();
+    }, { mini: true }));
+    tabs.appendChild(mkBtn('친구 요청', async () => {
+      friendRequestsCache = null;
+      uiMode = 'friends_requests';
+      render();
+    }, { primary: true, mini: true }));
+    tabs.appendChild(mkBtn('메시지', () => {
+      messagesCache = null;
+      uiMode = 'messages';
+      render();
+    }, { mini: true }));
+    act.appendChild(tabs);
+
+    const list = mkSection();
+    list.style.flexDirection = 'column';
+    list.style.gap = '4px';
+    if (!friendRequestsCache) {
+      list.innerHTML = '<span style="color:#858585;">로딩 중...</span>';
+      act.appendChild(list);
+      (async () => {
+        const r = await api('/api/friends/requests/received', 'GET');
+        friendRequestsCache = r.ok ? r.data : [];
+        render();
+      })();
+    } else if (friendRequestsCache.length === 0) {
+      list.innerHTML = '<span style="color:#858585;">받은 친구 요청이 없습니다.</span>';
+      act.appendChild(list);
+    } else {
+      friendRequestsCache.forEach(req => {
+        const row = mkSection();
+        const name = document.createElement('span');
+        name.style.cssText = 'flex:1;color:#e0e6ed;';
+        name.textContent = `${req.from_username} 님의 친구 요청`;
+        row.appendChild(name);
+        row.appendChild(mkBtn('✅ 수락', async () => {
+          const r = await api('/api/friends/accept', 'POST', { request_id: req.id });
+          if (r.ok) {
+            print(r.message || '친구 요청을 수락했습니다.', 'good');
+            friendRequestsCache = null;
+            friendsCache = null;
+            render();
+          } else {
+            print(r.error, 'warn');
+          }
+        }, { mini: true, success: true }));
+        row.appendChild(mkBtn('❌ 거절', async () => {
+          const r = await api('/api/friends/reject', 'POST', { request_id: req.id });
+          if (r.ok) {
+            print(r.message || '친구 요청을 거절했습니다.', 'good');
+            friendRequestsCache = null;
+            render();
+          } else {
+            print(r.error, 'warn');
+          }
+        }, { mini: true, danger: true }));
+        list.appendChild(row);
+      });
+      act.appendChild(list);
+    }
+
+    const backRow = mkSection();
+    backRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'friends'; render(); }, { danger: true }));
+    act.appendChild(backRow);
+  }
+
+  function renderMessages() {
+    const intro = mkSection();
+    intro.innerHTML = '<div style="color:#e0e6ed;font-size:14px;margin-bottom:8px;"><b>💬 메시지</b></div>';
+    act.appendChild(intro);
+
+    const tabs = mkSection();
+    tabs.appendChild(mkBtn('친구 목록', () => {
+      friendsCache = null;
+      uiMode = 'friends';
+      render();
+    }, { mini: true }));
+    tabs.appendChild(mkBtn('친구 요청', () => {
+      friendRequestsCache = null;
+      uiMode = 'friends_requests';
+      render();
+    }, { mini: true }));
+    tabs.appendChild(mkBtn('메시지', async () => {
+      messagesCache = null;
+      uiMode = 'messages';
+      render();
+    }, { primary: true, mini: true }));
+    act.appendChild(tabs);
+
+    const list = mkSection();
+    list.style.flexDirection = 'column';
+    list.style.gap = '4px';
+    if (!messagesCache) {
+      list.innerHTML = '<span style="color:#858585;">로딩 중...</span>';
+      act.appendChild(list);
+      (async () => {
+        const r = await api('/api/messages/inbox', 'GET');
+        messagesCache = r.ok ? r.data : [];
+        render();
+      })();
+    } else if (messagesCache.length === 0) {
+      list.innerHTML = '<span style="color:#858585;">메시지가 없습니다.</span>';
+      act.appendChild(list);
+    } else {
+      messagesCache.forEach(conv => {
+        const row = mkSection();
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;';
+        const badge = conv.unread_count > 0 ? `<span style="background:#ff4444;color:#fff;padding:2px 6px;border-radius:10px;font-size:10px;margin-left:6px;">${conv.unread_count}</span>` : '';
+        info.innerHTML = `
+          <div style="color:#e0e6ed;font-size:13px;"><b>${escHtml(conv.other_username)}</b>${badge}</div>
+          <div style="color:#858585;font-size:11px;margin-top:2px;">${escHtml(conv.last_message).substring(0, 40)}${conv.last_message.length > 40 ? '...' : ''}</div>
+        `;
+        row.appendChild(info);
+        row.appendChild(mkBtn('열기', () => {
+          uiCtx.chatWith = conv.other_username;
+          uiMode = 'chat';
+          render();
+        }, { mini: true, primary: true }));
+        list.appendChild(row);
+      });
+      act.appendChild(list);
+    }
+
+    const backRow = mkSection();
+    backRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'friends'; render(); }, { danger: true }));
+    act.appendChild(backRow);
+  }
+
+  function renderChat() {
+    const chatWith = uiCtx.chatWith;
+    if (!chatWith) {
+      uiMode = 'messages';
+      render();
+      return;
+    }
+
+    const intro = mkSection();
+    intro.innerHTML = `<div style="color:#e0e6ed;font-size:14px;margin-bottom:8px;"><b>💬 ${escHtml(chatWith)}와의 대화</b></div>`;
+    act.appendChild(intro);
+
+    const msgList = mkSection();
+    msgList.style.cssText = 'flex-direction:column;gap:6px;max-height:400px;overflow-y:auto;background:#0c0c15;padding:10px;border-radius:4px;border:1px solid #333;';
+
+    const loadMessages = async () => {
+      const r = await api(`/api/messages/conversation/${encodeURIComponent(chatWith)}`, 'GET');
+      if (r.ok && r.data.length > 0) {
+        msgList.innerHTML = '';
+        r.data.forEach(msg => {
+          const msgRow = document.createElement('div');
+          const isMe = msg.from_username === currentUsername;
+          msgRow.style.cssText = `text-align:${isMe ? 'right' : 'left'};margin-bottom:8px;`;
+          const bubble = document.createElement('div');
+          bubble.style.cssText = `display:inline-block;max-width:70%;padding:6px 10px;border-radius:8px;background:${isMe ? '#0066cc' : '#333'};color:#fff;font-size:12px;text-align:left;`;
+          bubble.innerHTML = `
+            <div style="font-size:10px;color:#bbb;margin-bottom:2px;">${escHtml(msg.from_username)}</div>
+            <div>${escHtml(msg.message)}</div>
+          `;
+          msgRow.appendChild(bubble);
+          msgList.appendChild(msgRow);
+        });
+        setTimeout(() => msgList.scrollTop = msgList.scrollHeight, 50);
+      } else {
+        msgList.innerHTML = '<span style="color:#858585;">메시지가 없습니다.</span>';
+      }
+    };
+
+    msgList.innerHTML = '<span style="color:#858585;">로딩 중...</span>';
+    act.appendChild(msgList);
+    loadMessages();
+
+    const inputRow = mkSection();
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = '메시지 입력...';
+    inp.style.flex = '1';
+    inp.maxLength = 500;
+    inputRow.appendChild(inp);
+    inputRow.appendChild(mkBtn('전송', async () => {
+      if (!inp.value.trim()) {
+        print('메시지를 입력하세요.', 'warn');
+        return;
+      }
+      const r = await api('/api/messages/send', 'POST', {
+        to_username: chatWith,
+        message: inp.value.trim()
+      });
+      if (r.ok) {
+        inp.value = '';
+        await loadMessages();
+      } else {
+        print(r.error, 'warn');
+      }
+    }, { primary: true }));
+    act.appendChild(inputRow);
+
+    const backRow = mkSection();
+    backRow.appendChild(mkBtn('◀ 돌아가기', () => {
+      uiCtx.chatWith = null;
+      uiMode = 'messages';
+      render();
+    }, { danger: true }));
+    act.appendChild(backRow);
+  }
+
   async function doImport(mode) {
     const ta = document.getElementById('importTa');
     if (!ta || !ta.value.trim()) { print('붙여넣을 내용이 없습니다.', 'warn'); return; }
@@ -2007,9 +2323,7 @@
     const row2 = mkSection('행동:');
     let actIdx = 0;
     const nextActKey = () => TOP_ROW_KEYS[actIdx++];
-    row2.appendChild(mkBtn('탐험', () => {
-      withDelay(1500, '🔍 주변을 둘러본다...', () => game.handleInput('explore'));
-    }, { primary: true, hotkey: nextActKey() }));
+    row2.appendChild(mkBtn('탐험', () => game.handleInput('explore'), { primary: true, hotkey: nextActKey() }));
     if (loc.inn || Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location)) {
       const hasMansion = Object.keys(game.state.properties||{}).some(k => PROPERTIES[k].loc === game.state.location);
       row2.appendChild(mkBtn(hasMansion ? '저택 휴식' : '여관', () => enterMode('inn'), { hotkey: nextActKey() }));
