@@ -936,13 +936,13 @@ class Game {
     }
     const rate = this.locationEncounterRate();
     if (chance(rate || 0.4)) {
-      // 조우 롤: 1마리(60%) · 2마리(25%) · 3마리(10%) · 무리 4-6마리(4%) · 엘리트(1%)
+      // 조우 롤: 1마리(29%) · 2마리(40%) · 3마리(20%) · 무리 4-6마리(10%) · 엘리트(1%)
       const roll = Math.random();
       let num, elite = false, swarm = false;
       if (roll < 0.01)       { num = 1; elite = true; }
-      else if (roll < 0.05)  { num = 4 + rnd(3); swarm = true; }
-      else if (roll < 0.15)  { num = 3; }
-      else if (roll < 0.40)  { num = 2; }
+      else if (roll < 0.11)  { num = 4 + rnd(3); swarm = true; }
+      else if (roll < 0.31)  { num = 3; }
+      else if (roll < 0.71)  { num = 2; }
       else                   { num = 1; }
       const foes = [];
       for (let i = 0; i < num; i++) foes.push(pool[rnd(pool.length)]);
