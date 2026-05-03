@@ -633,7 +633,7 @@
     _lastPlayTick = now;
     if (!game.state || !game.state.name) return;
     // 게임이 유휴 상태여도 틱은 누적 — 단, 캐릭터 선택 중이면 안 됨
-    if (uiMode === 'select' || uiMode.startsWith('auth_') || uiMode.startsWith('cloud') || uiMode === 'leaderboard' || uiMode === 'mail' || uiMode === 'mail_send' || uiMode === 'friends' || uiMode === 'friends_requests' || uiMode === 'messages' || uiMode === 'chat') return;
+    if (uiMode === 'select' || uiMode.startsWith('auth_') || uiMode.startsWith('cloud') || uiMode === 'leaderboard' || uiMode === 'mail' || uiMode === 'mail_send' || uiMode === 'friends' || uiMode === 'friends_requests' || uiMode === 'messages' || uiMode === 'chat' || uiMode === 'party' || uiMode === 'party_invites') return;
     if (!game.state.playTimeSec) game.state.playTimeSec = 0;
     game.state.playTimeSec += delta;
   }, 1000);
@@ -1273,6 +1273,8 @@
     if (uiMode === 'friends_requests') return renderFriendRequests();
     if (uiMode === 'messages')     return renderMessages();
     if (uiMode === 'chat')         return renderChat();
+    if (uiMode === 'party')        return renderParty();
+    if (uiMode === 'party_invites') return renderPartyInvites();
     if (uiMode === 'mail')         return renderMail();
     if (uiMode === 'mail_send')    return renderMailSend();
     if (uiMode === 'mypage')       return renderMyPage();
@@ -1383,6 +1385,7 @@
       netRow.appendChild(mkBtn('☁ 클라우드 동기화', () => { uiMode = 'cloud_sync'; render(); }, { success: true, mini: true }));
       netRow.appendChild(mkBtn('🏆 리더보드', () => { uiMode = 'leaderboard'; render(); }, { mini: true }));
       netRow.appendChild(mkBtn('👥 친구', () => { uiMode = 'friends'; render(); }, { mini: true }));
+      netRow.appendChild(mkBtn('🎮 파티', () => { uiMode = 'party'; render(); }, { mini: true }));
       netRow.appendChild(mkBtn('📮 우편함', () => { uiMode = 'mail'; render(); }, { mini: true }));
       netRow.appendChild(mkBtn('로그아웃', () => { clearAuth(); print(`로그아웃 완료.`, 'good'); render(); }, { danger: true, mini: true }));
     } else {
@@ -2144,6 +2147,225 @@
       uiMode = 'messages';
       render();
     }, { danger: true }));
+    act.appendChild(backRow);
+  }
+
+  // ─── 파티 시스템 ───
+  let partyCache = null;
+  let partyInvitesCache = null;
+
+  function renderParty() {
+    const intro = mkSection();
+    intro.innerHTML = '<div style="color:#e0e6ed;font-size:14px;margin-bottom:8px;"><b>🎮 파티</b></div>';
+    act.appendChild(intro);
+
+    const tabs = mkSection();
+    tabs.appendChild(mkBtn('내 파티', async () => {
+      partyCache = null;
+      uiMode = 'party';
+      render();
+    }, { primary: true, mini: true }));
+    tabs.appendChild(mkBtn('초대 목록', () => {
+      partyInvitesCache = null;
+      uiMode = 'party_invites';
+      render();
+    }, { mini: true }));
+    act.appendChild(tabs);
+
+    if (!partyCache) {
+      const loading = mkSection();
+      loading.innerHTML = '<span style="color:#858585;">로딩 중...</span>';
+      act.appendChild(loading);
+      (async () => {
+        const r = await api('/api/party/my', 'GET');
+        partyCache = r.ok ? r.party : null;
+        render();
+      })();
+      return;
+    }
+
+    if (!partyCache) {
+      const empty = mkSection();
+      empty.innerHTML = '<span style="color:#858585;">파티에 속해 있지 않습니다.</span>';
+      act.appendChild(empty);
+
+      const createRow = mkSection();
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.placeholder = '파티 이름';
+      inp.style.flex = '1';
+      inp.maxLength = 30;
+      createRow.appendChild(inp);
+      createRow.appendChild(mkBtn('➕ 파티 생성', async () => {
+        if (!inp.value.trim()) {
+          print('파티 이름을 입력하세요.', 'warn');
+          return;
+        }
+        const r = await api('/api/party/create', 'POST', { party_name: inp.value.trim() });
+        if (r.ok) {
+          print(r.message || '파티를 생성했습니다.', 'good');
+          partyCache = null;
+          render();
+        } else {
+          print(r.error, 'warn');
+        }
+      }, { primary: true, success: true }));
+      act.appendChild(createRow);
+    } else {
+      const info = mkSection();
+      const isLeader = partyCache.leader_id === partyCache.members.find(m => m.username === currentUsername)?.user_id;
+      info.innerHTML = `
+        <div style="flex:1;">
+          <div style="color:#f4c96b;font-size:13px;"><b>${escHtml(partyCache.party_name)}</b></div>
+          <div style="color:#858585;font-size:11px;">파티장: ${escHtml(partyCache.leader_username)} · 인원: ${partyCache.members.length}/${partyCache.max_members}</div>
+        </div>
+      `;
+      act.appendChild(info);
+
+      const membersTitle = mkSection();
+      membersTitle.innerHTML = '<div style="color:#ccc;font-size:12px;margin-top:8px;"><b>파티원</b></div>';
+      act.appendChild(membersTitle);
+
+      partyCache.members.forEach(member => {
+        const row = mkSection();
+        const memberInfo = document.createElement('div');
+        memberInfo.style.cssText = 'flex:1;color:#e0e6ed;';
+        const leaderBadge = member.user_id === partyCache.leader_id ? ' 👑' : '';
+        memberInfo.textContent = member.username + leaderBadge;
+        row.appendChild(memberInfo);
+
+        if (isLeader && member.user_id !== partyCache.leader_id) {
+          row.appendChild(mkBtn('추방', async () => {
+            if (!confirm(`${member.username}를 파티에서 추방하시겠습니까?`)) return;
+            const r = await api('/api/party/kick', 'POST', { user_id: member.user_id });
+            if (r.ok) {
+              print(r.message, 'good');
+              partyCache = null;
+              render();
+            } else {
+              print(r.error, 'warn');
+            }
+          }, { mini: true, danger: true }));
+        }
+        act.appendChild(row);
+      });
+
+      if (isLeader && partyCache.members.length < partyCache.max_members) {
+        const inviteRow = mkSection();
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.placeholder = '초대할 닉네임';
+        inp.style.flex = '1';
+        inp.maxLength = 20;
+        inviteRow.appendChild(inp);
+        inviteRow.appendChild(mkBtn('📨 초대', async () => {
+          if (!inp.value.trim()) {
+            print('닉네임을 입력하세요.', 'warn');
+            return;
+          }
+          const r = await api('/api/party/invite', 'POST', { to_username: inp.value.trim() });
+          if (r.ok) {
+            print(r.message || '초대를 보냈습니다.', 'good');
+            inp.value = '';
+          } else {
+            print(r.error, 'warn');
+          }
+        }, { primary: true }));
+        act.appendChild(inviteRow);
+      }
+
+      const leaveRow = mkSection();
+      leaveRow.appendChild(mkBtn(isLeader ? '파티 해체' : '파티 탈퇴', async () => {
+        if (!confirm(isLeader ? '파티를 해체하시겠습니까?' : '파티에서 탈퇴하시겠습니까?')) return;
+        const r = await api('/api/party/leave', 'POST');
+        if (r.ok) {
+          print(r.message, 'good');
+          partyCache = null;
+          render();
+        } else {
+          print(r.error, 'warn');
+        }
+      }, { danger: true }));
+      act.appendChild(leaveRow);
+    }
+
+    const backRow = mkSection();
+    backRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'select'; render(); }, { danger: true }));
+    act.appendChild(backRow);
+  }
+
+  function renderPartyInvites() {
+    const intro = mkSection();
+    intro.innerHTML = '<div style="color:#e0e6ed;font-size:14px;margin-bottom:8px;"><b>🎮 파티 초대</b></div>';
+    act.appendChild(intro);
+
+    const tabs = mkSection();
+    tabs.appendChild(mkBtn('내 파티', () => {
+      partyCache = null;
+      uiMode = 'party';
+      render();
+    }, { mini: true }));
+    tabs.appendChild(mkBtn('초대 목록', async () => {
+      partyInvitesCache = null;
+      uiMode = 'party_invites';
+      render();
+    }, { primary: true, mini: true }));
+    act.appendChild(tabs);
+
+    const list = mkSection();
+    list.style.flexDirection = 'column';
+    list.style.gap = '4px';
+
+    if (!partyInvitesCache) {
+      list.innerHTML = '<span style="color:#858585;">로딩 중...</span>';
+      act.appendChild(list);
+      (async () => {
+        const r = await api('/api/party/invites', 'GET');
+        partyInvitesCache = r.ok ? r.data : [];
+        render();
+      })();
+    } else if (partyInvitesCache.length === 0) {
+      list.innerHTML = '<span style="color:#858585;">받은 파티 초대가 없습니다.</span>';
+      act.appendChild(list);
+    } else {
+      partyInvitesCache.forEach(invite => {
+        const row = mkSection();
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;';
+        info.innerHTML = `
+          <div style="color:#e0e6ed;font-size:13px;"><b>${escHtml(invite.party_name)}</b></div>
+          <div style="color:#858585;font-size:11px;">파티장: ${escHtml(invite.leader_username)} · 인원: ${invite.member_count}/4</div>
+        `;
+        row.appendChild(info);
+        row.appendChild(mkBtn('✅ 수락', async () => {
+          const r = await api('/api/party/accept', 'POST', { invite_id: invite.id });
+          if (r.ok) {
+            print(r.message || '파티에 참가했습니다.', 'good');
+            partyInvitesCache = null;
+            partyCache = null;
+            uiMode = 'party';
+            render();
+          } else {
+            print(r.error, 'warn');
+          }
+        }, { mini: true, success: true }));
+        row.appendChild(mkBtn('❌ 거절', async () => {
+          const r = await api('/api/party/reject', 'POST', { invite_id: invite.id });
+          if (r.ok) {
+            print(r.message || '초대를 거절했습니다.', 'good');
+            partyInvitesCache = null;
+            render();
+          } else {
+            print(r.error, 'warn');
+          }
+        }, { mini: true, danger: true }));
+        list.appendChild(row);
+      });
+      act.appendChild(list);
+    }
+
+    const backRow = mkSection();
+    backRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'party'; render(); }, { danger: true }));
     act.appendChild(backRow);
   }
 

@@ -112,6 +112,35 @@ db.exec(`
     read INTEGER DEFAULT 0,
     created_at INTEGER DEFAULT (strftime('%s','now'))
   );
+
+  CREATE TABLE IF NOT EXISTS parties (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    party_name TEXT NOT NULL,
+    leader_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    leader_username TEXT NOT NULL,
+    max_members INTEGER DEFAULT 4,
+    created_at INTEGER DEFAULT (strftime('%s','now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS party_members (
+    party_id INTEGER NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    username TEXT NOT NULL,
+    joined_at INTEGER DEFAULT (strftime('%s','now')),
+    PRIMARY KEY (party_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS party_invites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    party_id INTEGER NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+    from_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    from_username TEXT NOT NULL,
+    to_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_username TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    UNIQUE(party_id, to_user_id)
+  );
 `);
 
 // ─── 스키마: 마이그레이션 (기존 DB 에 신규 컬럼 추가) ──────────
@@ -140,6 +169,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_friends_user ON friends(user_id);
   CREATE INDEX IF NOT EXISTS idx_messages_to ON messages(to_user_id, read, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_messages_from ON messages(from_user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_party_leader ON parties(leader_id);
+  CREATE INDEX IF NOT EXISTS idx_party_members_user ON party_members(user_id);
+  CREATE INDEX IF NOT EXISTS idx_party_invites_to ON party_invites(to_user_id, status);
 `);
 
 // ─── Express ───────────────────────────────────
@@ -657,6 +689,297 @@ app.get('/api/messages/unread-count', requireAuth, (req, res) => {
       'SELECT COUNT(*) AS n FROM messages WHERE to_user_id = ? AND read = 0'
     ).get(req.user.id).n;
     res.json({ ok: true, count });
+  } catch (err) { serverError(res, err); }
+});
+
+// ─── 파티 시스템 ───────────────────────────────
+const MAX_PARTY_SIZE = 4;
+
+// 파티 생성
+app.post('/api/party/create', requireAuth, rateLimit('party_create', 20), (req, res) => {
+  try {
+    const { party_name } = req.body || {};
+    if (!party_name || typeof party_name !== 'string' || party_name.trim().length === 0) {
+      return res.status(400).json({ ok: false, error: '파티 이름 필요' });
+    }
+
+    // 이미 파티에 속해 있는지 확인
+    const existingParty = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (existingParty) {
+      return res.status(400).json({ ok: false, error: '이미 파티에 속해 있습니다' });
+    }
+
+    const safeName = escapeHtml(String(party_name).slice(0, 30));
+
+    // 트랜잭션으로 파티 생성 및 리더 추가
+    const createParty = db.prepare(
+      'INSERT INTO parties (party_name, leader_id, leader_username, max_members) VALUES (?, ?, ?, ?)'
+    );
+    const addMember = db.prepare(
+      'INSERT INTO party_members (party_id, user_id, username) VALUES (?, ?, ?)'
+    );
+
+    const result = db.transaction(() => {
+      const partyResult = createParty.run(safeName, req.user.id, req.user.username, MAX_PARTY_SIZE);
+      const partyId = partyResult.lastInsertRowid;
+      addMember.run(partyId, req.user.id, req.user.username);
+      return partyId;
+    })();
+
+    res.json({ ok: true, party_id: result, message: '파티를 생성했습니다' });
+  } catch (err) { serverError(res, err); }
+});
+
+// 내 파티 정보
+app.get('/api/party/my', requireAuth, (req, res) => {
+  try {
+    const membership = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (!membership) {
+      return res.json({ ok: true, party: null });
+    }
+
+    const party = db.prepare(
+      'SELECT * FROM parties WHERE id = ?'
+    ).get(membership.party_id);
+
+    const members = db.prepare(
+      'SELECT user_id, username, joined_at FROM party_members WHERE party_id = ? ORDER BY joined_at ASC'
+    ).all(membership.party_id);
+
+    res.json({ ok: true, party: { ...party, members } });
+  } catch (err) { serverError(res, err); }
+});
+
+// 파티 초대
+app.post('/api/party/invite', requireAuth, rateLimit('party_invite', 30), (req, res) => {
+  try {
+    const { to_username } = req.body || {};
+    if (!to_username || typeof to_username !== 'string') {
+      return res.status(400).json({ ok: false, error: '대상 닉네임 필요' });
+    }
+
+    // 내 파티 확인
+    const myMembership = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (!myMembership) {
+      return res.status(400).json({ ok: false, error: '파티에 속해 있지 않습니다' });
+    }
+
+    const party = db.prepare('SELECT * FROM parties WHERE id = ?').get(myMembership.party_id);
+
+    // 파티장만 초대 가능
+    if (party.leader_id !== req.user.id) {
+      return res.status(403).json({ ok: false, error: '파티장만 초대할 수 있습니다' });
+    }
+
+    // 대상 유저 확인
+    const targetUser = db.prepare('SELECT id, username FROM users WHERE username = ?').get(to_username);
+    if (!targetUser) {
+      return res.status(400).json({ ok: false, error: '해당 닉네임 없음' });
+    }
+
+    // 이미 파티에 속해 있는지 확인
+    const targetParty = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(targetUser.id);
+
+    if (targetParty) {
+      return res.status(400).json({ ok: false, error: '이미 다른 파티에 속해 있습니다' });
+    }
+
+    // 파티 인원 제한 확인
+    const memberCount = db.prepare(
+      'SELECT COUNT(*) AS n FROM party_members WHERE party_id = ?'
+    ).get(myMembership.party_id).n;
+
+    if (memberCount >= party.max_members) {
+      return res.status(400).json({ ok: false, error: '파티 인원이 가득 찼습니다' });
+    }
+
+    // 이미 초대를 보냈는지 확인
+    const existingInvite = db.prepare(
+      'SELECT status FROM party_invites WHERE party_id = ? AND to_user_id = ?'
+    ).get(myMembership.party_id, targetUser.id);
+
+    if (existingInvite && existingInvite.status === 'pending') {
+      return res.status(400).json({ ok: false, error: '이미 초대를 보냈습니다' });
+    }
+
+    // 초대 생성 또는 업데이트
+    if (existingInvite) {
+      db.prepare(
+        'UPDATE party_invites SET status = ?, created_at = strftime(\'%s\',\'now\') WHERE party_id = ? AND to_user_id = ?'
+      ).run('pending', myMembership.party_id, targetUser.id);
+    } else {
+      db.prepare(
+        'INSERT INTO party_invites (party_id, from_user_id, from_username, to_user_id, to_username) VALUES (?, ?, ?, ?, ?)'
+      ).run(myMembership.party_id, req.user.id, req.user.username, targetUser.id, targetUser.username);
+    }
+
+    res.json({ ok: true, message: '파티 초대를 보냈습니다' });
+  } catch (err) { serverError(res, err); }
+});
+
+// 받은 파티 초대 목록
+app.get('/api/party/invites', requireAuth, (req, res) => {
+  try {
+    const invites = db.prepare(`
+      SELECT pi.id, pi.party_id, pi.from_username, p.party_name, p.leader_username, pi.created_at,
+             (SELECT COUNT(*) FROM party_members WHERE party_id = pi.party_id) AS member_count
+      FROM party_invites pi
+      JOIN parties p ON pi.party_id = p.id
+      WHERE pi.to_user_id = ? AND pi.status = ?
+      ORDER BY pi.created_at DESC
+    `).all(req.user.id, 'pending');
+
+    res.json({ ok: true, data: invites });
+  } catch (err) { serverError(res, err); }
+});
+
+// 파티 초대 수락
+app.post('/api/party/accept', requireAuth, rateLimit('party_accept', 30), (req, res) => {
+  try {
+    const { invite_id } = req.body || {};
+    const id = parseInt(invite_id);
+    if (!id || id <= 0) {
+      return res.status(400).json({ ok: false, error: 'invite_id 필요' });
+    }
+
+    // 이미 파티에 속해 있는지 확인
+    const myParty = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (myParty) {
+      return res.status(400).json({ ok: false, error: '이미 파티에 속해 있습니다. 먼저 탈퇴하세요.' });
+    }
+
+    const invite = db.prepare(
+      'SELECT * FROM party_invites WHERE id = ? AND to_user_id = ? AND status = ?'
+    ).get(id, req.user.id, 'pending');
+
+    if (!invite) {
+      return res.status(404).json({ ok: false, error: '초대를 찾을 수 없습니다' });
+    }
+
+    const party = db.prepare('SELECT * FROM parties WHERE id = ?').get(invite.party_id);
+
+    // 파티 인원 확인
+    const memberCount = db.prepare(
+      'SELECT COUNT(*) AS n FROM party_members WHERE party_id = ?'
+    ).get(invite.party_id).n;
+
+    if (memberCount >= party.max_members) {
+      return res.status(400).json({ ok: false, error: '파티 인원이 가득 찼습니다' });
+    }
+
+    // 트랜잭션으로 처리
+    const addMember = db.prepare(
+      'INSERT INTO party_members (party_id, user_id, username) VALUES (?, ?, ?)'
+    );
+    const updateInvite = db.prepare(
+      'UPDATE party_invites SET status = ? WHERE id = ?'
+    );
+
+    db.transaction(() => {
+      addMember.run(invite.party_id, req.user.id, req.user.username);
+      updateInvite.run('accepted', id);
+    })();
+
+    res.json({ ok: true, message: '파티에 참가했습니다' });
+  } catch (err) { serverError(res, err); }
+});
+
+// 파티 초대 거절
+app.post('/api/party/reject', requireAuth, rateLimit('party_reject', 30), (req, res) => {
+  try {
+    const { invite_id } = req.body || {};
+    const id = parseInt(invite_id);
+    if (!id || id <= 0) {
+      return res.status(400).json({ ok: false, error: 'invite_id 필요' });
+    }
+
+    const result = db.prepare(
+      'UPDATE party_invites SET status = ? WHERE id = ? AND to_user_id = ? AND status = ?'
+    ).run('rejected', id, req.user.id, 'pending');
+
+    if (result.changes === 0) {
+      return res.status(404).json({ ok: false, error: '초대를 찾을 수 없습니다' });
+    }
+
+    res.json({ ok: true, message: '초대를 거절했습니다' });
+  } catch (err) { serverError(res, err); }
+});
+
+// 파티 탈퇴
+app.post('/api/party/leave', requireAuth, rateLimit('party_leave', 20), (req, res) => {
+  try {
+    const membership = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (!membership) {
+      return res.status(400).json({ ok: false, error: '파티에 속해 있지 않습니다' });
+    }
+
+    const party = db.prepare('SELECT * FROM parties WHERE id = ?').get(membership.party_id);
+
+    // 파티장이 탈퇴하면 파티 해체
+    if (party.leader_id === req.user.id) {
+      db.prepare('DELETE FROM parties WHERE id = ?').run(membership.party_id);
+      res.json({ ok: true, message: '파티를 해체했습니다' });
+    } else {
+      db.prepare('DELETE FROM party_members WHERE party_id = ? AND user_id = ?')
+        .run(membership.party_id, req.user.id);
+      res.json({ ok: true, message: '파티에서 탈퇴했습니다' });
+    }
+  } catch (err) { serverError(res, err); }
+});
+
+// 파티원 추방 (파티장만 가능)
+app.post('/api/party/kick', requireAuth, rateLimit('party_kick', 20), (req, res) => {
+  try {
+    const { user_id } = req.body || {};
+    const targetId = parseInt(user_id);
+    if (!targetId || targetId <= 0) {
+      return res.status(400).json({ ok: false, error: 'user_id 필요' });
+    }
+
+    const membership = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (!membership) {
+      return res.status(400).json({ ok: false, error: '파티에 속해 있지 않습니다' });
+    }
+
+    const party = db.prepare('SELECT * FROM parties WHERE id = ?').get(membership.party_id);
+
+    if (party.leader_id !== req.user.id) {
+      return res.status(403).json({ ok: false, error: '파티장만 추방할 수 있습니다' });
+    }
+
+    if (targetId === req.user.id) {
+      return res.status(400).json({ ok: false, error: '자기 자신은 추방할 수 없습니다' });
+    }
+
+    const result = db.prepare(
+      'DELETE FROM party_members WHERE party_id = ? AND user_id = ?'
+    ).run(membership.party_id, targetId);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ ok: false, error: '파티원을 찾을 수 없습니다' });
+    }
+
+    res.json({ ok: true, message: '파티원을 추방했습니다' });
   } catch (err) { serverError(res, err); }
 });
 
