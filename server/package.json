@@ -1,6 +1,6 @@
 {
   "name": "dragon-raja-server",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "description": "Dragon Raja RPG server (Railway + SQLite)",
   "main": "index.js",
   "scripts": {
