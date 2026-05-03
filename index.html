@@ -633,7 +633,7 @@
     _lastPlayTick = now;
     if (!game.state || !game.state.name) return;
     // 게임이 유휴 상태여도 틱은 누적 — 단, 캐릭터 선택 중이면 안 됨
-    if (uiMode === 'select' || uiMode.startsWith('auth_') || uiMode.startsWith('cloud') || uiMode === 'leaderboard' || uiMode === 'mail' || uiMode === 'mail_send' || uiMode === 'friends' || uiMode === 'friends_requests' || uiMode === 'messages' || uiMode === 'chat' || uiMode === 'party' || uiMode === 'party_invites') return;
+    if (uiMode === 'select' || uiMode.startsWith('auth_') || uiMode.startsWith('cloud') || uiMode === 'leaderboard' || uiMode === 'mail' || uiMode === 'mail_send' || uiMode === 'friends' || uiMode === 'friends_requests' || uiMode === 'messages' || uiMode === 'chat' || uiMode === 'party' || uiMode === 'party_invites' || uiMode === 'raid' || uiMode === 'raid_rewards') return;
     if (!game.state.playTimeSec) game.state.playTimeSec = 0;
     game.state.playTimeSec += delta;
   }, 1000);
@@ -1275,6 +1275,8 @@
     if (uiMode === 'chat')         return renderChat();
     if (uiMode === 'party')        return renderParty();
     if (uiMode === 'party_invites') return renderPartyInvites();
+    if (uiMode === 'raid')         return renderRaid();
+    if (uiMode === 'raid_rewards') return renderRaidRewards();
     if (uiMode === 'mail')         return renderMail();
     if (uiMode === 'mail_send')    return renderMailSend();
     if (uiMode === 'mypage')       return renderMyPage();
@@ -2274,6 +2276,18 @@
         act.appendChild(inviteRow);
       }
 
+      // 레이드 버튼
+      const raidRow = mkSection();
+      raidRow.appendChild(mkBtn('⚔ 레이드 시작', () => {
+        uiMode = 'raid';
+        render();
+      }, { gold: true, big: true, title: '파티원들과 함께 강력한 보스에 도전!' }));
+      raidRow.appendChild(mkBtn('🎁 레이드 보상', () => {
+        uiMode = 'raid_rewards';
+        render();
+      }, { mini: true }));
+      act.appendChild(raidRow);
+
       const leaveRow = mkSection();
       leaveRow.appendChild(mkBtn(isLeader ? '파티 해체' : '파티 탈퇴', async () => {
         if (!confirm(isLeader ? '파티를 해체하시겠습니까?' : '파티에서 탈퇴하시겠습니까?')) return;
@@ -2359,6 +2373,227 @@
             print(r.error, 'warn');
           }
         }, { mini: true, danger: true }));
+        list.appendChild(row);
+      });
+      act.appendChild(list);
+    }
+
+    const backRow = mkSection();
+    backRow.appendChild(mkBtn('◀ 돌아가기', () => { uiMode = 'party'; render(); }, { danger: true }));
+    act.appendChild(backRow);
+  }
+
+  // ─── 레이드 시스템 ───
+  let raidCache = null;
+  let raidRewardsCache = null;
+  let raidPolling = null;
+
+  const RAID_BOSSES = {
+    ancient_dragon: { name: '고대 드래곤', maxHp: 100000, emoji: '🐉' },
+    demon_lord: { name: '마왕', maxHp: 150000, emoji: '👹' },
+    titan_golem: { name: '타이탄 골렘', maxHp: 80000, emoji: '🗿' },
+    void_kraken: { name: '공허 크라켄', maxHp: 120000, emoji: '🦑' },
+  };
+
+  function renderRaid() {
+    const intro = mkSection();
+    intro.innerHTML = '<div style="color:#e0e6ed;font-size:14px;margin-bottom:8px;"><b>⚔ 파티 레이드</b></div>';
+    act.appendChild(intro);
+
+    if (!raidCache) {
+      const loading = mkSection();
+      loading.innerHTML = '<span style="color:#858585;">로딩 중...</span>';
+      act.appendChild(loading);
+      (async () => {
+        const r = await api('/api/raid/status', 'GET');
+        raidCache = r.ok ? r.raid : null;
+        render();
+      })();
+      return;
+    }
+
+    // 진행 중인 레이드가 있으면 표시
+    if (raidCache) {
+      const bossInfo = mkSection();
+      bossInfo.style.flexDirection = 'column';
+      bossInfo.style.gap = '6px';
+
+      const bossKey = Object.keys(RAID_BOSSES).find(k => RAID_BOSSES[k].name === raidCache.boss_name);
+      const bossData = bossKey ? RAID_BOSSES[bossKey] : { emoji: '👹' };
+
+      bossInfo.innerHTML = `
+        <div style="text-align:center;font-size:24px;margin:10px 0;">${bossData.emoji}</div>
+        <div style="text-align:center;color:#f4c96b;font-size:15px;"><b>${escHtml(raidCache.boss_name)}</b></div>
+        <div style="text-align:center;color:#858585;font-size:12px;">HP: ${raidCache.boss_current_hp.toLocaleString()} / ${raidCache.boss_max_hp.toLocaleString()}</div>
+        <div style="background:#222;border-radius:4px;height:20px;position:relative;margin:8px 0;">
+          <div style="background:linear-gradient(to right, #ff4444, #ff6666);height:100%;border-radius:4px;width:${raidCache.progressPercent}%;transition:width 0.3s;"></div>
+          <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:bold;">${raidCache.progressPercent}%</div>
+        </div>
+      `;
+      act.appendChild(bossInfo);
+
+      // 기여도 순위
+      const contribTitle = mkSection();
+      contribTitle.innerHTML = '<div style="color:#ccc;font-size:12px;margin-top:8px;"><b>기여도 순위</b></div>';
+      act.appendChild(contribTitle);
+
+      raidCache.contributions.slice(0, 5).forEach((contrib, idx) => {
+        const row = mkSection();
+        const rank = ['🥇', '🥈', '🥉'][idx] || `${idx + 1}위`;
+        row.innerHTML = `
+          <div style="flex:1;">
+            <span style="color:#f4c96b;">${rank}</span>
+            <span style="color:#e0e6ed;margin-left:8px;">${escHtml(contrib.username)}</span>
+            <span style="color:#858585;margin-left:8px;font-size:11px;">${contrib.damage_dealt.toLocaleString()} 데미지 (${contrib.attacks_count}회)</span>
+          </div>
+        `;
+        act.appendChild(row);
+      });
+
+      // 공격 버튼
+      const attackRow = mkSection();
+      attackRow.appendChild(mkBtn('⚔ 공격하기', async () => {
+        // 게임 스테이트에서 데미지 계산 (임시로 랜덤)
+        const baseDamage = 500 + Math.floor(Math.random() * 1000);
+        const r = await api('/api/raid/attack', 'POST', { damage: baseDamage });
+        if (r.ok) {
+          print(`💥 ${r.damage.toLocaleString()} 데미지!`, 'good');
+          if (r.boss_defeated) {
+            print(`🎉 ${raidCache.boss_name}을(를) 처치했습니다!`, 'good');
+            raidCache = null;
+            uiMode = 'raid_rewards';
+          } else {
+            raidCache = null;
+          }
+          render();
+        } else {
+          print(r.error, 'warn');
+        }
+      }, { primary: true, big: true }));
+
+      // 파티장만 포기 가능
+      const partyCache2 = partyCache; // 파티 정보 재확인 필요
+      if (partyCache2) {
+        const isLeader = partyCache2.leader_id === partyCache2.members.find(m => m.username === currentUsername)?.user_id;
+        if (isLeader) {
+          attackRow.appendChild(mkBtn('❌ 포기', async () => {
+            if (!confirm('레이드를 포기하시겠습니까?')) return;
+            const r = await api('/api/raid/abandon', 'POST');
+            if (r.ok) {
+              print(r.message, 'warn');
+              raidCache = null;
+              render();
+            } else {
+              print(r.error, 'warn');
+            }
+          }, { danger: true, mini: true }));
+        }
+      }
+      act.appendChild(attackRow);
+
+      // 자동 갱신
+      if (!raidPolling) {
+        raidPolling = setInterval(async () => {
+          if (uiMode === 'raid') {
+            const r = await api('/api/raid/status', 'GET');
+            if (r.ok) {
+              raidCache = r.raid;
+              if (!raidCache) {
+                clearInterval(raidPolling);
+                raidPolling = null;
+              }
+              render();
+            }
+          } else {
+            clearInterval(raidPolling);
+            raidPolling = null;
+          }
+        }, 3000);
+      }
+    } else {
+      // 보스 선택
+      const selectTitle = mkSection();
+      selectTitle.innerHTML = '<div style="color:#ccc;font-size:12px;margin-bottom:8px;"><b>보스 선택</b></div>';
+      act.appendChild(selectTitle);
+
+      Object.entries(RAID_BOSSES).forEach(([key, boss]) => {
+        const row = mkSection();
+        row.innerHTML = `
+          <div style="flex:1;">
+            <span style="font-size:20px;">${boss.emoji}</span>
+            <span style="color:#e0e6ed;margin-left:8px;"><b>${boss.name}</b></span>
+            <span style="color:#858585;margin-left:8px;font-size:11px;">HP: ${boss.maxHp.toLocaleString()}</span>
+          </div>
+        `;
+        row.appendChild(mkBtn('시작', async () => {
+          if (!confirm(`${boss.name} 레이드를 시작하시겠습니까?`)) return;
+          const r = await api('/api/raid/start', 'POST', { boss_key: key });
+          if (r.ok) {
+            print(r.message, 'good');
+            raidCache = null;
+            render();
+          } else {
+            print(r.error, 'warn');
+          }
+        }, { primary: true }));
+        act.appendChild(row);
+      });
+    }
+
+    const backRow = mkSection();
+    backRow.appendChild(mkBtn('◀ 돌아가기', () => {
+      if (raidPolling) {
+        clearInterval(raidPolling);
+        raidPolling = null;
+      }
+      uiMode = 'party';
+      render();
+    }, { danger: true }));
+    act.appendChild(backRow);
+  }
+
+  function renderRaidRewards() {
+    const intro = mkSection();
+    intro.innerHTML = '<div style="color:#e0e6ed;font-size:14px;margin-bottom:8px;"><b>🎁 레이드 보상</b></div>';
+    act.appendChild(intro);
+
+    const list = mkSection();
+    list.style.flexDirection = 'column';
+    list.style.gap = '4px';
+
+    if (!raidRewardsCache) {
+      list.innerHTML = '<span style="color:#858585;">로딩 중...</span>';
+      act.appendChild(list);
+      (async () => {
+        const r = await api('/api/raid/rewards', 'GET');
+        raidRewardsCache = r.ok ? r.data : [];
+        render();
+      })();
+    } else if (raidRewardsCache.length === 0) {
+      list.innerHTML = '<span style="color:#858585;">받을 보상이 없습니다.</span>';
+      act.appendChild(list);
+    } else {
+      raidRewardsCache.forEach(reward => {
+        const row = mkSection();
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;';
+        const date = new Date(reward.completed_at * 1000).toLocaleString('ko-KR');
+        info.innerHTML = `
+          <div style="color:#e0e6ed;font-size:13px;"><b>${escHtml(reward.boss_name)}</b> 레이드</div>
+          <div style="color:#f4c96b;font-size:12px;">💰 ${reward.gold.toLocaleString()}G</div>
+          <div style="color:#666;font-size:10px;">${date}</div>
+        `;
+        row.appendChild(info);
+        row.appendChild(mkBtn('💎 수령', async () => {
+          const r = await api('/api/raid/claim', 'POST', { reward_id: reward.id });
+          if (r.ok) {
+            print(r.message, 'good');
+            raidRewardsCache = null;
+            render();
+          } else {
+            print(r.error, 'warn');
+          }
+        }, { primary: true, success: true }));
         list.appendChild(row);
       });
       act.appendChild(list);

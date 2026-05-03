@@ -141,6 +141,38 @@ db.exec(`
     created_at INTEGER DEFAULT (strftime('%s','now')),
     UNIQUE(party_id, to_user_id)
   );
+
+  CREATE TABLE IF NOT EXISTS raid_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    party_id INTEGER NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+    boss_name TEXT NOT NULL,
+    boss_max_hp INTEGER NOT NULL,
+    boss_current_hp INTEGER NOT NULL,
+    status TEXT DEFAULT 'active',
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    completed_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS raid_contributions (
+    raid_id INTEGER NOT NULL REFERENCES raid_sessions(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    username TEXT NOT NULL,
+    damage_dealt INTEGER DEFAULT 0,
+    attacks_count INTEGER DEFAULT 0,
+    PRIMARY KEY (raid_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS raid_rewards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    raid_id INTEGER NOT NULL REFERENCES raid_sessions(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    username TEXT NOT NULL,
+    gold INTEGER DEFAULT 0,
+    item_key TEXT,
+    item_qty INTEGER DEFAULT 0,
+    claimed INTEGER DEFAULT 0,
+    created_at INTEGER DEFAULT (strftime('%s','now'))
+  );
 `);
 
 // ─── 스키마: 마이그레이션 (기존 DB 에 신규 컬럼 추가) ──────────
@@ -172,6 +204,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_party_leader ON parties(leader_id);
   CREATE INDEX IF NOT EXISTS idx_party_members_user ON party_members(user_id);
   CREATE INDEX IF NOT EXISTS idx_party_invites_to ON party_invites(to_user_id, status);
+  CREATE INDEX IF NOT EXISTS idx_raid_party ON raid_sessions(party_id, status);
+  CREATE INDEX IF NOT EXISTS idx_raid_contrib_user ON raid_contributions(user_id);
+  CREATE INDEX IF NOT EXISTS idx_raid_rewards_user ON raid_rewards(user_id, claimed);
 `);
 
 // ─── Express ───────────────────────────────────
@@ -980,6 +1015,283 @@ app.post('/api/party/kick', requireAuth, rateLimit('party_kick', 20), (req, res)
     }
 
     res.json({ ok: true, message: '파티원을 추방했습니다' });
+  } catch (err) { serverError(res, err); }
+});
+
+// ─── 레이드 시스템 ─────────────────────────────
+// 레이드 보스 목록 (이름, 최대 HP, 골드 보상, 아이템 드랍)
+const RAID_BOSSES = {
+  'ancient_dragon': { name: '고대 드래곤', maxHp: 100000, goldReward: 50000, items: [] },
+  'demon_lord': { name: '마왕', maxHp: 150000, goldReward: 75000, items: [] },
+  'titan_golem': { name: '타이탄 골렘', maxHp: 80000, goldReward: 40000, items: [] },
+  'void_kraken': { name: '공허 크라켄', maxHp: 120000, goldReward: 60000, items: [] },
+};
+
+// 레이드 시작 (파티장만 가능)
+app.post('/api/raid/start', requireAuth, rateLimit('raid_start', 10), (req, res) => {
+  try {
+    const { boss_key } = req.body || {};
+
+    if (!boss_key || !RAID_BOSSES[boss_key]) {
+      return res.status(400).json({ ok: false, error: '유효하지 않은 보스' });
+    }
+
+    // 파티 확인
+    const membership = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (!membership) {
+      return res.status(400).json({ ok: false, error: '파티에 속해 있지 않습니다' });
+    }
+
+    const party = db.prepare('SELECT * FROM parties WHERE id = ?').get(membership.party_id);
+
+    // 파티장 확인
+    if (party.leader_id !== req.user.id) {
+      return res.status(403).json({ ok: false, error: '파티장만 레이드를 시작할 수 있습니다' });
+    }
+
+    // 진행 중인 레이드 확인
+    const activeRaid = db.prepare(
+      'SELECT id FROM raid_sessions WHERE party_id = ? AND status = ?'
+    ).get(membership.party_id, 'active');
+
+    if (activeRaid) {
+      return res.status(400).json({ ok: false, error: '이미 진행 중인 레이드가 있습니다' });
+    }
+
+    const boss = RAID_BOSSES[boss_key];
+
+    // 레이드 생성
+    const result = db.prepare(
+      'INSERT INTO raid_sessions (party_id, boss_name, boss_max_hp, boss_current_hp) VALUES (?, ?, ?, ?)'
+    ).run(membership.party_id, boss.name, boss.maxHp, boss.maxHp);
+
+    const raidId = result.lastInsertRowid;
+
+    // 파티원들의 기여도 초기화
+    const members = db.prepare(
+      'SELECT user_id, username FROM party_members WHERE party_id = ?'
+    ).all(membership.party_id);
+
+    const initContrib = db.prepare(
+      'INSERT INTO raid_contributions (raid_id, user_id, username) VALUES (?, ?, ?)'
+    );
+
+    members.forEach(member => {
+      initContrib.run(raidId, member.user_id, member.username);
+    });
+
+    res.json({
+      ok: true,
+      raid_id: raidId,
+      boss: { ...boss, key: boss_key, currentHp: boss.maxHp },
+      message: `${boss.name} 레이드를 시작했습니다!`
+    });
+  } catch (err) { serverError(res, err); }
+});
+
+// 레이드 상태 조회
+app.get('/api/raid/status', requireAuth, (req, res) => {
+  try {
+    const membership = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (!membership) {
+      return res.json({ ok: true, raid: null });
+    }
+
+    const raid = db.prepare(
+      'SELECT * FROM raid_sessions WHERE party_id = ? AND status = ?'
+    ).get(membership.party_id, 'active');
+
+    if (!raid) {
+      return res.json({ ok: true, raid: null });
+    }
+
+    const contributions = db.prepare(
+      'SELECT user_id, username, damage_dealt, attacks_count FROM raid_contributions WHERE raid_id = ? ORDER BY damage_dealt DESC'
+    ).all(raid.id);
+
+    res.json({
+      ok: true,
+      raid: {
+        ...raid,
+        contributions,
+        progressPercent: Math.round((1 - raid.boss_current_hp / raid.boss_max_hp) * 100)
+      }
+    });
+  } catch (err) { serverError(res, err); }
+});
+
+// 레이드 공격
+app.post('/api/raid/attack', requireAuth, rateLimit('raid_attack', 100), (req, res) => {
+  try {
+    const { damage } = req.body || {};
+    const dmg = Math.max(0, Math.min(100000, parseInt(damage) || 0));
+
+    if (dmg <= 0) {
+      return res.status(400).json({ ok: false, error: '유효하지 않은 데미지' });
+    }
+
+    // 파티 및 레이드 확인
+    const membership = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (!membership) {
+      return res.status(400).json({ ok: false, error: '파티에 속해 있지 않습니다' });
+    }
+
+    const raid = db.prepare(
+      'SELECT * FROM raid_sessions WHERE party_id = ? AND status = ?'
+    ).get(membership.party_id, 'active');
+
+    if (!raid) {
+      return res.status(400).json({ ok: false, error: '진행 중인 레이드가 없습니다' });
+    }
+
+    // 실제 데미지 계산 (보스 HP를 초과하지 않도록)
+    const actualDamage = Math.min(dmg, raid.boss_current_hp);
+    const newHp = raid.boss_current_hp - actualDamage;
+
+    // 트랜잭션으로 처리
+    const updateRaid = db.prepare(
+      'UPDATE raid_sessions SET boss_current_hp = ? WHERE id = ?'
+    );
+    const updateContrib = db.prepare(
+      'UPDATE raid_contributions SET damage_dealt = damage_dealt + ?, attacks_count = attacks_count + 1 WHERE raid_id = ? AND user_id = ?'
+    );
+
+    db.transaction(() => {
+      updateRaid.run(newHp, raid.id);
+      updateContrib.run(actualDamage, raid.id, req.user.id);
+    })();
+
+    // 보스 처치 확인
+    if (newHp <= 0) {
+      // 레이드 완료 처리
+      db.prepare(
+        'UPDATE raid_sessions SET status = ?, completed_at = strftime(\'%s\',\'now\') WHERE id = ?'
+      ).run('completed', raid.id);
+
+      // 보상 계산 및 분배
+      const contributions = db.prepare(
+        'SELECT user_id, username, damage_dealt FROM raid_contributions WHERE raid_id = ?'
+      ).all(raid.id);
+
+      const totalDamage = contributions.reduce((sum, c) => sum + c.damage_dealt, 0);
+      const bossKey = Object.keys(RAID_BOSSES).find(k => RAID_BOSSES[k].name === raid.boss_name);
+      const boss = bossKey ? RAID_BOSSES[bossKey] : { goldReward: 10000 };
+
+      const insertReward = db.prepare(
+        'INSERT INTO raid_rewards (raid_id, user_id, username, gold) VALUES (?, ?, ?, ?)'
+      );
+
+      contributions.forEach(contrib => {
+        const contribution = totalDamage > 0 ? contrib.damage_dealt / totalDamage : 1 / contributions.length;
+        const gold = Math.floor(boss.goldReward * contribution);
+        insertReward.run(raid.id, contrib.user_id, contrib.username, gold);
+      });
+
+      res.json({
+        ok: true,
+        boss_defeated: true,
+        damage: actualDamage,
+        message: `${raid.boss_name}을(를) 처치했습니다!`,
+        raid_id: raid.id
+      });
+    } else {
+      res.json({
+        ok: true,
+        boss_defeated: false,
+        damage: actualDamage,
+        remaining_hp: newHp,
+        progress: Math.round((1 - newHp / raid.boss_max_hp) * 100)
+      });
+    }
+  } catch (err) { serverError(res, err); }
+});
+
+// 레이드 보상 조회
+app.get('/api/raid/rewards', requireAuth, (req, res) => {
+  try {
+    const rewards = db.prepare(
+      'SELECT r.*, rs.boss_name, rs.completed_at FROM raid_rewards r JOIN raid_sessions rs ON r.raid_id = rs.id WHERE r.user_id = ? AND r.claimed = 0 ORDER BY r.created_at DESC LIMIT 20'
+    ).all(req.user.id);
+
+    res.json({ ok: true, data: rewards });
+  } catch (err) { serverError(res, err); }
+});
+
+// 레이드 보상 수령
+app.post('/api/raid/claim', requireAuth, rateLimit('raid_claim', 30), (req, res) => {
+  try {
+    const { reward_id } = req.body || {};
+    const id = parseInt(reward_id);
+
+    if (!id || id <= 0) {
+      return res.status(400).json({ ok: false, error: 'reward_id 필요' });
+    }
+
+    const reward = db.prepare(
+      'SELECT * FROM raid_rewards WHERE id = ? AND user_id = ?'
+    ).get(id, req.user.id);
+
+    if (!reward) {
+      return res.status(404).json({ ok: false, error: '보상을 찾을 수 없습니다' });
+    }
+
+    if (reward.claimed) {
+      return res.status(400).json({ ok: false, error: '이미 수령한 보상입니다' });
+    }
+
+    db.prepare('UPDATE raid_rewards SET claimed = 1 WHERE id = ?').run(id);
+
+    res.json({
+      ok: true,
+      reward: {
+        gold: reward.gold,
+        item_key: reward.item_key,
+        item_qty: reward.item_qty
+      },
+      message: `보상을 수령했습니다! 골드 +${reward.gold}G`
+    });
+  } catch (err) { serverError(res, err); }
+});
+
+// 레이드 포기 (파티장만 가능)
+app.post('/api/raid/abandon', requireAuth, rateLimit('raid_abandon', 10), (req, res) => {
+  try {
+    const membership = db.prepare(
+      'SELECT party_id FROM party_members WHERE user_id = ?'
+    ).get(req.user.id);
+
+    if (!membership) {
+      return res.status(400).json({ ok: false, error: '파티에 속해 있지 않습니다' });
+    }
+
+    const party = db.prepare('SELECT * FROM parties WHERE id = ?').get(membership.party_id);
+
+    if (party.leader_id !== req.user.id) {
+      return res.status(403).json({ ok: false, error: '파티장만 레이드를 포기할 수 있습니다' });
+    }
+
+    const raid = db.prepare(
+      'SELECT id FROM raid_sessions WHERE party_id = ? AND status = ?'
+    ).get(membership.party_id, 'active');
+
+    if (!raid) {
+      return res.status(400).json({ ok: false, error: '진행 중인 레이드가 없습니다' });
+    }
+
+    db.prepare(
+      'UPDATE raid_sessions SET status = ?, completed_at = strftime(\'%s\',\'now\') WHERE id = ?'
+    ).run('abandoned', raid.id);
+
+    res.json({ ok: true, message: '레이드를 포기했습니다' });
   } catch (err) { serverError(res, err); }
 });
 
