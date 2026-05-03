@@ -37,7 +37,7 @@ const JOBS = {
     skills: [
       { id: 'slash',   name: '강타',     lv: 1,  mp: 6,  power: 1.6, type: 'phys',     desc: '강한 일격.' },
       { id: 'guard',   name: '방어태세', lv: 3,  mp: 8,              type: 'buff', effect: 'def_up', turns: 3, desc: '방어력 +50% (3턴).' },
-      { id: 'whirl',   name: '회전베기', lv: 6,  mp: 14, power: 1.3, type: 'phys_aoe', desc: '모든 적을 벤다.' },
+      { id: 'whirl',   name: '회전베기', lv: 6,  mp: 12, power: 2.0, type: 'phys_aoe', desc: '모든 적을 벤다.' },
       { id: 'execute', name: '처형',     lv: 10, mp: 20, power: 2.4, type: 'phys',     effect: 'finisher', desc: '빈사의 적에게 치명타.' },
     ],
   },
@@ -51,7 +51,7 @@ const JOBS = {
       { id: 'fireball', name: '화염구',   lv: 1,  mp: 8,  power: 1.6, type: 'mag',     desc: '화염 투사체.' },
       { id: 'icebolt',  name: '얼음화살', lv: 3,  mp: 10, power: 1.4, type: 'mag',     effect: 'slow',  desc: '적 속도 감소.' },
       { id: 'thunder',  name: '낙뢰',     lv: 6,  mp: 18, power: 2.0, type: 'mag_aoe', desc: '전 적에게 번개.' },
-      { id: 'meteor',   name: '메테오',   lv: 12, mp: 40, power: 3.5, type: 'mag_aoe', desc: '유성을 떨어뜨린다.' },
+      { id: 'meteor',   name: '메테오',   lv: 12, mp: 35, power: 4.0, type: 'mag_aoe', desc: '유성을 떨어뜨린다.' },
     ],
   },
   priest: {
@@ -74,7 +74,7 @@ const JOBS = {
     grow: { hp: 11, mp: 6, atk: 3, def: 1, mag: 1 },
     mainStats: ['dex', 'luk'],
     skills: [
-      { id: 'backstab', name: '기습',       lv: 1, mp: 5,  power: 1.8, type: 'phys',    effect: 'crit_plus', desc: '크리티컬 확률 증가.' },
+      { id: 'backstab', name: '기습',       lv: 1, mp: 8,  power: 1.6, type: 'phys',    effect: 'crit_plus', desc: '크리티컬 확률 증가.' },
       { id: 'poison',   name: '독묻히기',   lv: 3, mp: 8,               type: 'debuff', effect: 'poison',    turns: 4, desc: '독 DoT (4턴).' },
       { id: 'shadow',   name: '그림자분신', lv: 7, mp: 18,              type: 'buff',   effect: 'eva_up',    turns: 3, desc: '회피 +50% (3턴).' },
       { id: 'steal',    name: '훔치기',     lv: 5, mp: 6,                type: 'utility', effect: 'steal_gold', desc: '적 골드를 훔친다.' },
@@ -344,7 +344,7 @@ const JOBS = {
     grow: { hp: 14, mp: 7, atk: 4, def: 1, mag: 1 },
     mainStats: ['dex', 'luk'],
     skills: [
-      { id: 'assassinate',    name: '암살',       lv: 20, mp: 18, power: 2.5, type: 'phys', effect: 'crit_100', desc: '확정 치명타.' },
+      { id: 'assassinate',    name: '암살',       lv: 20, mp: 22, power: 2.3, type: 'phys', effect: 'crit_100', desc: '확정 치명타.' },
       { id: 'shadow_step',    name: '그림자도약', lv: 24, mp: 15, power: 1.8, type: 'phys', effect: 'eva_up',   turns: 2, desc: '회피 +.' },
       { id: 'dagger_throw',   name: '투검',       lv: 28, mp: 12, power: 1.5, type: 'phys', hits: 2,            desc: '단검 투척.' },
       { id: 'poison_mastery', name: '독 숙련',    lv: 34, mp: 20,             type: 'buff', effect: 'poison_plus', turns: 99, desc: '독 데미지 +200%.' },
@@ -3513,8 +3513,8 @@ const COMBO_SKILLS = [
       desc: '전사 + 사제: 성스러운 돌격. 언데드 2배.' } },
   // 도적 × 음유시인 — 환상 공격
   { lines: ['thief', 'bard'],
-    skill: { id: 'cb_illusion', name: '환상곡', lv: 1, mp: 38,
-      type: 'mag_aoe', power: 1.8, effect: 'fear',
+    skill: { id: 'cb_illusion', name: '환상곡', lv: 1, mp: 32,
+      type: 'mag_aoe', power: 2.5, effect: 'fear',
       desc: '도적 + 음유시인: 광역 공포.' } },
   // 상인 × 도적 — 밀수꾼
   { lines: ['merchant', 'thief'],
