@@ -1867,6 +1867,10 @@
       uiMode = 'messages';
       render();
     }, { mini: true }));
+    tabs.appendChild(mkBtn('← 뒤로', () => {
+      uiMode = 'server';
+      render();
+    }, { mini: true }));
     act.appendChild(tabs);
 
     const list = mkSection();
@@ -2154,6 +2158,7 @@
 
   // ─── 파티 시스템 ───
   let partyCache = null;
+  let partyLoadError = null;
   let partyInvitesCache = null;
 
   function renderParty() {
@@ -2164,6 +2169,7 @@
     const tabs = mkSection();
     tabs.appendChild(mkBtn('내 파티', async () => {
       partyCache = null;
+      partyLoadError = null;
       uiMode = 'party';
       render();
     }, { primary: true, mini: true }));
@@ -2172,21 +2178,36 @@
       uiMode = 'party_invites';
       render();
     }, { mini: true }));
+    tabs.appendChild(mkBtn('← 뒤로', () => {
+      uiMode = 'server';
+      render();
+    }, { mini: true }));
     act.appendChild(tabs);
 
-    if (!partyCache) {
+    if (partyCache === null && !partyLoadError) {
       const loading = mkSection();
       loading.innerHTML = '<span style="color:#858585;">로딩 중...</span>';
       act.appendChild(loading);
       (async () => {
         const r = await api('/api/party/my', 'GET');
-        partyCache = r.ok ? r.party : null;
+        if (r.ok) {
+          partyCache = r.party || 'none';
+        } else {
+          partyLoadError = r.error || '파티 정보를 불러올 수 없습니다.';
+        }
         render();
       })();
       return;
     }
 
-    if (!partyCache) {
+    if (partyLoadError) {
+      const errSection = mkSection();
+      errSection.innerHTML = `<span style="color:#e74c3c;">${escHtml(partyLoadError)}</span>`;
+      act.appendChild(errSection);
+      return;
+    }
+
+    if (partyCache === 'none' || !partyCache) {
       const empty = mkSection();
       empty.innerHTML = '<span style="color:#858585;">파티에 속해 있지 않습니다.</span>';
       act.appendChild(empty);
@@ -2316,6 +2337,7 @@
     const tabs = mkSection();
     tabs.appendChild(mkBtn('내 파티', () => {
       partyCache = null;
+      partyLoadError = null;
       uiMode = 'party';
       render();
     }, { mini: true }));
@@ -2324,6 +2346,10 @@
       uiMode = 'party_invites';
       render();
     }, { primary: true, mini: true }));
+    tabs.appendChild(mkBtn('← 뒤로', () => {
+      uiMode = 'server';
+      render();
+    }, { mini: true }));
     act.appendChild(tabs);
 
     const list = mkSection();
@@ -2399,6 +2425,14 @@
     const intro = mkSection();
     intro.innerHTML = '<div style="color:#e0e6ed;font-size:14px;margin-bottom:8px;"><b>⚔ 파티 레이드</b></div>';
     act.appendChild(intro);
+
+    const backBtn = mkSection();
+    backBtn.appendChild(mkBtn('← 뒤로', () => {
+      uiMode = 'server';
+      if (raidPolling) { clearInterval(raidPolling); raidPolling = null; }
+      render();
+    }, { mini: true }));
+    act.appendChild(backBtn);
 
     if (!raidCache) {
       const loading = mkSection();
