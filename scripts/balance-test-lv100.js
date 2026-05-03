@@ -79,10 +79,10 @@ function testToLevel100(config) {
                 return sk && sk.type === 'heal' && (!sk.mp || g.state.mp >= sk.mp);
               });
               if (healSkill) {
-                g.runCommand('skill ' + healSkill);
+                g.handleInput('skill ' + healSkill);
                 stats.healsUsed++;
               } else {
-                g.runCommand('attack');
+                g.handleInput('attack');
               }
             }
             // MP 충분하면 스킬 사용 (50% 확률)
@@ -95,12 +95,12 @@ function testToLevel100(config) {
               });
               if (attackSkills.length > 0) {
                 const skill = attackSkills[Math.floor(Math.random() * attackSkills.length)];
-                g.runCommand('skill ' + skill);
+                g.handleInput('skill ' + skill);
               } else {
-                g.runCommand('attack');
+                g.handleInput('attack');
               }
             } else {
-              g.runCommand('attack');
+              g.handleInput('attack');
             }
 
             combatTurns++;
