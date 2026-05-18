@@ -308,6 +308,230 @@
     }
     body[data-game-theme="kakao"] button:hover:not(:disabled) { background: #ffed4d; }
     body[data-game-theme="kakao"] #topbar .t1 { color: #1a1a1a; }
+
+    .px-art {
+      image-rendering: pixelated;
+      flex: 0 0 auto;
+      filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35));
+    }
+    .px-panel {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #333;
+      background: linear-gradient(135deg, rgba(255,255,255,0.035), rgba(0,0,0,0.12));
+    }
+    .px-panel-title { color: #d4d4d4; font-size: 13px; font-weight: bold; }
+    .px-panel-sub { color: #858585; font-size: 11.5px; margin-top: 3px; line-height: 1.4; }
+    .px-scene {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+    }
+    .px-party, .px-foes, .px-items {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .px-token {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #b4b4b4;
+      font-size: 11px;
+      min-width: 0;
+    }
+    .px-item-icon {
+      width: 22px;
+      height: 22px;
+      vertical-align: middle;
+      margin-right: 5px;
+    }
+    .px-side-avatar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .px-battle-panel {
+      position: relative;
+      overflow: hidden;
+      min-height: 104px;
+    }
+    .px-combatant-player,
+    .px-combatant-foes {
+      position: relative;
+      z-index: 2;
+    }
+    .px-combatant-player .px-art,
+    .px-combatant-foes .px-art {
+      transform-origin: 50% 85%;
+    }
+    .px-action-label {
+      margin-top: 4px;
+      color: #e5c24c;
+      font-size: 11px;
+      min-height: 14px;
+    }
+    .px-effect {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 1;
+    }
+    .px-effect::before,
+    .px-effect::after {
+      content: "";
+      position: absolute;
+      image-rendering: pixelated;
+    }
+    .px-act-attack .px-combatant-player .px-art,
+    .px-act-skill-phys .px-combatant-player .px-art {
+      animation: px-lunge 520ms steps(4, end);
+    }
+    .px-act-skill-mag .px-combatant-player .px-art,
+    .px-act-skill-heal .px-combatant-player .px-art,
+    .px-act-skill-buff .px-combatant-player .px-art,
+    .px-act-skill-debuff .px-combatant-player .px-art,
+    .px-act-skill-utility .px-combatant-player .px-art {
+      animation: px-cast 640ms steps(5, end);
+    }
+    .px-act-item .px-combatant-player .px-art {
+      animation: px-use-item 560ms steps(4, end);
+    }
+    .px-act-run .px-combatant-player .px-art {
+      animation: px-retreat 620ms steps(5, end);
+    }
+    .px-act-attack .px-combatant-foes .px-art,
+    .px-act-skill-phys .px-combatant-foes .px-art,
+    .px-act-skill-mag .px-combatant-foes .px-art,
+    .px-act-skill-debuff .px-combatant-foes .px-art {
+      animation: px-hit 520ms steps(4, end);
+    }
+    .px-effect-slash::before {
+      left: 55%;
+      top: 25%;
+      width: 46px;
+      height: 46px;
+      background:
+        linear-gradient(135deg, transparent 35%, #fff7c4 36% 45%, #e55 46% 55%, transparent 56%);
+      animation: px-slash 520ms steps(4, end);
+    }
+    .px-effect-projectile::before {
+      left: 33%;
+      top: 39%;
+      width: 16px;
+      height: 16px;
+      background: #ffdf66;
+      box-shadow: 8px 0 #f05a28, -6px 0 #ffe9a8, 0 8px #d22b2b;
+      animation: px-projectile 620ms steps(6, end);
+    }
+    .px-effect-heal::before,
+    .px-effect-buff::before {
+      left: 15%;
+      top: 18%;
+      width: 70px;
+      height: 70px;
+      border: 4px solid #6ee58a;
+      box-shadow: inset 0 0 0 4px rgba(255,255,255,0.22);
+      animation: px-pulse 680ms steps(5, end);
+    }
+    .px-effect-buff::before {
+      border-color: #e5c24c;
+    }
+    .px-effect-debuff::before {
+      right: 13%;
+      top: 18%;
+      width: 70px;
+      height: 70px;
+      border: 4px dashed #a564ff;
+      animation: px-pulse 680ms steps(5, end);
+    }
+    .px-effect-item::before {
+      left: 19%;
+      top: 30%;
+      width: 18px;
+      height: 28px;
+      background: #6ee58a;
+      box-shadow: 0 -8px #fff7c4, 0 8px #3f9f5d, 10px 5px #fff7c4;
+      animation: px-pop 560ms steps(4, end);
+    }
+    .px-effect-run::before {
+      left: 14%;
+      bottom: 20%;
+      width: 46px;
+      height: 12px;
+      background: repeating-linear-gradient(90deg, #d8d8d8 0 6px, transparent 6px 12px);
+      animation: px-dust 620ms steps(5, end);
+    }
+    @keyframes px-lunge {
+      0% { transform: translateX(0) scale(1); }
+      35% { transform: translateX(22px) scale(1.04); }
+      65% { transform: translateX(10px) scale(0.98); }
+      100% { transform: translateX(0) scale(1); }
+    }
+    @keyframes px-cast {
+      0%, 100% { transform: translateY(0); filter: brightness(1); }
+      35% { transform: translateY(-7px); filter: brightness(1.45); }
+      70% { transform: translateY(2px); filter: brightness(1.15); }
+    }
+    @keyframes px-use-item {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      30% { transform: rotate(-5deg) scale(1.05); }
+      65% { transform: rotate(5deg) scale(0.98); }
+    }
+    @keyframes px-retreat {
+      0% { transform: translateX(0); opacity: 1; }
+      55% { transform: translateX(-18px); opacity: 0.72; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes px-hit {
+      0%, 100% { transform: translateX(0); filter: brightness(1); }
+      20% { transform: translateX(7px); filter: brightness(1.8) saturate(1.3); }
+      40% { transform: translateX(-5px); }
+      62% { transform: translateX(3px); filter: brightness(1.2); }
+    }
+    @keyframes px-slash {
+      0% { transform: translate(-18px, 14px) rotate(-20deg) scale(0.3); opacity: 0; }
+      25% { opacity: 1; }
+      75% { transform: translate(10px, -8px) rotate(-20deg) scale(1.15); opacity: 1; }
+      100% { transform: translate(18px, -14px) rotate(-20deg) scale(1.2); opacity: 0; }
+    }
+    @keyframes px-projectile {
+      0% { transform: translateX(0) scale(0.8); opacity: 0; }
+      15% { opacity: 1; }
+      80% { transform: translateX(165px) scale(1.12); opacity: 1; }
+      100% { transform: translateX(184px) scale(0.4); opacity: 0; }
+    }
+    @keyframes px-pulse {
+      0% { transform: scale(0.45); opacity: 0; }
+      30% { opacity: 0.92; }
+      100% { transform: scale(1.35); opacity: 0; }
+    }
+    @keyframes px-pop {
+      0% { transform: translateY(8px) scale(0.7); opacity: 0; }
+      35% { opacity: 1; }
+      100% { transform: translateY(-10px) scale(1.05); opacity: 0; }
+    }
+    @keyframes px-dust {
+      0% { transform: translateX(0) scaleX(0.5); opacity: 0; }
+      30% { opacity: 0.75; }
+      100% { transform: translateX(-32px) scaleX(1.35); opacity: 0; }
+    }
+    body[data-game-theme="excel"] .px-panel { background: #fff; border-color: #c0c0c0; }
+    body[data-game-theme="excel"] .px-panel-title { color: #222; }
+    body[data-game-theme="excel"] .px-panel-sub, body[data-game-theme="excel"] .px-token { color: #555; }
+    body[data-game-theme="terminal"] .px-panel { background: #030803; border-color: #0f2f0f; }
+    body[data-game-theme="terminal"] .px-panel-title, body[data-game-theme="terminal"] .px-token { color: #33ff66; }
+    body[data-game-theme="kakao"] .px-panel { background: rgba(255,255,255,0.35); border-color: #7a95a8; }
+    body[data-game-theme="kakao"] .px-panel-title { color: #1a1a1a; }
 </style>
 </head>
 <body>
@@ -435,18 +659,21 @@
     document.write('<script>window.__gm_registry["data"] = window.__GAME_DATA__; window.module = { exports: {} };<\/script>');
     document.write('<script src="game/engine.js"><\/script>');
     document.write('<script>window.__gm_registry["engine"] = window.__GAME_ENGINE__;<\/script>');
+    document.write('<script src="game/pixel-art.js"><\/script>');
   }
 </script>
 
 <script>
-  let ipcRenderer, Game, D;
+  let ipcRenderer, Game, D, PixelArt;
   if (isElectron) {
     ipcRenderer = require('electron').ipcRenderer;
     Game = require('./game/engine.js').Game;
     D = require('./game/data.js');
+    PixelArt = require('./game/pixel-art.js');
   } else if (isTauri) {
     Game = window.__GAME_ENGINE__?.Game;
     D = window.__GAME_DATA__;
+    PixelArt = window.__PIXEL_ART__;
   }
 
   // IPC 통합 래퍼 — 두 런타임 모두 동일 API 제공
@@ -565,6 +792,101 @@
   }
 
   // ═══════ 서버 연동 (Railway) ═══════
+  function px(type, key, meta, opts) {
+    if (!PixelArt || !PixelArt.render) return '';
+    return PixelArt.render(type, key, meta || {}, opts || {});
+  }
+
+  function locSceneHtml(locKey) {
+    const loc = LOCATIONS[locKey];
+    if (!loc) return '';
+    const exits = loc.exits ? Object.keys(loc.exits).slice(0, 3).join(' / ') : '';
+    const encounters = game.locationEncounters ? game.locationEncounters(locKey).slice(0, 4).map(k => MONSTERS[k]?.name || k).join(' / ') : '';
+    return `
+      <div class="px-panel px-scene">
+        ${px('location', locKey, loc, { size: 72 })}
+        <div>
+          <div class="px-panel-title">${escHtml(loc.name || locKey)}</div>
+          <div class="px-panel-sub">${escHtml(loc.desc || loc.mood || 'Pixel field')}</div>
+          ${exits ? `<div class="px-panel-sub">Routes: ${escHtml(exits)}</div>` : ''}
+          ${encounters ? `<div class="px-panel-sub">Encounters: ${escHtml(encounters)}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function characterSpriteHtml(state, size = 56) {
+    if (!state) return '';
+    return px('player', state.race, state, { size, title: state.name || state.race });
+  }
+
+  function monsterSpriteHtml(key, size = 54) {
+    const m = MONSTERS[key] || {};
+    return `<span class="px-token">${px('monster', key, m, { size, title: m.name || key })}<span>${escHtml(m.name || key)}</span></span>`;
+  }
+
+  function itemIconHtml(key, item, size = 22) {
+    return px('item', key, item || ITEMS[key], { size, className: 'px-item-icon', title: (item && item.name) || key });
+  }
+
+  let lastCombatAction = null;
+  let lastCombatActionTimer = null;
+
+  function classifyCombatSkill(sk) {
+    if (!sk) return 'skill-utility';
+    const type = String(sk.type || '');
+    if (type.startsWith('phys')) return 'skill-phys';
+    if (type.startsWith('mag')) return 'skill-mag';
+    if (type === 'heal' || type === 'revive') return 'skill-heal';
+    if (type === 'buff') return 'skill-buff';
+    if (type === 'debuff') return 'skill-debuff';
+    return 'skill-utility';
+  }
+
+  function effectForCombatKind(kind) {
+    if (kind === 'attack' || kind === 'skill-phys') return 'slash';
+    if (kind === 'skill-mag' || kind === 'skill-utility') return 'projectile';
+    if (kind === 'skill-heal') return 'heal';
+    if (kind === 'skill-buff') return 'buff';
+    if (kind === 'skill-debuff') return 'debuff';
+    if (kind === 'item') return 'item';
+    if (kind === 'run') return 'run';
+    return 'slash';
+  }
+
+  function queueCombatAction(raw) {
+    if (!game || !game.combat || typeof raw !== 'string') return;
+    const [cmd, arg] = raw.trim().split(/\s+/, 2);
+    let kind = null;
+    let label = '';
+    if (cmd === 'attack') {
+      kind = 'attack';
+      label = 'Attack';
+    } else if (cmd === 'skill') {
+      const sk = findSkillById(arg);
+      kind = classifyCombatSkill(sk);
+      label = sk ? sk.name : 'Skill';
+    } else if (cmd === 'use') {
+      kind = 'item';
+      label = ITEMS[arg] ? ITEMS[arg].name : 'Item';
+    } else if (cmd === 'run' || cmd === 'runsac') {
+      kind = 'run';
+      label = cmd === 'runsac' ? 'Sacrifice Run' : 'Run';
+    }
+    if (!kind) return;
+    if (lastCombatActionTimer) clearTimeout(lastCombatActionTimer);
+    lastCombatAction = {
+      kind,
+      effect: effectForCombatKind(kind),
+      label,
+      at: Date.now()
+    };
+    lastCombatActionTimer = setTimeout(() => {
+      lastCombatAction = null;
+      lastCombatActionTimer = null;
+      if (game && game.combat) render();
+    }, 760);
+  }
+
   const SERVER_URL = 'https://dragon-raja-rpg-production.up.railway.app';
   let currentToken = null;
   let currentUsername = null;
@@ -1071,78 +1393,67 @@
   function renderSide() {
     const side = document.getElementById('side');
     side.innerHTML = '';
-    const s = game.state;
-    if (!s || !s.name) { side.innerHTML = '<div class="s-title">캐릭터 생성 중...</div>'; return; }
+    const st = game.state;
+    if (!st || !st.name) { side.innerHTML = '<div class="s-title">Character setup</div>'; return; }
 
-    const hpPct = Math.max(0, Math.min(100, (s.hp / game.getHpMax()) * 100));
-    const mpPct = Math.max(0, Math.min(100, (s.mp / game.getMpMax()) * 100));
-    const expPct = Math.min(100, (s.exp / game.expForNext(s.lv)) * 100);
+    const hpPct = Math.max(0, Math.min(100, (st.hp / game.getHpMax()) * 100));
+    const mpPct = Math.max(0, Math.min(100, (st.mp / game.getMpMax()) * 100));
+    const expPct = Math.min(100, (st.exp / game.expForNext(st.lv)) * 100);
+    const titleName = st.title && TITLES.ranks[st.title] ? TITLES.ranks[st.title].name : '';
 
     side.innerHTML = `
       <div class="s-block">
-        <div class="s-title">${escHtml(s.name)}</div>
-        <div class="s-row"><span class="k">${escHtml(RACES[s.race].name)} · ${escHtml(JOBS[s.job].name)}</span><span class="v">Lv.${parseInt(s.lv)||0}</span></div>
-        ${s.title && TITLES.ranks[s.title] ? `<div class="s-row"><span class="k">작위</span><span class="v">👑 ${escHtml(TITLES.ranks[s.title].name)}</span></div>` : ''}
+        <div class="px-side-avatar">
+          ${characterSpriteHtml(st, 48)}
+          <div>
+            <div class="s-title">${escHtml(st.name)}</div>
+            <div class="s-row"><span class="k">${escHtml(RACES[st.race].name)} / ${escHtml(JOBS[st.job].name)}</span><span class="v">Lv.${parseInt(st.lv)||0}</span></div>
+            ${titleName ? `<div class="s-row"><span class="k">Title</span><span class="v">${escHtml(titleName)}</span></div>` : ''}
+          </div>
+        </div>
       </div>
       <div class="s-block">
-        <div class="s-row"><span class="k">HP</span><span class="v">${s.hp} / ${game.getHpMax()}</span></div>
+        <div class="s-row"><span class="k">HP</span><span class="v">${st.hp} / ${game.getHpMax()}</span></div>
         <div class="s-hpbar"><div class="fill" style="width:${hpPct}%"></div></div>
-        <div class="s-row"><span class="k">MP</span><span class="v">${s.mp} / ${game.getMpMax()}</span></div>
+        <div class="s-row"><span class="k">MP</span><span class="v">${st.mp} / ${game.getMpMax()}</span></div>
         <div class="s-mpbar"><div class="fill" style="width:${mpPct}%"></div></div>
-        <div class="s-row"><span class="k">EXP</span><span class="v">${s.exp} / ${game.expForNext(s.lv)}</span></div>
+        <div class="s-row"><span class="k">EXP</span><span class="v">${st.exp} / ${game.expForNext(st.lv)}</span></div>
         <div class="s-mpbar"><div class="fill" style="width:${expPct}%; background: linear-gradient(to right,#c88a2a,#e5c24c);"></div></div>
       </div>
       <div class="s-block">
-        <div class="s-row"><span class="k">💰 골드</span><span class="v">${s.gold.toLocaleString()}</span></div>
-        <div class="s-row"><span class="k">📍 위치</span><span class="v">${LOCATIONS[s.location].name}</span></div>
-        <div class="s-row"><span class="k">⏱ 플레이</span><span class="v">${formatPlayTime(s.playTimeSec||0)}</span></div>
+        <div class="s-row"><span class="k">Gold</span><span class="v">${st.gold.toLocaleString()}</span></div>
+        <div class="s-row"><span class="k">Location</span><span class="v">${escHtml(LOCATIONS[st.location].name)}</span></div>
+        <div class="s-row"><span class="k">Play</span><span class="v">${formatPlayTime(st.playTimeSec||0)}</span></div>
       </div>
       <div class="s-block">
-        <div class="s-title">📅 달력</div>
-        <div class="s-row"><span class="k">Day ${s.time.day}</span><span class="v">${getDayName(s.time.day)}</span></div>
-        <div class="s-row"><span class="k">${String(s.time.hour).padStart(2,'0')}:00</span><span class="v">${game.timeBandEmoji()} ${game.timeBand()}</span></div>
-        ${renderHuntDay(s.time.day)}
+        <div class="s-title">Calendar</div>
+        <div class="s-row"><span class="k">Day ${st.time.day}</span><span class="v">${getDayName(st.time.day)}</span></div>
+        <div class="s-row"><span class="k">${String(st.time.hour).padStart(2,'0')}:00</span><span class="v">${game.timeBandEmoji()} ${game.timeBand()}</span></div>
+        ${renderHuntDay(st.time.day)}
       </div>
       <div class="s-block">
-        <div class="s-title">전투 능력치</div>
+        <div class="s-title">Combat</div>
         <div class="s-row"><span class="k">ATK</span><span class="v">${game.getAtk()}</span></div>
         <div class="s-row"><span class="k">DEF</span><span class="v">${game.getDef()}</span></div>
         <div class="s-row"><span class="k">MAG</span><span class="v">${game.getMag()}</span></div>
-        <div class="s-row"><span class="k">치명</span><span class="v">${(game.getCritRate()*100).toFixed(0)}%</span></div>
-        <div class="s-row"><span class="k">회피</span><span class="v">${(game.getEvaRate()*100).toFixed(0)}%</span></div>
+        <div class="s-row"><span class="k">CRIT</span><span class="v">${(game.getCritRate()*100).toFixed(0)}%</span></div>
+        <div class="s-row"><span class="k">EVA</span><span class="v">${(game.getEvaRate()*100).toFixed(0)}%</span></div>
       </div>
       <div class="s-block">
-        <div class="s-title">스탯 ${s.pendingPoints > 0 ? `<span style="color:#e5c24c">(+${s.pendingPoints})</span>` : ''}</div>
-        <div class="s-row"><span class="k">STR</span><span class="v">${game.S('str')}</span></div>
-        <div class="s-row"><span class="k">DEX</span><span class="v">${game.S('dex')}</span></div>
-        <div class="s-row"><span class="k">INT</span><span class="v">${game.S('int')}</span></div>
-        <div class="s-row"><span class="k">VIT</span><span class="v">${game.S('vit')}</span></div>
-        <div class="s-row"><span class="k">WIS</span><span class="v">${game.S('wis')}</span></div>
-        <div class="s-row"><span class="k">LUK</span><span class="v">${game.S('luk')}</span></div>
-        <div class="s-row"><span class="k">CHA</span><span class="v">${game.S('cha')}</span></div>
+        <div class="s-title">Stats ${st.pendingPoints > 0 ? `<span style="color:#e5c24c">(+${st.pendingPoints})</span>` : ''}</div>
+        ${['str','dex','int','vit','wis','luk','cha'].map(k => `<div class="s-row"><span class="k">${k.toUpperCase()}</span><span class="v">${game.S(k)}</span></div>`).join('')}
       </div>
       <div class="s-block">
-        <div class="s-title">장비</div>
-        <div class="s-row"><span class="k">무기</span><span class="v">${s.equip.weapon ? ITEMS[s.equip.weapon].name + (s.enhancement?.weapon ? ' +'+s.enhancement.weapon : '') : '-'}</span></div>
-        <div class="s-row"><span class="k">방어구</span><span class="v">${s.equip.armor ? ITEMS[s.equip.armor].name + (s.enhancement?.armor ? ' +'+s.enhancement.armor : '') : '-'}</span></div>
-        <div class="s-row"><span class="k">악세</span><span class="v">${s.equip.acc ? ITEMS[s.equip.acc].name : '-'}</span></div>
+        <div class="s-title">Gear</div>
+        <div class="s-row"><span class="k">Weapon</span><span class="v">${st.equip.weapon ? ITEMS[st.equip.weapon].name + (st.enhancement?.weapon ? ' +'+st.enhancement.weapon : '') : '-'}</span></div>
+        <div class="s-row"><span class="k">Armor</span><span class="v">${st.equip.armor ? ITEMS[st.equip.armor].name + (st.enhancement?.armor ? ' +'+st.enhancement.armor : '') : '-'}</span></div>
+        <div class="s-row"><span class="k">Acc</span><span class="v">${st.equip.acc ? ITEMS[st.equip.acc].name : '-'}</span></div>
       </div>
-      ${renderInvBlock(s)}
-      ${s.pet ? `<div class="s-block"><div class="s-title">🐉 펫</div><div class="s-row"><span class="v">${PETS[s.pet].name}</span></div></div>` : ''}
-      ${s.mercs && s.mercs.length ? `<div class="s-block"><div class="s-title">⚔ 용병</div>${s.mercs.map(m => `<div class="s-row"><span class="v">${MERCENARIES[m].name}</span></div>`).join('')}</div>` : ''}
-      ${(s.masteredLines && s.masteredLines.length > 0) ? `<div class="s-block">
-        <div class="s-title">✦ 마스터 (${s.masteredLines.length})</div>
-        <div class="s-row"><span class="v" style="font-size:11px;">${s.masteredLines.join(', ')}</span></div>
-        ${s.masteredLines.length >= 5 ? `<div class="s-row"><span class="v" style="color:#e5c24c;">★★ 반신 해금</span></div>` :
-          s.masteredLines.length >= 3 ? `<div class="s-row"><span class="v" style="color:#e5c24c;">★ 파라곤 해금</span></div>` : ''}
-      </div>` : ''}
-      ${focusActive && focusState ? `<div class="s-block" style="border-left: 2px solid #6a6a6a; padding-left: 8px;">
-        <div class="s-title">● 수련 중</div>
-        <div class="s-row"><span class="k">장소</span><span class="v">${focusState.hallName}</span></div>
-        <div class="s-row"><span class="k">남은 시간</span><span class="v">${formatRemaining()}</span></div>
-        <div class="s-row"><span class="k">누적 XP</span><span class="v">+${focusState.xpAwarded.toLocaleString()}</span></div>
-        <div class="s-row"><span class="k">깨달음</span><span class="v">${focusState.eventLog.length}회</span></div>
-      </div>` : ''}
+      ${renderInvBlock(st)}
+      ${st.pet ? `<div class="s-block"><div class="s-title">Pet</div><div class="s-row"><span class="v">${PETS[st.pet].name}</span></div></div>` : ''}
+      ${st.mercs && st.mercs.length ? `<div class="s-block"><div class="s-title">Mercs</div>${st.mercs.map(m => `<div class="s-row"><span class="v">${MERCENARIES[m].name}</span></div>`).join('')}</div>` : ''}
+      ${(st.masteredLines && st.masteredLines.length > 0) ? `<div class="s-block"><div class="s-title">Mastery (${st.masteredLines.length})</div><div class="s-row"><span class="v" style="font-size:11px;">${st.masteredLines.join(', ')}</span></div></div>` : ''}
+      ${focusActive && focusState ? `<div class="s-block" style="border-left: 2px solid #6a6a6a; padding-left: 8px;"><div class="s-title">Training</div><div class="s-row"><span class="k">Hall</span><span class="v">${focusState.hallName}</span></div><div class="s-row"><span class="k">Left</span><span class="v">${formatRemaining()}</span></div><div class="s-row"><span class="k">XP</span><span class="v">+${focusState.xpAwarded.toLocaleString()}</span></div></div>` : ''}
     `;
   }
 
@@ -1163,7 +1474,7 @@
     const group = (title, arr) => {
       if (!arr.length) return '';
       return `<div style="color:#888;font-size:10px;margin-top:4px;">${title}</div>` +
-        arr.map(([k,v,it]) => `<div class="s-row"><span class="k" title="${it.desc||''}">${it.name}</span><span class="v">x${v}</span></div>`).join('');
+        arr.map(([k,v,it]) => `<div class="s-row"><span class="k" title="${escHtml(it.desc||'')}">${itemIconHtml(k, it, 22)}${escHtml(it.name)}</span><span class="v">x${v}</span></div>`).join('');
     };
     html += group('소비', use);
     html += group('장비', gear);
@@ -1236,7 +1547,10 @@
       // opts.always === true 로 예외 설정 가능 (필요시).
       if (_busy && !opts.always) return;
       if (typeof cb === 'function') cb();
-      else if (typeof cb === 'string') game.handleInput(cb);
+      else if (typeof cb === 'string') {
+        queueCombatAction(cb);
+        game.handleInput(cb);
+      }
       render();
     };
     return b;
@@ -2751,6 +3065,24 @@
   const NUM_ROW_KEYS = ['1','2','3','4','5','6','7','8','9','0'];
   const COMBAT_SKILL_KEYS = TOP_ROW_KEYS;
   function renderCombat() {
+    const scene = mkSection();
+    const panel = document.createElement('div');
+    const action = lastCombatAction;
+    const actionClass = action ? ` px-act-${action.kind}` : '';
+    const effectClass = action ? ` px-effect-${action.effect}` : '';
+    const foes = (game.combat.foes || []).map(f => monsterSpriteHtml(f.key, 56)).join('');
+    panel.className = `px-panel px-battle-panel${actionClass}`;
+    panel.innerHTML = `
+      <div class="px-effect${effectClass}"></div>
+      <div class="px-party px-combatant-player">${characterSpriteHtml(game.state, 60)}</div>
+      <div>
+        <div class="px-panel-title">Battle</div>
+        <div class="px-panel-sub px-foes px-combatant-foes">${foes}</div>
+        <div class="px-action-label">${action ? escHtml(action.label) : '&nbsp;'}</div>
+      </div>`;
+    scene.appendChild(panel);
+    act.appendChild(scene);
+
     const row1 = mkSection('행동:');
     let actNum = 1;
     row1.appendChild(mkBtn('⚔ 공격', 'attack', { primary: true, hotkey: String(actNum++) }));
@@ -2798,6 +3130,11 @@
   // ─── 기본 메뉴 ───
   function renderMain() {
     const loc = LOCATIONS[game.state.location];
+    const scene = mkSection();
+    const panel = document.createElement('div');
+    panel.innerHTML = locSceneHtml(game.state.location);
+    scene.appendChild(panel.firstElementChild);
+    act.appendChild(scene);
 
     // 상태/정보 — 상세 항목들은 마이페이지로 통합. 메인메뉴는 세션 액션만.
     const row1 = mkSection('정보:');
